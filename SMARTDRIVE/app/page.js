@@ -3,11 +3,13 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_KEY);
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://bqaqacazhdxnycxfpavy.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy_key';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
+const genAI = new GoogleGenerativeAI(geminiKey);
 
 export default function SmartDriveApp() {
   const [loading, setLoading] = useState(true);
