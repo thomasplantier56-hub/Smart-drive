@@ -24,7 +24,7 @@ export default function SmartDriveApp() {
   // États de l'application
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('menu'); // 'menu' ou 'shop'
-  // Si on a dépassé le 15 du mois, on ouvre automatiquement sur le Panier 2 !
+  // Si on a dépassé le 15 du mois, on ouvre par défaut sur le Panier 2 !
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -132,7 +132,6 @@ Total exact : 9 recettes dans "repas".`;
     try {
       let responseText;
       try {
-        // Modèle principal ultra-rapide
         const model = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -141,7 +140,6 @@ Total exact : 9 recettes dans "repas".`;
         responseText = result.response.text();
       } catch (err) {
         console.warn("Modèle 3.5 saturé, bascule automatique sur 2.5-flash...", err);
-        // Modèle de secours haute capacité
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-2.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -176,10 +174,11 @@ Total exact : 9 recettes dans "repas".`;
   const copyToClipboard = (text, e) => {
     navigator.clipboard.writeText(text);
     const btn = e.currentTarget;
+    const initialText = btn.innerText;
     btn.innerText = "COPIÉ !";
     btn.classList.add("bg-green-600", "text-white");
     setTimeout(() => {
-      btn.innerText = "COPIER";
+      btn.innerText = initialText;
       btn.classList.remove("bg-green-600", "text-white");
     }, 1500);
   };
@@ -328,7 +327,7 @@ Total exact : 9 recettes dans "repas".`;
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Sélecteur de Panier (auto-sélectionné selon le jour du mois) */}
+            {/* Sélecteur de Panier */}
             <div className="flex bg-slate-200 p-1 rounded-2xl">
               <button
                 onClick={() => setActiveBasket(1)}
@@ -356,61 +355,90 @@ Total exact : 9 recettes dans "repas".`;
               </span>
             </div>
 
-            {/* Liste des ingrédients du Drive */}
-            <div className="space-y-2">
-              {activePanierList.map((item, index) => (
-                <div
-                  key={index}
-                  onClick={() => toggleItemStock(currentBasketKey, index)}
-                  className={`p-3.5 rounded-2xl flex items-center justify-between border transition-all cursor-pointer select-none ${
-                    item.in_stock 
-                      ? 'bg-slate-100 border-slate-200 opacity-50' 
-                      : 'bg-white border-slate-100 shadow-sm'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
-                    {/* Checkbox ronde */}
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+            {/* Liste des ingrédients du Drive avec 1-Tap Search */}
+            <div className="space-y-2.5">
+              {activePanierList.map((item, index) => {
+                const queryTerm = item.recherche_drive || item.nom;
+                const leclercUrl = `https://www.e.leclerc/recherche?q=${encodeURIComponent(queryTerm)}`;
+                const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(queryTerm)}`;
+
+                return (
+                  <div
+                    key={index}
+                    onClick={() => toggleItemStock(currentBasketKey, index)}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
                       item.in_stock 
-                        ? 'bg-emerald-500 border-emerald-500 text-white' 
-                        : 'border-slate-300 bg-white'
-                    }`}>
-                      {item.in_stock && <span className="text-xs font-bold">✓</span>}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-blue-500 block">
-                        {item.rayon}
-                      </span>
-                      <span className={`text-sm font-bold block truncate ${
-                        item.in_stock ? 'line-through text-slate-400' : 'text-slate-800'
+                        ? 'bg-slate-100 border-slate-200 opacity-50' 
+                        : 'bg-white border-slate-100 shadow-sm'
+                    }`}
+                  >
+                    {/* Ligne principale : Checkbox + Nom du produit */}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                        item.in_stock 
+                          ? 'bg-emerald-500 border-emerald-500 text-white' 
+                          : 'border-slate-300 bg-white'
                       }`}>
-                        {item.nom}
-                      </span>
-                      {item.in_stock && (
-                        <span className="text-[9px] font-bold text-emerald-600 uppercase">
-                          Déjà dans vos placards
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                        {item.in_stock && <span className="text-xs font-bold">✓</span>}
+                      </div>
 
-                  {/* Bouton copier Drive */}
-                  {!item.in_stock ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyToClipboard(item.recherche_drive || item.nom, e);
-                      }}
-                      className="bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 px-3 py-1.5 rounded-xl text-[11px] font-black tracking-wider transition flex-shrink-0"
-                    >
-                      COPIER
-                    </button>
-                  ) : (
-                    <span className="text-xs text-slate-400 pr-2">✓</span>
-                  )}
-                </div>
-              ))}
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[9px] font-black uppercase tracking-wider text-blue-500 block">
+                          {item.rayon}
+                        </span>
+                        <span className={`text-sm font-bold block truncate ${
+                          item.in_stock ? 'line-through text-slate-400' : 'text-slate-800'
+                        }`}>
+                          {item.nom}
+                        </span>
+                        {item.in_stock && (
+                          <span className="text-[9px] font-bold text-emerald-600 uppercase">
+                            Déjà dans vos placards
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Ligne d'actions 1-Tap Drive + Bouton Copier (masquée si déjà en stock) */}
+                    {!item.in_stock && (
+                      <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-slate-50">
+                        {/* 1-Tap Leclerc Drive */}
+                        <a
+                          href={leclercUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition"
+                        >
+                          <span>🛒</span> Leclerc
+                        </a>
+
+                        {/* 1-Tap Carrefour Drive */}
+                        <a
+                          href={carrefourUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-sky-50 hover:bg-sky-100 text-sky-700 text-[10px] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition"
+                        >
+                          <span>🛒</span> Carrefour
+                        </a>
+
+                        {/* Bouton Copier historique conservé */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(queryTerm, e);
+                          }}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black px-2.5 py-1.5 rounded-lg ml-auto transition"
+                        >
+                          COPIER
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -477,7 +505,7 @@ Total exact : 9 recettes dans "repas".`;
         </div>
       )}
 
-      {/* Barre de navigation basse (Planning vs Courses) */}
+      {/* Barre de navigation basse */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 py-3 flex justify-around items-center z-30">
         <button
           onClick={() => setView('menu')}
