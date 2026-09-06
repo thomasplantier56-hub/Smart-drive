@@ -86,23 +86,92 @@ export default function SmartDriveApp() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
+  // Gestion du multi-foyer (Session locale)
+  const [foyerCode, setFoyerCode] = useState("");
+  const [inputCode, setInputCode] = useState("");
+  const [isCreatingFoyer, setIsCreatingFoyer] = useState(false);
+  const [newFoyerName, setNewFoyerName] = useState("");
+
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('menu');
-  // L'état activeBasket pilote à la fois le Planning et les Courses
+  const [view, setView] = useState('menu'); // 'menu', 'shop', 'freezer'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
+  const [freezerStock, setFreezerStock] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
-  useEffect(() => { 
-    fetchConfig(); 
+  // Chargement du code foyer au démarrage
+  useEffect(() => {
+    const savedCode = localStorage.getItem('smartdrive_foyer_code') || 'LUNEL-ALES';
+    setFoyerCode(savedCode);
+    setInputCode(savedCode);
+    loadFoyerData(savedCode);
   }, []);
 
-  async function fetchConfig() {
+  async function loadFoyerData(code) {
+    setLoading(true);
     try {
-      const { data } = await supabase.from('smart_config').select('*').single();
-      if (data) setConfig(data);
+      // 1. Récupère les données du foyer
+      const { data: foyer, error } = await supabase
+        .from('foyers')
+        .select('*')
+        .eq('code_foyer', code.trim().toUpperCase())
+        .single();
+
+      if (foyer) {
+        setConfig(foyer);
+        // 2. Récupère l'inventaire réel du congélateur pour ce foyer
+        const { data: freezer } = await supabase
+          .from('inventaire_congelateur')
+          .select('*')
+          .eq('foyer_id', foyer.id)
+          .eq('est_consomme', false)
+          .order('created_at', { ascending: false });
+
+        setFreezerStock(freezer || []);
+      } else {
+        setConfig(null);
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Connexion à un foyer existant
+  function handleConnectFoyer(e) {
+    e.preventDefault();
+    const code = inputCode.trim().toUpperCase();
+    if (!code) return;
+    localStorage.setItem('smartdrive_foyer_code', code);
+    setFoyerCode(code);
+    loadFoyerData(code);
+  }
+
+  // Création d'un nouveau foyer (pour un ami beta-testeur)
+  async function handleCreateFoyer(e) {
+    e.preventDefault();
+    const code = inputCode.trim().toUpperCase();
+    if (!code || !newFoyerName) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from('foyers').insert({
+        code_foyer: code,
+        nom_famille: newFoyerName,
+        current_month: moisActuel
+      }).select().single();
+
+      if (error) {
+        alert("Ce code foyer est déjà pris, choisissez-en un autre !");
+      } else {
+        localStorage.setItem('smartdrive_foyer_code', code);
+        setFoyerCode(code);
+        setIsCreatingFoyer(false);
+        loadFoyerData(code);
+      }
+    } catch (err) {
+      alert("Erreur création foyer : " + err.message);
     } finally {
       setLoading(false);
     }
@@ -123,7 +192,7 @@ export default function SmartDriveApp() {
       setSelectedRecipe(prev => ({ ...prev, rating: prev.rating === rating ? 0 : rating }));
     }
 
-    await supabase.from('smart_config').update({ menu_json: updatedMenu }).eq('id', config.id);
+    await supabase.from('foyers').update({ menu_json: updatedMenu }).eq('id', config.id);
   }
 
   async function toggleItemStock(basketKey, index) {
@@ -139,7 +208,7 @@ export default function SmartDriveApp() {
     };
 
     setConfig(prev => ({ ...prev, panier_json: updatedPanierJson }));
-    await supabase.from('smart_config').update({ panier_json: updatedPanierJson }).eq('id', config.id);
+    await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
   async function toggleItemMode(basketKey, index, e) {
@@ -160,30 +229,63 @@ export default function SmartDriveApp() {
     };
 
     setConfig(prev => ({ ...prev, panier_json: updatedPanierJson }));
-    await supabase.from('smart_config').update({ panier_json: updatedPanierJson }).eq('id', config.id);
+    await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
+  }
+
+  // SAUVETAGE CONGÉLATEUR DANS LA VRAIE TABLE Supabase
+  async function rescueToFreezer(productName, originInfo = "Sauvetage Frigo") {
+    if (!config) return;
+    try {
+      const isFish = productName.toLowerCase().includes("poisson") || productName.toLowerCase().includes("saumon") || productName.toLowerCase().includes("cabillaud");
+      const isVeg = productName.toLowerCase().includes("légume") || productName.toLowerCase().includes("poireau") || productName.toLowerCase().includes("brocoli");
+
+      const { data, error } = await supabase.from('inventaire_congelateur').insert({
+        foyer_id: config.id,
+        nom_produit: productName,
+        date_entree: `${jourDuMois} ${moisActuel}`,
+        origine: originInfo,
+        conservation_mois: isFish ? 4 : isVeg ? 12 : 6
+      }).select().single();
+
+      if (data) {
+        setFreezerStock(prev => [data, ...prev]);
+        alert(`🧊 "${productName}" sauvegardé dans le congélateur du garage !`);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function removeFreezerItem(itemId) {
+    try {
+      await supabase.from('inventaire_congelateur').update({ est_consomme: true }).eq('id', itemId);
+      setFreezerStock(prev => prev.filter(i => i.id !== itemId));
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
 
-    const lovedRecipes = (config.menu_json || [])
-      .filter(r => r.rating >= 4)
-      .map(r => r.nom);
-    const dislikedRecipes = (config.menu_json || [])
-      .filter(r => r.rating && r.rating <= 2)
-      .map(r => r.nom);
+    const lovedRecipes = (config.menu_json || []).filter(r => r.rating >= 4).map(r => r.nom);
+    const dislikedRecipes = (config.menu_json || []).filter(r => r.rating && r.rating <= 2).map(r => r.nom);
+
+    // L'IA lit directement l'inventaire réel de votre grand congélateur !
+    const freezerItems = freezerStock.map(i => i.nom_produit);
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour un couple de 40 ans.
-RÉPARTITION STRICTE DU MOIS EN 2 QUINZAINES :
-- Les recettes 1, 2, 3, 4, 5 DOIVENT AVOIR "basket": 1 (Quinzaine 1 - Panier 1). Produits ultra-frais pour démarrer la 1ère quinzaine + stock.
-- Les recettes 6, 7, 8, 9 DOIVENT AVOIR "basket": 2 (Quinzaine 2 - Panier 2). Réassort ULTRA-FRAIS pour démarrer la 2ème quinzaine (poisson/viande fraîche, légumes fragiles) + réassort stock.
-Total exact : 9 recettes (5 pour la quinzaine 1, 4 pour la quinzaine 2).
+RÉPARTITION DU MOIS EN 2 QUINZAINES :
+- Recettes 1 à 5 : "basket": 1 (Quinzaine 1 - Panier 1). Ultra-frais de début de quinzaine + stock.
+- Recettes 6 à 9 : "basket": 2 (Quinzaine 2 - Panier 2). Réassort ULTRA-FRAIS pour la 2ème quinzaine (poisson/viande fraîche, légumes) + stock.
+Total exact : 9 recettes.
 
-LE GRAND CONGÉLATEUR COMME ALTERNATIVE ANTI-GASPI / ANTI-RADIN :
-Pour chaque produit qui s'y prête (viande, poisson, légumes bruts), propose l'option FRAIS (boucherie/poissonnerie) ET l'option CONGÉLO (surgelé brut économique -30% pour remplir le grand congélateur du garage).
+STOCK DÉJÀ PRÉSENT DANS LE GRAND CONGÉLATEUR DU GARAGE :
+Le couple a déjà en stock dans son congélateur : ${freezerItems.length ? freezerItems.join(', ') : 'Aucun produit pour le moment'}.
+CONSIGNE ÉCONOMIE ANTI-GASPI : Si possible, propose 1 ou 2 recettes qui utilisent ces ingrédients du congélateur en priorité et NE LES COMMANDE PAS au Drive !
 
-CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour l'alimentation des 36 repas (sans alcool ni ménager).
+CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour 36 repas (sans alcool ni ménager).
 Marques distributeurs prioritaires (Marque Repère Leclerc, Carrefour Classic).
 
 Génère 9 recettes de saison pour ${moisActuel.toUpperCase()} en France (4 portions par recette = 36 repas).
@@ -291,14 +393,14 @@ Format impératif en JSON pur :
 
       const response = JSON.parse(responseText);
 
-      await supabase.from('smart_config').update({
+      await supabase.from('foyers').update({
         menu_json: response.repas,
         panier_json: { p1: response.panier_1, p2: response.panier_2 },
         current_month: moisActuel
       }).eq('id', config.id);
 
-      await fetchConfig();
-      alert(`Menu complet de ${moisActuel} généré sur les 2 quinzaines !`);
+      loadFoyerData(foyerCode);
+      alert(`Menu généré avec succès pour le foyer ${config.nom_famille} !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -309,7 +411,7 @@ Format impératif en JSON pur :
 
   async function updateCravings(text) {
     setConfig(prev => ({ ...prev, cravings: text }));
-    await supabase.from('smart_config').update({ cravings: text }).eq('id', config.id);
+    await supabase.from('foyers').update({ cravings: text }).eq('id', config.id);
   }
 
   const copyToClipboard = (text, e) => {
@@ -341,28 +443,88 @@ Format impératif en JSON pur :
     </div>
   );
 
-  if (loading) {
+  // ÉCRAN DE CONNEXION / CRÉATION DE FOYER (Si aucun foyer chargé)
+  if (!loading && !config) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-3">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-700 text-sm">Chargement de SmartDrive...</p>
+      <div className="max-w-md mx-auto min-h-screen bg-slate-900 text-white p-6 flex flex-col justify-center">
+        <div className="text-center mb-8">
+          <span className="text-5xl block mb-3">🛒</span>
+          <h1 className="text-2xl font-black italic">SMART DRIVE MULTI-FOYER</h1>
+          <p className="text-xs text-slate-400 mt-1">Partagez l'application en couple ou avec vos amis</p>
+        </div>
+
+        {!isCreatingFoyer ? (
+          <form onSubmit={handleConnectFoyer} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-blue-400">Rejoindre un Foyer</h2>
+            <div>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1">Code Foyer</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest text-lg focus:outline-none focus:border-blue-500"
+                placeholder="EX: LUNEL-ALES"
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 rounded-xl transition shadow-lg">
+              Accéder à mes Repas
+            </button>
+            <div className="pt-2 text-center">
+              <button type="button" onClick={() => setIsCreatingFoyer(true)} className="text-xs text-slate-400 hover:text-white underline">
+                Créer un nouveau foyer (pour un ami)
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleCreateFoyer} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Créer un Nouveau Foyer</h2>
+            <div>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1">Nom du foyer / Famille</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white text-sm"
+                placeholder="Ex: Famille Dupont"
+                value={newFoyerName}
+                onChange={(e) => setNewFoyerName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1">Code Foyer Unique</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest"
+                placeholder="EX: FOYER-DUPONT"
+                value={inputCode}
+                onChange={(e) => setInputCode(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 rounded-xl transition shadow-lg">
+              Créer et Démarrer
+            </button>
+            <div className="pt-2 text-center">
+              <button type="button" onClick={() => setIsCreatingFoyer(false)} className="text-xs text-slate-400 hover:text-white underline">
+                Retour à la connexion
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     );
   }
 
-  if (!config) {
+  if (loading) {
     return (
-      <div className="p-8 text-center text-red-500 font-bold">
-        Ligne 'smart_config' introuvable dans Supabase.
+      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-3">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-bold text-slate-700 text-sm">Chargement de votre foyer {foyerCode}...</p>
       </div>
     );
   }
 
   const currentBasketKey = activeBasket === 1 ? 'p1' : 'p2';
-  const activePanierList = config.panier_json?.[currentBasketKey] || [];
+  const activePanierList = config?.panier_json?.[currentBasketKey] || [];
   const inStockCount = activePanierList.filter(i => i.in_stock).length;
 
-  // Calcul dynamique selon les modes choisis (Frais vs Congelo) en excluant le stock
   const totalPanierEstime = activePanierList
     .filter(i => !i.in_stock)
     .reduce((sum, i) => {
@@ -371,32 +533,37 @@ Format impératif en JSON pur :
       return sum + prix;
     }, 0);
 
-  // Total économisé grâce aux choix Anti-Radin
+  const estimationLeclercLunel = totalPanierEstime > 0 ? (totalPanierEstime * 0.97).toFixed(2) : "0.00";
+  const estimationCarrefourAles = totalPanierEstime > 0 ? (totalPanierEstime * 1.03).toFixed(2) : "0.00";
+  const ecartEconomieDrive = (Number(estimationCarrefourAles) - Number(estimationLeclercLunel)).toFixed(2);
+
   const totalEconomiesRealisees = activePanierList
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
-  // Filtrage intelligent des repas du planning selon la Quinzaine active (avec sécurité par index)
-  const mealsForActiveQuinzaine = (config.menu_json || []).filter((repas, index) => {
-    // Si Gemini a bien mis basket 1 ou 2
+  const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
     }
-    // Sécurité de secours : les 5 premières recettes vont en Q1, les 4 suivantes en Q2
     return activeBasket === 1 ? index < 5 : index >= 5;
   });
 
+  const premierPlatFrais = mealsForActiveQuinzaine.find(r => r.type === 'Frais') || mealsForActiveQuinzaine[0];
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-100 pb-28 shadow-2xl">
-      {/* Header Premium - Dynamique selon la quinzaine consultée ! */}
+      {/* Header Premium Dynamique Multi-Foyer */}
       <header className="bg-gradient-to-r from-blue-700 to-indigo-800 p-5 text-white sticky top-0 z-40 shadow-lg">
         <div className="flex justify-between items-center mb-1">
           <div>
-            <h1 className="font-black italic text-2xl tracking-tight flex items-center gap-2">
-              SMART DRIVE <span className="text-xs bg-amber-400 text-slate-900 font-extrabold px-2 py-0.5 rounded-full not-italic">CHEF</span>
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-black italic text-2xl tracking-tight">SMART DRIVE</h1>
+              <span className="text-[10px] bg-white/20 text-blue-200 font-extrabold px-2 py-0.5 rounded-full">
+                {config.code_foyer}
+              </span>
+            </div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-blue-200 mt-0.5">
-              {moisActuel} • 36 Repas • Choix Frais & Congélo
+              {moisActuel} • 36 Repas • {config.nom_famille}
             </p>
           </div>
           <button
@@ -407,39 +574,66 @@ Format impératif en JSON pur :
           </button>
         </div>
 
-        {/* Le badge ici s'adapte en direct à ce que vous regardez ! */}
         <div className="flex items-center justify-between text-[11px] text-blue-100 font-medium mt-2 pt-2 border-t border-white/10">
           <span>📅 {jourDuMois} {moisActuel}</span>
           <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-            Consultation : Quinzaine {activeBasket} (Panier {activeBasket})
+            Quinzaine {activeBasket} (Panier {activeBasket})
           </span>
         </div>
       </header>
 
       <main className="p-4">
-        {/* Sélecteur Universel de Quinzaine (présent dans Planning ET dans Courses !) */}
-        <div className="flex bg-slate-200 p-1 rounded-2xl mb-4 shadow-inner">
-          <button
-            onClick={() => setActiveBasket(1)}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-              activeBasket === 1 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Quinzaine 1 (Sem. 1 & 2)
-          </button>
-          <button
-            onClick={() => setActiveBasket(2)}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-              activeBasket === 2 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Quinzaine 2 (Sem. 3 & 4)
-          </button>
-        </div>
+        {/* Sélecteur de Quinzaine universel */}
+        {view !== 'freezer' && (
+          <div className="flex bg-slate-200 p-1 rounded-2xl mb-4 shadow-inner">
+            <button
+              onClick={() => setActiveBasket(1)}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                activeBasket === 1 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Quinzaine 1 (Sem. 1 & 2)
+            </button>
+            <button
+              onClick={() => setActiveBasket(2)}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                activeBasket === 2 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Quinzaine 2 (Sem. 3 & 4)
+            </button>
+          </div>
+        )}
 
-        {view === 'menu' ? (
+        {/* 1. VUE PLANNING & ALERTE FRIGO DU SOIR */}
+        {view === 'menu' && (
           <div className="space-y-4">
-            {/* Boîte des envies */}
+            {premierPlatFrais && (
+              <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl p-4 text-white shadow-lg">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-xl">🚨</span>
+                  <span className="text-xs font-black uppercase tracking-wider">Alerte Fraîcheur Frigo ce soir</span>
+                </div>
+                <p className="text-xs font-medium leading-snug mb-3">
+                  À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> (produit ultra-frais). Pas le temps ce soir ?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedRecipe(premierPlatFrais)}
+                    className="flex-1 bg-white text-slate-900 font-extrabold text-[11px] py-2 rounded-xl shadow active:scale-95 transition"
+                  >
+                    👨‍🍳 Cuisiner ce soir
+                  </button>
+                  <button
+                    onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
+                    className="flex-1 bg-slate-900/40 hover:bg-slate-900 text-white font-extrabold text-[11px] py-2 rounded-xl border border-white/20 active:scale-95 transition"
+                  >
+                    🧊 Sauver au Congélo
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
               <label className="block text-[11px] font-black uppercase tracking-wider text-blue-700 mb-1 flex items-center gap-1.5">
                 <span>✨</span> Vos envies gustatives pour {moisActuel}
@@ -462,7 +656,6 @@ Format impératif en JSON pur :
               </span>
             </div>
 
-            {/* Cartes Recettes de la Quinzaine sélectionnée */}
             {mealsForActiveQuinzaine.length > 0 ? (
               <div className="space-y-4">
                 {mealsForActiveQuinzaine.map((repas) => {
@@ -536,7 +729,7 @@ Format impératif en JSON pur :
               </div>
             ) : (
               <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
-                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée pour cette quinzaine.</p>
+                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée.</p>
                 <button
                   onClick={generateWithGemini}
                   className="bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow"
@@ -546,9 +739,42 @@ Format impératif en JSON pur :
               </div>
             )}
           </div>
-        ) : (
+        )}
+
+        {/* 2. VUE COURSES & ARBITRE DRIVE */}
+        {view === 'shop' && (
           <div className="space-y-4">
-            {/* Suivi Budgétaire Dynamique */}
+            <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl p-4 text-white shadow-xl border border-slate-800">
+              <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚖️</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-400">L'Arbitre Drive IA</span>
+                </div>
+                <span className="text-[10px] font-bold text-slate-400">Panier {activeBasket}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div className="bg-white/10 p-3 rounded-2xl border border-emerald-400/40 relative">
+                  <span className="absolute -top-2 right-2 bg-emerald-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase">
+                    Le moins cher
+                  </span>
+                  <p className="text-[10px] font-bold text-slate-300 uppercase">Leclerc Lunel</p>
+                  <p className="text-xl font-black text-emerald-400 mt-0.5">{estimationLeclercLunel} €</p>
+                  <p className="text-[9px] text-slate-400 mt-0.5">Marque Repère</p>
+                </div>
+
+                <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Carrefour Alès</p>
+                  <p className="text-xl font-black text-slate-200 mt-0.5">{estimationCarrefourAles} €</p>
+                  <p className="text-[9px] text-amber-300 mt-0.5">+{ecartEconomieDrive} € d'écart</p>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-slate-300 italic font-medium">
+                💡 <b>Verdict de l'Arbitre :</b> Leclerc Lunel est ~{ecartEconomieDrive} € plus économique cette quinzaine sur vos produits de base.
+              </p>
+            </div>
+
             <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-3xl shadow-md">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90">
@@ -567,11 +793,10 @@ Format impératif en JSON pur :
               )}
 
               <p className="text-[10px] text-emerald-100 font-medium mt-1">
-                Objectif quinzaine : {activeBasket === 1 ? '~125 € max' : '~95 € max'} (Tarifs Leclerc Lunel / Carrefour Alès)
+                Objectif quinzaine : {activeBasket === 1 ? '~125 € max' : '~95 € max'}
               </p>
             </div>
 
-            {/* Compteur de Stock */}
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs text-slate-700">
               <span>🏠 <b>{inStockCount}</b> ingrédient(s) déjà chez vous</span>
               <span className="text-[10px] font-black uppercase bg-slate-200 text-slate-800 px-2.5 py-1 rounded-full">
@@ -579,7 +804,6 @@ Format impératif en JSON pur :
               </span>
             </div>
 
-            {/* Liste des ingrédients du Drive */}
             <div className="space-y-3">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
@@ -596,7 +820,6 @@ Format impératif en JSON pur :
                 const searchCongelo = item.recherche_congelo || `${cleanDriveTerm(searchFrais)} surgele`;
                 const cleanTerm = cleanDriveTerm(isCongelo ? searchCongelo : searchFrais);
 
-                // Liens Drives : Lunel (Leclerc) et Alès (Carrefour)
                 const leclercUrl = `https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=${encodeURIComponent(cleanTerm)}`;
                 const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(cleanTerm)}`;
                 const thumbnail = getProductThumbnail(item.nom, item.rayon);
@@ -653,7 +876,6 @@ Format impératif en JSON pur :
                       </div>
                     </div>
 
-                    {/* Interrupteur Frais vs Congélo */}
                     {!item.in_stock && canFreeze && (
                       <div className="mt-2.5 pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between gap-2">
@@ -693,7 +915,6 @@ Format impératif en JSON pur :
                       </div>
                     )}
 
-                    {/* Actions Drive */}
                     {!item.in_stock && (
                       <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-slate-100">
                         <a
@@ -731,6 +952,61 @@ Format impératif en JSON pur :
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* 3. VUE MON CONGÉLATEUR (VRAIE TABLE SUPABASE) */}
+        {view === 'freezer' && (
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-sky-600 to-blue-800 rounded-3xl p-5 text-white shadow-xl">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-black uppercase tracking-wider text-sky-200">Inventaire Réel Garage</span>
+                <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{freezerStock.length} articles</span>
+              </div>
+              <h2 className="text-xl font-black">Mon Grand Congélateur 🧊</h2>
+              <p className="text-xs text-sky-100 font-medium mt-1">
+                Les ingrédients enregistrés ici sont lus par Gemini pour réduire vos prochains paniers Drive !
+              </p>
+            </div>
+
+            {freezerStock.length > 0 ? (
+              <div className="space-y-3">
+                {freezerStock.map((item) => (
+                  <div key={item.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-sky-50 text-sky-700 rounded-2xl flex items-center justify-center text-lg font-black">
+                        🧊
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-slate-900">{item.nom_produit}</h4>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          Entré le {item.date_entree} • <span className="text-emerald-600 font-bold">{item.origine}</span>
+                        </p>
+                        <p className="text-[10px] text-sky-600 font-bold">
+                          Conservation max : ~{item.conservation_mois} mois
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => removeFreezerItem(item.id)}
+                      className="text-slate-400 hover:text-red-500 p-2 text-xs font-bold transition"
+                      title="Sortir du congélateur"
+                    >
+                      ✕ Consommé
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
+                <span className="text-3xl block mb-2">🧊</span>
+                <p className="text-slate-600 font-bold text-sm">Votre grand congélateur est vide pour le moment.</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Utilisez le bouton "Sauver au Congélo" ou commandez en surgelé pour stocker ici !
+                </p>
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -829,8 +1105,8 @@ Format impératif en JSON pur :
         </div>
       )}
 
-      {/* Barre de navigation basse */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-3 flex justify-around items-center z-30 shadow-lg">
+      {/* Barre de navigation basse à 3 Onglets */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2.5 flex justify-around items-center z-30 shadow-lg">
         <button
           onClick={() => setView('menu')}
           className={`flex flex-col items-center gap-1 ${
@@ -840,6 +1116,7 @@ Format impératif en JSON pur :
           <span className="text-lg">🍽️</span>
           <span className="text-[10px] uppercase tracking-wider">Planning</span>
         </button>
+
         <button
           onClick={() => setView('shop')}
           className={`flex flex-col items-center gap-1 ${
@@ -848,6 +1125,21 @@ Format impératif en JSON pur :
         >
           <span className="text-lg">🛒</span>
           <span className="text-[10px] uppercase tracking-wider">Courses Drive</span>
+        </button>
+
+        <button
+          onClick={() => setView('freezer')}
+          className={`flex flex-col items-center gap-1 relative ${
+            view === 'freezer' ? 'text-blue-700 font-black' : 'text-slate-400'
+          }`}
+        >
+          <span className="text-lg">🧊</span>
+          <span className="text-[10px] uppercase tracking-wider">Mon Congélo</span>
+          {freezerStock.length > 0 && (
+            <span className="absolute -top-1 right-2 bg-sky-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+              {freezerStock.length}
+            </span>
+          )}
         </button>
       </nav>
     </div>
