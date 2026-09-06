@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'SmartDrive Pro',
-  description: 'Notre assistant de courses intelligent',
+  title: 'À Table !',
+  description: 'Vos repas cuisinés et vos courses Drive, zéro stress.',
 }
 
 export default function RootLayout({ children }) {
