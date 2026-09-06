@@ -20,7 +20,7 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// Photos culinaires HD pour les recettes (Planning)
+// Photos culinaires HD chaleureuses
 function getRecipePhoto(dishName = "", type = "") {
   const name = dishName.toLowerCase();
   if (name.includes("saumon") || name.includes("cabillaud") || name.includes("poisson") || name.includes("poke") || name.includes("poké")) {
@@ -32,25 +32,25 @@ function getRecipePhoto(dishName = "", type = "") {
   if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine")) {
     return "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle")) {
+  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("risotto")) {
     return "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80";
   }
   if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("porc")) {
     return "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa")) {
+  if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa") || name.includes("avocat")) {
     return "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("pizza")) {
+  if (name.includes("pizza") || name.includes("tarte") || name.includes("quiche")) {
     return "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté")) {
+  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté") || name.includes("pois")) {
     return "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80";
   }
   return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
 }
 
-// Miniatures photos pour les ingrédients de la liste de courses (Drive)
+// Miniatures ingrédients Drive
 function getProductThumbnail(productName = "", rayon = "") {
   const p = (productName + " " + rayon).toLowerCase();
   if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) {
@@ -92,7 +92,7 @@ export default function SmartDriveApp() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
-  // Gestion multi-foyer
+  // Multi-foyer
   const [foyerCode, setFoyerCode] = useState("");
   const [inputCode, setInputCode] = useState("");
   const [isCreatingFoyer, setIsCreatingFoyer] = useState(false);
@@ -103,21 +103,32 @@ export default function SmartDriveApp() {
   const [isInjectingCraving, setIsInjectingCraving] = useState(false);
   const [cravingInput, setCravingInput] = useState("");
 
-  const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks'
+  // Navigation (4 univers)
+  const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks', 'profile'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
-  // État des stocks réels (Congélateur & Placard)
+  // Profil Foyer : Régime & Exclusions
+  const [selectedRegime, setSelectedRegime] = useState("Crétois / Méditerranéen");
+  const [exclusionsInput, setExclusionsInput] = useState("");
+  const [budgetInput, setBudgetInput] = useState(230);
+
+  // NOUVEAU : Cadence & Format Modulable
+  const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
+  const [nbRecettes, setNbRecettes] = useState(14);
+  const [nbPortions, setNbPortions] = useState(4);
+
+  // Stocks (Congélateur & Placard)
   const [stockList, setStockList] = useState([]);
   const [stockTab, setStockTab] = useState('congelateur');
 
-  // Formulaire d'ajout rapide de stock
+  // Formulaire d'ajout rapide stock
   const [newItemName, setNewItemName] = useState("");
   const [newItemLocation, setNewItemLocation] = useState("congelateur");
   const [newItemQty, setNewItemQty] = useState(1);
 
-  // Chargement initial du Foyer
+  // Chargement Foyer
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlFoyer = urlParams.get('foyer');
@@ -147,6 +158,13 @@ export default function SmartDriveApp() {
       if (foyer) {
         setConfig(foyer);
         setCravingInput(foyer.cravings || "");
+        setSelectedRegime(foyer.regime_alimentaire || "Crétois / Méditerranéen");
+        setExclusionsInput(foyer.exclusions || "");
+        setBudgetInput(foyer.budget_mensuel || 230);
+        setDureePlanning(foyer.duree_planning || "1 Mois (2 Paniers)");
+        setNbRecettes(foyer.nb_recettes || 14);
+        setNbPortions(foyer.nb_portions || 4);
+
         const { data: stocks } = await supabase
           .from('inventaire_congelateur')
           .select('*')
@@ -184,7 +202,13 @@ export default function SmartDriveApp() {
       const { data, error } = await supabase.from('foyers').insert({
         code_foyer: code,
         nom_famille: newFoyerName,
-        current_month: moisActuel
+        current_month: moisActuel,
+        regime_alimentaire: selectedRegime,
+        exclusions: exclusionsInput,
+        budget_mensuel: budgetInput,
+        duree_planning: dureePlanning,
+        nb_recettes: nbRecettes,
+        nb_portions: nbPortions
       }).select().single();
 
       if (error) {
@@ -211,6 +235,38 @@ export default function SmartDriveApp() {
     }
   }
 
+  // Sauvegarde des préférences du profil foyer (Régime, Durée, Nb Recettes, Portions)
+  async function handleSaveProfile(e) {
+    if (e) e.preventDefault();
+    if (!config) return;
+
+    try {
+      await supabase.from('foyers').update({
+        regime_alimentaire: selectedRegime,
+        exclusions: exclusionsInput,
+        budget_mensuel: Number(budgetInput) || 230,
+        duree_planning: dureePlanning,
+        nb_recettes: Number(nbRecettes) || 14,
+        nb_portions: Number(nbPortions) || 4
+      }).eq('id', config.id);
+
+      setConfig(prev => ({
+        ...prev,
+        regime_alimentaire: selectedRegime,
+        exclusions: exclusionsInput,
+        budget_mensuel: Number(budgetInput) || 230,
+        duree_planning: dureePlanning,
+        nb_recettes: Number(nbRecettes) || 14,
+        nb_portions: Number(nbPortions) || 4
+      }));
+
+      alert("✅ Préférences et cadence enregistrées pour votre foyer !");
+    } catch (err) {
+      console.error(err);
+      alert("Erreur sauvegarde profil : " + err.message);
+    }
+  }
+
   async function handleAddStockItem(e) {
     if (e) e.preventDefault();
     if (!config || !newItemName.trim()) return;
@@ -234,7 +290,7 @@ export default function SmartDriveApp() {
         setStockList(prev => [data, ...prev]);
         setNewItemName("");
         setNewItemQty(1);
-        alert(`✅ "${data.nom_produit}" (x${data.quantite}) ajouté à vos réserves (${data.emplacement === 'placard' ? 'Placard' : 'Congélateur'}) !`);
+        alert(`✅ "${data.nom_produit}" (x${data.quantite}) ajouté à vos réserves !`);
       }
     } catch (err) {
       console.error(err);
@@ -330,7 +386,6 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // 📦 GESTION DU STATUT DU PANIER DRIVE (Marquer comme rangé au frigo)
   async function toggleBasketReceivedStatus(basketKey) {
     const currentStatus = config.panier_json?.[`statut_${basketKey}`] || { recu: false };
     const newStatus = {
@@ -347,11 +402,11 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
 
     if (newStatus.recu) {
-      alert(`✅ Courses du Panier ${activeBasket} marquées comme rangées au frigo ! Le suivi de fraîcheur est maintenant actif.`);
+      alert(`✅ Courses du Panier ${activeBasket} marquées comme rangées au frigo ! Le suivi fraîcheur est activé.`);
     }
   }
 
-  // ✨ VALIDATION ET INTÉGRATION IMMÉDIATE D'UNE ENVIE DANS LE MENU
+  // ✨ INTÉGRER UNE ENVIE (adapte les portions)
   async function handleApplyCraving(e) {
     if (e) e.preventDefault();
     const envie = cravingInput.trim();
@@ -361,29 +416,31 @@ export default function SmartDriveApp() {
     const basketKey = activeBasket === 1 ? 'p1' : 'p2';
     const mealsCurrentQ = (config.menu_json || []).filter(r => (r.basket || 1) === activeBasket);
     const targetRecipe = mealsCurrentQ[mealsCurrentQ.length - 1] || { id: Date.now(), basket: activeBasket };
+    const portions = config.nb_portions || nbPortions;
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
 Le couple a formulé une ENVIE TRÈS PRÉCISE : "${envie}".
-Génère UNE RECETTE GOURMANDE ET ÉQUILIBRÉE correspondant exactement à cette envie pour ${moisActuel.toUpperCase()} en France (4 portions).
+Génère UNE RECETTE correspondant à cette envie pour ${moisActuel.toUpperCase()} en France (${portions} portions).
 Contraintes :
 - Quinzaine : ${activeBasket} (Panier ${activeBasket})
-- Profil santé : 40 ans, sain, équilibré, IG bas, adapté à la saison.
-- Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
-- OBLIGATION ABSOLUE : inclus TOUS les condiments nécessaires (oignons, ail, huile d'olive, épices, sauces).
+- Portions : ${portions} personnes
+- Régime : ${config.regime_alimentaire || selectedRegime}
+- Aliments interdits : ${config.exclusions || exclusionsInput || 'Aucun'}
+- Inclus tous les condiments nécessaires (oignons, ail, huile, épices).
 
 Format JSON pur impératif :
 {
   "nouvelle_recette": {
     "id": ${targetRecipe.id},
-    "nom": "Titre appétissant correspondant à l'envie",
+    "nom": "Titre appétissant",
     "type": "Plaisir",
     "calories": "520 kcal",
     "temps": "25 min",
-    "bienfait_sante": "✨ Recette plaisir & vitalité",
+    "bienfait_sante": "✨ Recette plaisir adaptée au profil",
     "saison_atout": "Ingrédients de saison",
-    "ingredients": ["Ingrédient 1 (quantité)", "Ingrédient 2 (quantité)"],
-    "etapes": ["Étape 1", "Étape 2", "Étape 3"],
-    "conseil": "Astuce gourmande du chef",
+    "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+    "etapes": ["Étape 1", "Étape 2"],
+    "conseil": "Astuce chef",
     "basket": ${activeBasket},
     "rating": 0
   },
@@ -452,51 +509,51 @@ Format JSON pur impératif :
         panier_json: updatedPanierJson
       }));
 
-      alert(`🎉 Votre envie "${envie}" a été cuisinée par le Chef et ajoutée à la Quinzaine ${activeBasket} ! Vos listes Drive sont à jour.`);
+      alert(`🎉 Votre envie "${envie}" (${portions} pers.) a été intégrée à la Quinzaine ${activeBasket} !`);
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de l'intégration de votre envie : " + err.message);
+      alert("Erreur lors de l'intégration : " + err.message);
     } finally {
       setIsInjectingCraving(false);
     }
   }
 
-  // 🔄 REMPLACER UNE RECETTE (AVEC GESTION COMPLÈTE DES INGRÉDIENTS & CONDIMENTS)
+  // 🔄 REMPLACER UNE RECETTE
   async function swapRecipe(recipeToSwap) {
     if (!config || !recipeToSwap) return;
     setSwappingId(recipeToSwap.id);
 
     const targetBasket = recipeToSwap.basket || activeBasket;
     const basketKey = targetBasket === 1 ? 'p1' : 'p2';
+    const portions = config.nb_portions || nbPortions;
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
-Le couple de 40 ans ne souhaite PAS cuisiner le plat suivant : "${recipeToSwap.nom}".
-Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT de saison pour ${moisActuel.toUpperCase()} en France (4 portions).
+Le couple ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
+Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) pour ${moisActuel.toUpperCase()} en France.
 Contraintes :
-- Quinzaine : ${targetBasket} (Panier ${targetBasket}).
-- Profil santé : 40 ans, sain, équilibré, IG bas.
-- Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
-- OBLIGATION : inclus tous les condiments indispensables (oignons, ail, épices, huiles) dans "nouveaux_ingredients_drive".
+- Quinzaine : ${targetBasket} (Panier ${targetBasket})
+- Portions : ${portions} pers.
+- Régime : ${config.regime_alimentaire || selectedRegime}
+- Aliments bannis : ${config.exclusions || exclusionsInput || 'Aucun'}
+- Inclus les condiments indispensables dans "nouveaux_ingredients_drive".
 
-Format JSON pur impératif :
+Format JSON pur :
 {
   "nouvelle_recette": {
     "id": ${recipeToSwap.id},
-    "nom": "Nom de la nouvelle recette",
+    "nom": "Nom recette",
     "type": "${recipeToSwap.type || 'Frais'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Bouclier immunitaire & Vitalité",
-    "saison_atout": "Légumes de saison d'automne",
-    "ingredients": ["Ingrédient 1 (quantité)", "Ingrédient 2 (quantité)"],
-    "etapes": ["Étape 1", "Étape 2", "Étape 3"],
-    "conseil": "Astuce gourmande du chef",
+    "bienfait_sante": "🛡️ Bienfait santé",
+    "saison_atout": "Légumes de saison",
+    "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+    "etapes": ["Étape 1", "Étape 2"],
+    "conseil": "Astuce chef",
     "basket": ${targetBasket},
     "rating": 0
   },
-  "anciens_mots_cles_a_retirer": [
-    // Mots-clés des ingrédients de "${recipeToSwap.nom}" à retirer du panier Drive
-  ],
+  "anciens_mots_cles_a_retirer": [],
   "nouveaux_ingredients_drive": [
     {
       "nom": "Nom produit",
@@ -570,7 +627,7 @@ Format JSON pur impératif :
         setSelectedRecipe(response.nouvelle_recette);
       }
 
-      alert(`🎉 Plat remplacé par : "${response.nouvelle_recette.nom}" ! Vos listes Drive ont été mises à jour.`);
+      alert(`🎉 Plat remplacé par : "${response.nouvelle_recette.nom}" !`);
     } catch (e) {
       console.error(e);
       alert("Erreur lors de l'échange : " + e.message);
@@ -579,7 +636,7 @@ Format JSON pur impératif :
     }
   }
 
-  // GÉNÉRATION MENSUELLE 14 RECETTES (AVEC OIGNONS, CONDIMENTS ET ÉPICES OBLIGATOIRES)
+  // GÉNÉRATION MENSUELLE DYNAMIQUE (CADENCE, RECETTES & PORTIONS MODULABLES)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -597,44 +654,42 @@ Format JSON pur impératif :
       .filter(s => s.emplacement === 'placard')
       .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour un couple de 40 ans.
-CONSIGNE STRICTE FORMULE B : 100% DES 14 JOURS DE CHAQUE QUINZAINE DOIVENT ÊTRE COUVERTS.
-Chaque recette est préparée pour 4 portions (couvre 1 dîner pour 2 + 1 déjeuner pour 2 le lendemain).
-Pour couvrir 14 jours, il faut EXACTEMENT 7 RECETTES PAR QUINZAINE, SOIT 14 RECETTES UNIQUES AU TOTAL DANS "repas" :
-- RECETTES 1 À 7 : "basket": 1 (Correspond au Panier 1 - Quinzaine 1).
-- RECETTES 8 À 14 : "basket": 2 (Correspond au Panier 2 - Quinzaine 2).
-TOTAL STRICT : 14 RECETTES DANS "repas".
+    const regimeActuel = config.regime_alimentaire || selectedRegime;
+    const exclusionsActuelles = config.exclusions || exclusionsInput || 'Aucune';
+    const budgetActuel = config.budget_mensuel || budgetInput || 230;
 
-RÈGLE DES CONDIMENTS, ÉPICES ET OIGNONS (TRÈS IMPORTANT) :
-Tu ne dois JAMAIS omettre les oignons, l'ail, les huiles spécifiques (huile d'olive, sésame), les herbes (coriandre, persil, thym) ou les épices (curry, cumin, paprika) nécessaires aux recettes.
-Tous les condiments et aromates nécessaires doivent figurer dans panier_1 ou panier_2 avec "est_condiment": true.
-EXCEPTION : Si un ingrédient est DÉJÀ présent dans les "RÉSERVES ACTUELLES DANS LA MAISON (Placard)", ne l'inclus pas au panier.
+    // Paramètres de cadence dynamiques
+    const duree = config.duree_planning || dureePlanning;
+    const totalRecettes = Number(config.nb_recettes || nbRecettes);
+    const portions = Number(config.nb_portions || nbPortions);
 
-RÉSERVES ACTUELLES DANS LA MAISON (À UTILISER EN PRIORITÉ ET NE PAS ACHETER) :
-- Grand Congélateur (Garage) : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun produit'}
-- Placard & Épicerie : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun produit'}
+    const isMonth = duree.includes('Mois');
+    const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
+    const q2Count = isMonth ? Math.floor(totalRecettes / 2) : 0;
 
-CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour l'ensemble des 14 recettes. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive.
+CADENCE ET RYTHME PERSONNALISÉS POUR CE FOYER :
+- Période de planification : ${duree}
+- Nombre de personnes par repas : ${portions} portions par recette
+- Nombre STRICT DE RECETTES À GÉNÉRER : EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
+${isMonth ? `- Répartition : Les recettes 1 à ${q1Count} ont "basket": 1 (Panier 1 - Quinzaine 1). Les recettes ${q1Count + 1} à ${totalRecettes} ont "basket": 2 (Panier 2 - Quinzaine 2).` : `- Toutes les recettes sont associées au Panier 1 ("basket": 1).`}
 
-Génère 14 recettes de saison pour ${moisActuel.toUpperCase()} en France.
-Profil santé : 40 ans, IG bas, vitalité, immunité de saison, 1 cheat meal par quinzaine.
+PROFIL ALIMENTAIRE :
+- Régime choisi : ${regimeActuel}
+- ALIMENTS BANNIS : ${exclusionsActuelles} (Interdiction formelle de les utiliser !)
+
+RÉSERVES DU FOYER :
+- Grand Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
+- Placard : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
+Utilise ces réserves en priorité et NE LES COMMANDE PAS au Drive !
+
+CONDIMENTS ET AROMATES : Inclus systématiquement oignons, ail, herbes et épices dans les paniers avec "est_condiment": true.
+CONTRAINTE BUDGÉTAIRE : ~${budgetActuel}€ max. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
+
+Génère ${totalRecettes} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions).
 Envies formulées par le couple : "${config.cravings || 'Cuisine savoureuse, saine et équilibrée'}".
 
-Pour chaque ingrédient dans panier_1 et panier_2 :
-- "nom": Nom produit
-- "rayon": Rayon Drive
-- "a_alternative_congelo": true si une version surgelée existe, false sinon
-- "mode_choisi": "frais"
-- "prix_frais": prix réaliste en euros
-- "recherche_frais": 1 ou 2 mots simples (ex: "saumon", "poulet", "oignons", "curry")
-- "prix_congelo": prix surgelé économique, ou null
-- "recherche_congelo": mot simple (ex: "saumon surgele"), ou null
-- "gain_anti_radin": économie, ou null
-- "conseil_anti_gaspi": astuce courte
-- "est_condiment": true pour huiles, épices, oignons, ail, herbes, sauces; false pour protéines et féculents
-- "recette_id": numéro id de la recette liée (1 à 14)
-
-Format JSON pur impératif :
+Format JSON pur :
 {
   "repas": [
     {
@@ -643,26 +698,12 @@ Format JSON pur impératif :
       "type": "Frais",
       "calories": "510 kcal",
       "temps": "25 min",
-      "bienfait_sante": "🛡️ Bouclier immunitaire",
+      "bienfait_sante": "🛡️ Bienfait santé",
       "saison_atout": "Légumes d'automne",
       "ingredients": ["Ingrédient 1", "Ingrédient 2"],
       "etapes": ["Étape 1", "Étape 2"],
       "conseil": "Astuce chef",
       "basket": 1,
-      "rating": 0
-    },
-    {
-      "id": 8,
-      "nom": "Nom recette 8",
-      "type": "Frais",
-      "calories": "480 kcal",
-      "temps": "20 min",
-      "bienfait_sante": "🧠 Riche en Oméga-3",
-      "saison_atout": "Produit de saison",
-      "ingredients": ["Ingrédient 1", "Ingrédient 2"],
-      "etapes": ["Étape 1", "Étape 2"],
-      "conseil": "Astuce chef",
-      "basket": 2,
       "rating": 0
     }
   ],
@@ -681,21 +722,6 @@ Format JSON pur impératif :
       "est_condiment": false,
       "recette_id": 1,
       "in_stock": false
-    },
-    {
-      "nom": "Curry doux en poudre",
-      "rayon": "Épicerie",
-      "a_alternative_congelo": false,
-      "mode_choisi": "frais",
-      "prix_frais": 1.45,
-      "recherche_frais": "curry poudre",
-      "prix_congelo": null,
-      "recherche_congelo": null,
-      "gain_anti_radin": null,
-      "conseil_anti_gaspi": "🧂 Épice de base",
-      "est_condiment": true,
-      "recette_id": 1,
-      "in_stock": false
     }
   ],
   "panier_2": [
@@ -709,9 +735,9 @@ Format JSON pur impératif :
       "prix_congelo": 6.20,
       "recherche_congelo": "poulet surgele",
       "gain_anti_radin": "-27%",
-      "conseil_anti_gaspi": "🌿 Frais de quinzaine",
+      "conseil_anti_gaspi": "🌿 Frais",
       "est_condiment": false,
-      "recette_id": 8,
+      "recette_id": ${q1Count + 1},
       "in_stock": false
     }
   ]
@@ -738,10 +764,9 @@ Format JSON pur impératif :
 
       const response = JSON.parse(responseText);
 
-      // Réinitialisation du statut de réception pour ce nouveau mois
       const initialPanierJson = {
-        p1: response.panier_1,
-        p2: response.panier_2,
+        p1: response.panier_1 || [],
+        p2: response.panier_2 || [],
         statut_p1: { recu: false, date_reception: null },
         statut_p2: { recu: false, date_reception: null }
       };
@@ -753,7 +778,7 @@ Format JSON pur impératif :
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu Formule B généré : 14 recettes complètes avec épices et condiments !`);
+      alert(`Menu calibré généré : ${totalRecettes} recettes (${duree}, ${portions} pers.) pour ${moisActuel} !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -782,7 +807,7 @@ Format JSON pur impératif :
           type="button"
           onClick={(e) => onRate(star, e)}
           className={`text-base transition-transform active:scale-125 ${
-            star <= rating ? 'text-amber-400' : 'text-slate-200'
+            star <= rating ? 'text-amber-400' : 'text-stone-300'
           }`}
         >
           ★
@@ -794,53 +819,53 @@ Format JSON pur impératif :
   // ÉCRAN DE CONNEXION / CRÉATION FOYER
   if (!loading && !config) {
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-slate-900 text-white p-6 flex flex-col justify-center">
+      <div className="max-w-md mx-auto min-h-screen bg-[#1C1917] text-white p-6 flex flex-col justify-center font-sans">
         <div className="text-center mb-8">
-          <span className="text-5xl block mb-3">🛒</span>
-          <h1 className="text-2xl font-black italic tracking-tight">SMART DRIVE MULTI-FOYER</h1>
-          <p className="text-xs text-slate-400 mt-1">Espaces isolés et synchronisés en direct</p>
+          <span className="text-5xl block mb-3">🌿</span>
+          <h1 className="text-2xl font-black italic tracking-tight">SMART DRIVE PRO</h1>
+          <p className="text-xs text-stone-400 mt-1">Votre chef personnel connecté à vos Drives</p>
         </div>
 
         {!isCreatingFoyer ? (
-          <form onSubmit={handleConnectFoyer} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-blue-400">Rejoindre votre Foyer</h2>
+          <form onSubmit={handleConnectFoyer} className="bg-[#292524] p-6 rounded-3xl border border-stone-700 shadow-2xl space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400">Rejoindre votre Foyer</h2>
             <div>
-              <label className="text-[11px] font-bold text-slate-300 block mb-1">Code d'accès Foyer</label>
+              <label className="text-[11px] font-bold text-stone-300 block mb-1">Code d'accès Foyer</label>
               <input 
                 type="text" 
-                className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest text-lg focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest text-lg focus:outline-none focus:border-amber-400"
                 placeholder="EX: LUNEL-ALES"
                 value={inputCode}
                 onChange={(e) => setInputCode(e.target.value)}
               />
             </div>
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-3 rounded-xl transition shadow-lg">
+            <button type="submit" className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-extrabold py-3 rounded-xl transition shadow-lg">
               Accéder à mes Repas
             </button>
             <div className="pt-2 text-center">
-              <button type="button" onClick={() => setIsCreatingFoyer(true)} className="text-xs text-slate-400 hover:text-white underline">
+              <button type="button" onClick={() => setIsCreatingFoyer(true)} className="text-xs text-stone-400 hover:text-white underline">
                 Créer un nouveau foyer (pour un ami)
               </button>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleCreateFoyer} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
+          <form onSubmit={handleCreateFoyer} className="bg-[#292524] p-6 rounded-3xl border border-stone-700 shadow-xl space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Créer un Nouveau Foyer</h2>
             <div>
-              <label className="text-[11px] font-bold text-slate-300 block mb-1">Nom du foyer / Famille</label>
+              <label className="text-[11px] font-bold text-stone-300 block mb-1">Nom du foyer / Famille</label>
               <input 
                 type="text" 
-                className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white text-sm"
+                className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white text-sm"
                 placeholder="Ex: Famille Dupont"
                 value={newFoyerName}
                 onChange={(e) => setNewFoyerName(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-slate-300 block mb-1">Code Foyer Unique</label>
+              <label className="text-[11px] font-bold text-stone-300 block mb-1">Code Foyer Unique</label>
               <input 
                 type="text" 
-                className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest"
+                className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest"
                 placeholder="EX: FOYER-DUPONT"
                 value={inputCode}
                 onChange={(e) => setInputCode(e.target.value)}
@@ -850,7 +875,7 @@ Format JSON pur impératif :
               Créer et Démarrer
             </button>
             <div className="pt-2 text-center">
-              <button type="button" onClick={() => setIsCreatingFoyer(false)} className="text-xs text-slate-400 hover:text-white underline">
+              <button type="button" onClick={() => setIsCreatingFoyer(false)} className="text-xs text-stone-400 hover:text-white underline">
                 Retour à la connexion
               </button>
             </div>
@@ -862,9 +887,9 @@ Format JSON pur impératif :
 
   if (loading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-3">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-700 text-sm">Chargement du foyer {foyerCode}...</p>
+      <div className="flex h-screen flex-col items-center justify-center bg-[#FAF8F5] gap-3">
+        <div className="w-10 h-10 border-4 border-[#C25E3E] border-t-transparent rounded-full animate-spin"></div>
+        <p className="font-bold text-stone-700 text-sm">Chargement de votre univers culinaire...</p>
       </div>
     );
   }
@@ -873,7 +898,6 @@ Format JSON pur impératif :
   const activePanierList = config?.panier_json?.[currentBasketKey] || [];
   const inStockCount = activePanierList.filter(i => i.in_stock).length;
 
-  // Statut réel de réception du panier (Courses faites ou pas)
   const basketStatus = config?.panier_json?.[`statut_${currentBasketKey}`] || { recu: false };
   const isBasketReceived = basketStatus.recu;
 
@@ -893,12 +917,19 @@ Format JSON pur impératif :
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
-  // Formule B : 7 recettes par quinzaine
+  const currentDuree = config?.duree_planning || dureePlanning;
+  const isPlanningMonth = currentDuree.includes('Mois');
+  const targetNbRecettes = Number(config?.nb_recettes || nbRecettes);
+  const targetPortions = Number(config?.nb_portions || nbPortions);
+  const q1Threshold = isPlanningMonth ? Math.ceil(targetNbRecettes / 2) : targetNbRecettes;
+
+  // Filtrage intelligent selon la Quinzaine active et la durée
   const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
+    if (!isPlanningMonth) return true; // Si 1 semaine ou 1 quinzaine, on affiche tout
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
     }
-    return activeBasket === 1 ? index < 7 : index >= 7;
+    return activeBasket === 1 ? index < q1Threshold : index >= q1Threshold;
   });
 
   const premierPlatFrais = mealsForActiveQuinzaine.find(r => r.type === 'Frais') || mealsForActiveQuinzaine[0];
@@ -909,14 +940,15 @@ Format JSON pur impératif :
   });
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-slate-100 pb-28 shadow-2xl">
-      {/* Header Premium Multi-Foyer */}
-      <header className="bg-gradient-to-r from-blue-700 to-indigo-800 p-5 text-white sticky top-0 z-40 shadow-lg">
+    <div className="max-w-md mx-auto min-h-screen bg-[#FAF8F5] pb-28 shadow-2xl font-sans text-stone-900">
+      
+      {/* HEADER BISTROT CHALEUREUX */}
+      <header className="bg-gradient-to-r from-[#C25E3E] to-[#A84E33] p-5 text-white sticky top-0 z-40 shadow-md">
         <div className="flex justify-between items-center mb-1">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-black italic text-2xl tracking-tight">SMART DRIVE</h1>
-              <span className="text-[10px] bg-white/20 text-blue-200 font-extrabold px-2 py-0.5 rounded-full">
+              <span className="text-[10px] bg-white/20 text-amber-100 font-extrabold px-2.5 py-0.5 rounded-full">
                 {config.code_foyer}
               </span>
               <button 
@@ -924,37 +956,37 @@ Format JSON pur impératif :
                 className="text-[9px] bg-white/10 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition"
                 title="Changer de foyer"
               >
-                Changer ✕
+                ✕
               </button>
             </div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-blue-200 mt-0.5">
-              {moisActuel} • 14 Recettes • {config.nom_famille}
+            <p className="text-[11px] font-bold uppercase tracking-widest text-amber-100 mt-0.5">
+              {moisActuel} • {config.regime_alimentaire || selectedRegime}
             </p>
           </div>
           <button
             onClick={generateWithGemini}
-            className="bg-white text-blue-800 hover:bg-amber-400 hover:text-slate-950 px-3.5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition"
+            className="bg-white text-[#C25E3E] hover:bg-amber-100 px-3.5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition"
           >
             ⚡ Générer
           </button>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-blue-100 font-medium mt-2 pt-2 border-t border-white/10">
+        <div className="flex items-center justify-between text-[11px] text-amber-100 font-medium mt-2 pt-2 border-t border-white/15">
           <span>📅 {jourDuMois} {moisActuel}</span>
           <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-            Quinzaine {activeBasket} (Panier {activeBasket})
+            {isPlanningMonth ? `Quinzaine ${activeBasket}` : currentDuree}
           </span>
         </div>
       </header>
 
       <main className="p-4">
-        {/* Sélecteur de Quinzaine universel */}
-        {view !== 'stocks' && (
-          <div className="flex bg-slate-200 p-1 rounded-2xl mb-4 shadow-inner">
+        {/* Sélecteur de Quinzaine universel (affiché seulement si durée = 1 Mois) */}
+        {view !== 'stocks' && view !== 'profile' && isPlanningMonth && (
+          <div className="flex bg-stone-200/70 p-1 rounded-2xl mb-4 shadow-inner">
             <button
               onClick={() => setActiveBasket(1)}
               className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                activeBasket === 1 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                activeBasket === 1 ? 'bg-white text-[#C25E3E] shadow-sm' : 'text-stone-500 hover:text-stone-700'
               }`}
             >
               Quinzaine 1 (Sem. 1 & 2)
@@ -962,7 +994,7 @@ Format JSON pur impératif :
             <button
               onClick={() => setActiveBasket(2)}
               className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
-                activeBasket === 2 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                activeBasket === 2 ? 'bg-white text-[#C25E3E] shadow-sm' : 'text-stone-500 hover:text-stone-700'
               }`}
             >
               Quinzaine 2 (Sem. 3 & 4)
@@ -970,32 +1002,45 @@ Format JSON pur impératif :
           </div>
         )}
 
-        {/* 1. VUE PLANNING AVEC ALERTE FRAÎCHEUR LOGIQUE */}
+        {/* 1. VUE PLANNING */}
         {view === 'menu' && (
           <div className="space-y-4">
-            {/* L'ALERTE S'AFFICHE UNIQUEMENT SI LES COURSES ONT ÉTÉ RANGÉES AU FRIGO ! */}
+            {/* LIGNE RÉCAPITULATIVE DE CADENCE DISCRÈTE */}
+            <div className="bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2 flex items-center justify-between text-xs text-stone-700">
+              <span className="font-bold flex items-center gap-1.5">
+                <span>🎯</span>
+                <span>{targetNbRecettes} recettes • {currentDuree} • {targetPortions} pers.</span>
+              </span>
+              <button
+                onClick={() => setView('profile')}
+                className="text-[10px] font-black uppercase tracking-wider text-[#C25E3E] hover:underline"
+              >
+                Ajuster ⚙️
+              </button>
+            </div>
+
             {isBasketReceived ? (
               premierPlatFrais && (
-                <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl p-4 text-white shadow-lg animate-in fade-in">
+                <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-4 text-white shadow-lg animate-in fade-in">
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🚨</span>
-                      <span className="text-xs font-black uppercase tracking-wider">Alerte Fraîcheur Frigo (Courses rangées le {basketStatus.date_reception})</span>
+                      <span className="text-xs font-black uppercase tracking-wider">Fraîcheur Frigo (Courses rangées le {basketStatus.date_reception})</span>
                     </div>
                   </div>
                   <p className="text-xs font-medium leading-snug mb-3">
-                    À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> (produit ultra-frais). Pas le temps ce soir ?
+                    À cuisiner en priorité : <b>{premierPlatFrais.nom}</b>. Pas le temps ce soir ?
                   </p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSelectedRecipe(premierPlatFrais)}
-                      className="flex-1 bg-white text-slate-900 font-extrabold text-[11px] py-2 rounded-xl shadow active:scale-95 transition"
+                      className="flex-1 bg-white text-stone-900 font-extrabold text-[11px] py-2 rounded-xl shadow active:scale-95 transition"
                     >
                       👨‍🍳 Cuisiner ce soir
                     </button>
                     <button
                       onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
-                      className="flex-1 bg-slate-900/40 hover:bg-slate-900 text-white font-extrabold text-[11px] py-2 rounded-xl border border-white/20 active:scale-95 transition"
+                      className="flex-1 bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-[11px] py-2 rounded-xl border border-white/20 active:scale-95 transition"
                     >
                       🧊 Sauver au Congélo
                     </button>
@@ -1003,29 +1048,28 @@ Format JSON pur impératif :
                 </div>
               )
             ) : (
-              /* Message logique avant les courses : pas de fausse alerte ! */
-              <div className="bg-blue-50 border border-blue-200 rounded-3xl p-3.5 flex items-center justify-between text-xs text-blue-900">
+              <div className="bg-stone-100 border border-stone-200 rounded-3xl p-3.5 flex items-center justify-between text-xs text-stone-700">
                 <span className="flex items-center gap-2">
                   <span>🛒</span>
                   <span>Panier {activeBasket} à commander au Drive</span>
                 </span>
                 <button
                   onClick={() => setView('shop')}
-                  className="bg-blue-600 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl uppercase tracking-wider hover:bg-blue-700 transition"
+                  className="bg-[#C25E3E] text-white font-bold text-[10px] px-3 py-1.5 rounded-xl uppercase tracking-wider hover:bg-[#A84E33] transition"
                 >
-                  Voir ma liste Drive
+                  Voir ma liste
                 </button>
               </div>
             )}
 
-            {/* FORMULAIRE D'ENVIE GUSTATIVE AVEC BOUTON D'ACTION IMMÉDIAT */}
-            <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-2">
-              <label className="block text-[11px] font-black uppercase tracking-wider text-blue-700 flex items-center justify-between">
+            {/* Boîte d'envie */}
+            <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 space-y-2">
+              <label className="block text-[11px] font-black uppercase tracking-wider text-[#C25E3E] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <span>✨</span> Une envie précise ce mois-ci ?
                 </span>
                 {config?.cravings && (
-                  <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
                     Actuel : {config.cravings}
                   </span>
                 )}
@@ -1034,32 +1078,29 @@ Format JSON pur impératif :
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Ex: Lasagnes, Poké bowl, Curry..."
+                  placeholder="Ex: Lasagnes, Poké bowl, Tajine..."
                   value={cravingInput}
                   onChange={(e) => setCravingInput(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-3.5 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
                 />
 
                 <button
                   type="submit"
                   disabled={isInjectingCraving || !cravingInput.trim()}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow transition flex items-center gap-1.5 active:scale-95 flex-shrink-0"
+                  className="bg-[#C25E3E] hover:bg-[#A84E33] disabled:opacity-40 text-white px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow transition flex items-center gap-1.5 active:scale-95 flex-shrink-0"
                 >
                   <span>{isInjectingCraving ? '⏳' : '✨'}</span>
                   <span>{isInjectingCraving ? 'Cuisine...' : 'Intégrer'}</span>
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 italic">
-                Tapez votre plat et cliquez sur "Intégrer" (ou Entrée) pour l'ajouter immédiatement au planning et aux courses Drive !
-              </p>
             </form>
 
             <div className="flex justify-between items-center pl-1 pr-1">
-              <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Repas de la Quinzaine {activeBasket} (Formule B)
+              <h2 className="text-xs font-black text-stone-500 uppercase tracking-widest">
+                {isPlanningMonth ? `Repas de la Quinzaine ${activeBasket}` : `Repas du cycle (${currentDuree})`}
               </h2>
-              <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                {mealsForActiveQuinzaine.length} Recettes • {mealsForActiveQuinzaine.length * 2} jours couverts à deux
+              <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers.
               </span>
             </div>
 
@@ -1073,23 +1114,25 @@ Format JSON pur impératif :
                     <div
                       key={repas.id}
                       onClick={() => setSelectedRecipe(repas)}
-                      className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border border-slate-200 transition-all cursor-pointer active:scale-[0.99]"
+                      className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border border-stone-200 transition-all cursor-pointer active:scale-[0.99]"
                     >
-                      <div className="relative h-44 w-full bg-slate-200 overflow-hidden">
+                      <div className="relative h-44 w-full bg-stone-200 overflow-hidden">
                         <img 
                           src={photoUrl} 
                           alt={repas.nom} 
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
                         
                         <div className="absolute top-3 left-3 flex gap-1.5">
-                          <span className="bg-white/90 backdrop-blur text-blue-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                            Panier {activeBasket}
-                          </span>
+                          {isPlanningMonth && (
+                            <span className="bg-white/90 backdrop-blur text-stone-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
+                              Panier {activeBasket}
+                            </span>
+                          )}
                           <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
-                            repas.type === 'Cheat' ? 'bg-amber-400 text-slate-950' : 'bg-emerald-500 text-white'
+                            repas.type === 'Cheat' ? 'bg-amber-400 text-stone-950' : 'bg-emerald-600 text-white'
                           }`}>
                             {repas.type === 'Cheat' ? 'Plaisir' : (repas.type || 'Frais')}
                           </span>
@@ -1106,22 +1149,22 @@ Format JSON pur impératif :
 
                       <div className="p-4">
                         <div className="mb-2">
-                          <span className="inline-block bg-blue-50 text-blue-800 text-[11px] font-extrabold px-3 py-1 rounded-full border border-blue-100">
-                            {repas.bienfait_sante || "🛡️ Équilibre & Vitalité métabolique"}
+                          <span className="inline-block bg-amber-50 text-[#C25E3E] text-[11px] font-extrabold px-3 py-1 rounded-full border border-amber-200/50">
+                            {repas.bienfait_sante || "🛡️ Équilibre & Vitalité"}
                           </span>
                         </div>
 
-                        <h3 className="text-base font-extrabold text-slate-900 leading-snug mb-1">
+                        <h3 className="text-base font-extrabold text-stone-900 leading-snug mb-1">
                           {repas.nom}
                         </h3>
 
                         {repas.saison_atout && (
-                          <p className="text-xs text-slate-500 font-medium mb-3">
+                          <p className="text-xs text-stone-500 font-medium mb-3">
                             🌱 {repas.saison_atout}
                           </p>
                         )}
 
-                        <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center">
+                        <div className="pt-2.5 border-t border-stone-100 flex justify-between items-center">
                           <StarRating 
                             rating={repas.rating || 0} 
                             onRate={(star, e) => updateRating(repas.id, star, e)} 
@@ -1134,7 +1177,7 @@ Format JSON pur impératif :
                               e.stopPropagation();
                               swapRecipe(repas);
                             }}
-                            className="text-[11px] font-extrabold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-blue-100"
+                            className="text-[11px] font-extrabold text-[#C25E3E] hover:text-[#A84E33] bg-amber-50 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-amber-200/60"
                           >
                             <span>{isSwapping ? '⏳' : '🔄'}</span>
                             <span>{isSwapping ? 'Échange...' : 'Remplacer'}</span>
@@ -1146,11 +1189,11 @@ Format JSON pur impératif :
                 })}
               </div>
             ) : (
-              <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
-                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée.</p>
+              <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-stone-300">
+                <p className="text-stone-500 text-sm mb-3">Aucune recette trouvée.</p>
                 <button
                   onClick={generateWithGemini}
-                  className="bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow"
+                  className="bg-[#C25E3E] text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow"
                 >
                   Cliquez sur "⚡ Générer" en haut
                 </button>
@@ -1159,29 +1202,26 @@ Format JSON pur impératif :
           </div>
         )}
 
-        {/* 2. VUE COURSES AVEC BOUTON "RANGÉ AU FRIGO" ET CONDIMENTS COMPLETS */}
+        {/* 2. VUE COURSES & ARBITRE DRIVE */}
         {view === 'shop' && (
           <div className="space-y-4">
-            {/* BOUTON D'ACTION DE RÉCEPTION DU PANIER DRIVE */}
-            <div className="bg-white p-3.5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="bg-white p-3.5 rounded-3xl border border-stone-200 shadow-sm flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <span className="text-xl">{isBasketReceived ? '✅' : '📦'}</span>
                 <div>
-                  <h4 className="text-xs font-black text-slate-800">
-                    {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} pas encore récupéré`}
+                  <h4 className="text-xs font-black text-stone-800">
+                    {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} en attente`}
                   </h4>
-                  <p className="text-[10px] text-slate-400">
-                    {isBasketReceived ? 'Le suivi fraîcheur est actif dans votre Planning' : 'Cliquez une fois vos courses rangées à la maison'}
+                  <p className="text-[10px] text-stone-400">
+                    {isBasketReceived ? 'Suivi fraîcheur actif' : 'Cliquez une fois vos sacs rangés'}
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => toggleBasketReceivedStatus(currentBasketKey)}
-                className={`text-[10px] font-black px-3 py-2 rounded-xl transition uppercase tracking-wider shadow-sm ${
-                  isBasketReceived 
-                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' 
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                className={`text-[10px] font-black px-3 py-2 rounded-xl transition uppercase tracking-wider ${
+                  isBasketReceived ? 'bg-stone-100 text-stone-600' : 'bg-emerald-600 text-white'
                 }`}
               >
                 {isBasketReceived ? 'Modifier' : 'J\'ai rangé mes courses'}
@@ -1189,39 +1229,39 @@ Format JSON pur impératif :
             </div>
 
             {/* Arbitre Drive */}
-            <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl p-4 text-white shadow-xl border border-slate-800">
-              <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
+            <div className="bg-[#1C1917] rounded-3xl p-4 text-white shadow-xl border border-stone-800">
+              <div className="flex items-center justify-between mb-3 border-b border-stone-800 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-base">⚖️</span>
                   <span className="text-xs font-black uppercase tracking-wider text-amber-400">L'Arbitre Drive IA</span>
                 </div>
-                <span className="text-[10px] font-bold text-slate-400">Panier {activeBasket}</span>
+                <span className="text-[10px] font-bold text-stone-400">Panier {activeBasket}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-2">
-                <div className="bg-white/10 p-3 rounded-2xl border border-emerald-400/40 relative">
-                  <span className="absolute -top-2 right-2 bg-emerald-500 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase">
+                <div className="bg-white/10 p-3 rounded-2xl border border-emerald-500/40 relative">
+                  <span className="absolute -top-2 right-2 bg-emerald-500 text-stone-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase">
                     Le moins cher
                   </span>
-                  <p className="text-[10px] font-bold text-slate-300 uppercase">Leclerc Lunel</p>
+                  <p className="text-[10px] font-bold text-stone-300 uppercase">Leclerc Lunel</p>
                   <p className="text-xl font-black text-emerald-400 mt-0.5">{estimationLeclercLunel} €</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5">Marque Repère</p>
+                  <p className="text-[9px] text-stone-400 mt-0.5">Marque Repère</p>
                 </div>
 
                 <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Carrefour Alès</p>
-                  <p className="text-xl font-black text-slate-200 mt-0.5">{estimationCarrefourAles} €</p>
+                  <p className="text-[10px] font-bold text-stone-400 uppercase">Carrefour Alès</p>
+                  <p className="text-xl font-black text-stone-200 mt-0.5">{estimationCarrefourAles} €</p>
                   <p className="text-[9px] text-amber-300 mt-0.5">+{ecartEconomieDrive} € d'écart</p>
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-300 italic font-medium">
-                💡 <b>Verdict de l'Arbitre :</b> Leclerc Lunel est ~{ecartEconomieDrive} € plus économique cette quinzaine sur votre panier complet.
+              <p className="text-[10px] text-stone-300 italic font-medium">
+                💡 <b>Verdict de l'Arbitre :</b> Leclerc Lunel est ~{ecartEconomieDrive} € plus économique sur ce panier.
               </p>
             </div>
 
             {/* Suivi Budgétaire */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-3xl shadow-md">
+            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-4 rounded-3xl shadow-md">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90">
                   Total Panier {activeBasket}
@@ -1237,21 +1277,16 @@ Format JSON pur impératif :
                   <span>Vous économisez <b>{totalEconomiesRealisees.toFixed(2)} €</b> grâce à vos choix Congélateur !</span>
                 </div>
               )}
-
-              <p className="text-[10px] text-emerald-100 font-medium mt-1">
-                Objectif quinzaine : {activeBasket === 1 ? '~125 € max' : '~95 € max'}
-              </p>
             </div>
 
-            {/* Compteur de Stock */}
-            <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs text-slate-700">
+            <div className="bg-stone-100 border border-stone-200 p-3 rounded-2xl flex items-center justify-between text-xs text-stone-700">
               <span>🏠 <b>{inStockCount}</b> ingrédient(s) déjà chez vous</span>
-              <span className="text-[10px] font-black uppercase bg-slate-200 text-slate-800 px-2.5 py-1 rounded-full">
+              <span className="text-[10px] font-black uppercase bg-stone-200 text-stone-800 px-2.5 py-1 rounded-full">
                 {activePanierList.length - inStockCount} à commander
               </span>
             </div>
 
-            {/* Liste des ingrédients Drive avec mention CONDIMENTS / ÉPICES */}
+            {/* Liste des ingrédients Drive */}
             <div className="space-y-3">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
@@ -1278,20 +1313,20 @@ Format JSON pur impératif :
                     onClick={() => toggleItemStock(currentBasketKey, index)}
                     className={`p-3.5 rounded-3xl border transition-all cursor-pointer select-none ${
                       item.in_stock 
-                        ? 'bg-slate-100 border-slate-200 opacity-50' 
-                        : 'bg-white border-slate-200 shadow-sm'
+                        ? 'bg-stone-100 border-stone-200 opacity-50' 
+                        : 'bg-white border-stone-200 shadow-sm'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                         item.in_stock 
-                          ? 'bg-emerald-500 border-emerald-500 text-white' 
-                          : 'border-slate-300 bg-white'
+                          ? 'bg-emerald-600 border-emerald-600 text-white' 
+                          : 'border-stone-300 bg-white'
                       }`}>
                         {item.in_stock && <span className="text-xs font-bold">✓</span>}
                       </div>
 
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
                         <img 
                           src={thumbnail} 
                           alt={item.nom} 
@@ -1303,22 +1338,22 @@ Format JSON pur impératif :
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between mb-0.5">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-stone-400">
                               {item.rayon}
                             </span>
                             {item.est_condiment && (
                               <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
-                                🧂 Épice / Condiment
+                                🧂 Épice
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-black text-slate-800">
+                          <span className="text-xs font-black text-stone-800">
                             ~{activePrice.toFixed(2)} €
                           </span>
                         </div>
 
                         <span className={`text-sm font-extrabold block truncate ${
-                          item.in_stock ? 'line-through text-slate-400' : 'text-slate-900'
+                          item.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
                         }`}>
                           {item.nom}
                         </span>
@@ -1332,17 +1367,17 @@ Format JSON pur impératif :
                     </div>
 
                     {!item.in_stock && canFreeze && (
-                      <div className="mt-2.5 pt-2 border-t border-slate-100">
+                      <div className="mt-2.5 pt-2 border-t border-stone-100">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-[10px] font-bold text-slate-500">Votre choix :</div>
-                          <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                          <div className="text-[10px] font-bold text-stone-500">Votre choix :</div>
+                          <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
                             <button
                               type="button"
                               onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
                               className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 ${
                                 !isCongelo 
                                   ? 'bg-white text-emerald-800 shadow-sm border border-emerald-200' 
-                                  : 'text-slate-400 hover:text-slate-600'
+                                  : 'text-stone-400 hover:text-stone-600'
                               }`}
                             >
                               <span>🌿</span> Frais ({prixFrais.toFixed(2)}€)
@@ -1353,7 +1388,7 @@ Format JSON pur impératif :
                               onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
                               className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 ${
                                 isCongelo 
-                                  ? 'bg-sky-600 text-white shadow-sm' 
+                                  ? 'bg-sky-700 text-white shadow-sm' 
                                   : 'text-sky-700 hover:text-sky-900'
                               }`}
                             >
@@ -1363,7 +1398,7 @@ Format JSON pur impératif :
                         </div>
 
                         {item.conseil_anti_gaspi && (
-                          <p className="text-[10px] text-slate-500 font-medium mt-1.5 italic">
+                          <p className="text-[10px] text-stone-500 font-medium mt-1.5 italic">
                             💡 {item.conseil_anti_gaspi}
                           </p>
                         )}
@@ -1397,7 +1432,7 @@ Format JSON pur impératif :
                             e.stopPropagation();
                             copyToClipboard(cleanTerm, e);
                           }}
-                          className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl ml-auto transition"
+                          className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl ml-auto transition"
                         >
                           COPIER
                         </button>
@@ -1413,22 +1448,22 @@ Format JSON pur impératif :
         {/* 3. VUE MES STOCKS (CONGÉLATEUR + PLACARD) */}
         {view === 'stocks' && (
           <div className="space-y-4">
-            <div className="bg-gradient-to-r from-sky-600 to-indigo-800 rounded-3xl p-5 text-white shadow-xl">
+            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-black uppercase tracking-wider text-sky-200">Inventaire Réel Foyer</span>
+                <span className="text-xs font-black uppercase tracking-wider text-amber-200">Inventaire Réel Foyer</span>
                 <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{stockList.length} articles</span>
               </div>
               <h2 className="text-xl font-black">Réserves de la Maison 🏠</h2>
-              <p className="text-xs text-sky-100 font-medium mt-1">
+              <p className="text-xs text-stone-300 font-medium mt-1">
                 L'IA utilise ces ingrédients en priorité pour vous faire économiser au Drive !
               </p>
             </div>
 
-            <div className="flex bg-slate-200 p-1 rounded-2xl shadow-inner">
+            <div className="flex bg-stone-200/70 p-1 rounded-2xl shadow-inner">
               <button
                 onClick={() => setStockTab('congelateur')}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                  stockTab === 'congelateur' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  stockTab === 'congelateur' ? 'bg-white text-sky-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
                 <span>🧊</span> Grand Congélateur ({stockList.filter(i => (i.emplacement || 'congelateur') === 'congelateur').length})
@@ -1436,36 +1471,36 @@ Format JSON pur impératif :
               <button
                 onClick={() => setStockTab('placard')}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                  stockTab === 'placard' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  stockTab === 'placard' ? 'bg-white text-amber-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
                 <span>🥫</span> Placard & Épicerie ({stockList.filter(i => i.emplacement === 'placard').length})
               </button>
             </div>
 
-            <form onSubmit={handleAddStockItem} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+            <form onSubmit={handleAddStockItem} className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                <span className="text-xs font-black uppercase tracking-wider text-stone-700">
                   + Ajouter un produit existant
                 </span>
                 <div className="flex gap-1 text-[10px]">
                   <button
                     type="button"
                     onClick={() => setNewItemLocation('congelateur')}
-                    className={`px-2 py-1 rounded-lg font-bold transition ${
-                      newItemLocation === 'congelateur' ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-slate-100 text-slate-500'
+                    className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                      newItemLocation === 'congelateur' ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-stone-100 text-stone-500'
                     }`}
                   >
-                    🧊 Au Congélo
+                    🧊 Congélo
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewItemLocation('placard')}
-                    className={`px-2 py-1 rounded-lg font-bold transition ${
-                      newItemLocation === 'placard' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-500'
+                    className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                      newItemLocation === 'placard' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-stone-100 text-stone-500'
                     }`}
                   >
-                    🥫 Au Placard
+                    🥫 Placard
                   </button>
                 </div>
               </div>
@@ -1473,50 +1508,34 @@ Format JSON pur impératif :
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder={newItemLocation === 'congelateur' ? "Ex: 4 Steaks hachés, Pavés de saumon..." : "Ex: Pâtes Penne, Huile d'olive, Curry..."}
+                  placeholder={newItemLocation === 'congelateur' ? "Ex: Steaks hachés, Saumon..." : "Ex: Huile d'olive, Curry, Pâtes..."}
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
                 />
 
-                <div className="flex items-center bg-slate-100 rounded-xl border border-slate-200 px-1">
+                <div className="flex items-center bg-stone-100 rounded-xl border border-stone-200 px-1">
                   <button
                     type="button"
                     onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))}
-                    className="w-7 h-7 font-black text-slate-500 hover:text-slate-800"
+                    className="w-7 h-7 font-black text-stone-500 hover:text-stone-800"
                   >
                     -
                   </button>
-                  <span className="w-6 text-center text-xs font-black text-slate-800">{newItemQty}</span>
+                  <span className="w-6 text-center text-xs font-black text-stone-800">{newItemQty}</span>
                   <button
                     type="button"
                     onClick={() => setNewItemQty(newItemQty + 1)}
-                    className="w-7 h-7 font-black text-slate-500 hover:text-slate-800"
+                    className="w-7 h-7 font-black text-stone-500 hover:text-stone-800"
                   >
                     +
                   </button>
                 </div>
               </div>
 
-              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-slate-500">
-                {(newItemLocation === 'congelateur' 
-                  ? ['Steaks hachés', 'Poulet 1kg', 'Saumon', 'Haricots verts', 'Frites']
-                  : ['Huile d\'olive', 'Curry', 'Oignons', 'Ail', 'Coulis tomate', 'Pâtes', 'Riz']
-                ).map(sug => (
-                  <button
-                    key={sug}
-                    type="button"
-                    onClick={() => setNewItemName(sug)}
-                    className="bg-slate-50 hover:bg-slate-200 px-2 py-0.5 rounded-lg border border-slate-200 whitespace-nowrap transition"
-                  >
-                    + {sug}
-                  </button>
-                ))}
-              </div>
-
               <button
                 type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs py-2.5 rounded-xl transition shadow"
+                className="w-full bg-stone-900 hover:bg-stone-800 text-white font-extrabold text-xs py-2.5 rounded-xl transition shadow"
               >
                 Ajouter à mes réserves
               </button>
@@ -1525,7 +1544,7 @@ Format JSON pur impératif :
             {filteredStockList.length > 0 ? (
               <div className="space-y-3">
                 {filteredStockList.map((item) => (
-                  <div key={item.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between">
+                  <div key={item.id} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl font-black ${
                         item.emplacement === 'placard' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
@@ -1533,34 +1552,29 @@ Format JSON pur impératif :
                         {item.emplacement === 'placard' ? '🥫' : '🧊'}
                       </div>
                       <div>
-                        <h4 className="text-sm font-extrabold text-slate-900">{item.nom_produit}</h4>
-                        <p className="text-[11px] text-slate-500 font-medium">
-                          Ajouté le {item.date_entree} • <span className="text-blue-600 font-bold">{item.origine}</span>
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          Conservation : ~{item.conservation_mois} mois
+                        <h4 className="text-sm font-extrabold text-stone-900">{item.nom_produit}</h4>
+                        <p className="text-[11px] text-stone-500 font-medium">
+                          Ajouté le {item.date_entree} • <span className="text-emerald-700 font-bold">{item.origine}</span>
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center bg-slate-100 rounded-xl border border-slate-200 p-0.5">
+                      <div className="flex items-center bg-stone-100 rounded-xl border border-stone-200 p-0.5">
                         <button
                           type="button"
                           onClick={() => adjustStockQty(item, -1)}
-                          className="w-7 h-7 rounded-lg bg-white shadow-sm font-black text-xs text-slate-700 hover:bg-slate-50 transition"
-                          title="Diminuer la quantité"
+                          className="w-7 h-7 rounded-lg bg-white shadow-sm font-black text-xs text-stone-700"
                         >
                           -
                         </button>
-                        <span className="w-8 text-center text-xs font-black text-slate-900">
+                        <span className="w-8 text-center text-xs font-black text-stone-900">
                           x{item.quantite || 1}
                         </span>
                         <button
                           type="button"
                           onClick={() => adjustStockQty(item, 1)}
-                          className="w-7 h-7 rounded-lg bg-white shadow-sm font-black text-xs text-slate-700 hover:bg-slate-50 transition"
-                          title="Augmenter la quantité"
+                          className="w-7 h-7 rounded-lg bg-white shadow-sm font-black text-xs text-stone-700"
                         >
                           +
                         </button>
@@ -1568,8 +1582,7 @@ Format JSON pur impératif :
 
                       <button
                         onClick={() => adjustStockQty(item, -999)}
-                        className="text-slate-300 hover:text-red-500 p-1 text-sm transition"
-                        title="Supprimer définitivement"
+                        className="text-stone-300 hover:text-red-500 p-1 text-sm transition"
                       >
                         ✕
                       </button>
@@ -1578,16 +1591,207 @@ Format JSON pur impératif :
                 ))}
               </div>
             ) : (
-              <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
+              <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-stone-300">
                 <span className="text-3xl block mb-2">{stockTab === 'placard' ? '🥫' : '🧊'}</span>
-                <p className="text-slate-600 font-bold text-sm">
+                <p className="text-stone-600 font-bold text-sm">
                   Votre {stockTab === 'placard' ? 'placard à épicerie' : 'grand congélateur'} est vide.
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Utilisez le formulaire ci-dessus pour renseigner vos premiers produits !
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* 4. VUE PROFIL : RÉGIME, EXCLUSIONS ET NOUVEAU RÉGLAGE DE CADENCE & PORTIONS */}
+        {view === 'profile' && (
+          <div className="space-y-4 animate-in fade-in">
+            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration Foyer</span>
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">{config.code_foyer}</span>
+              </div>
+              <h2 className="text-xl font-black">Profil & Cadence ⚙️</h2>
+              <p className="text-xs text-stone-300 font-medium mt-1">
+                Personnalisez le rythme, le nombre de repas et votre style alimentaire.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="bg-white p-5 rounded-3xl border border-stone-200 shadow-sm space-y-5">
+              
+              {/* NOUVEAU : SÉLECTEUR DE CADENCE / DURÉE */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
+                  Rythme & Période de Planification
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois (2 Drives)' },
+                    { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine' },
+                    { id: '1 Semaine Express', icon: '⚡', label: '1 Semaine' }
+                  ].map(d => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setDureePlanning(d.id)}
+                      className={`p-2.5 rounded-2xl border text-center transition-all ${
+                        dureePlanning === d.id 
+                          ? 'border-[#C25E3E] bg-amber-50 text-[#C25E3E] font-black shadow-sm' 
+                          : 'border-stone-200 text-stone-600 hover:border-stone-300 font-medium'
+                      }`}
+                    >
+                      <span className="text-base block mb-0.5">{d.icon}</span>
+                      <span className="text-[10px] leading-tight block">{d.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* NOUVEAU : NOMBRE DE RECETTES */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-black uppercase tracking-wider text-stone-700">
+                    Nombre de Recettes Souhaité
+                  </label>
+                  <span className="text-sm font-black text-[#C25E3E]">{nbRecettes} recettes</span>
+                </div>
+                <input
+                  type="range"
+                  min="4"
+                  max="14"
+                  step="1"
+                  value={nbRecettes}
+                  onChange={(e) => setNbRecettes(Number(e.target.value))}
+                  className="w-full accent-[#C25E3E]"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 font-bold">
+                  <span>4 repas (Express)</span>
+                  <span>10 repas (Semaine)</span>
+                  <span>14 repas (Complet)</span>
+                </div>
+              </div>
+
+              {/* NOUVEAU : NOMBRE DE PORTIONS PAR PLAT */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
+                  Portions par Recette Cuisinée
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { val: 2, label: '2 Portions', desc: 'Dîner du soir uniquement' },
+                    { val: 4, label: '4 Portions (Idéal)', desc: 'Dîner + Lunchbox le lendemain' }
+                  ].map(p => (
+                    <button
+                      key={p.val}
+                      type="button"
+                      onClick={() => setNbPortions(p.val)}
+                      className={`p-3 rounded-2xl border text-left transition-all ${
+                        nbPortions === p.val 
+                          ? 'border-[#C25E3E] bg-amber-50 shadow-sm' 
+                          : 'border-stone-200 hover:border-stone-300'
+                      }`}
+                    >
+                      <p className={`text-xs font-black ${nbPortions === p.val ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
+                        {p.label}
+                      </p>
+                      <p className="text-[10px] text-stone-500 mt-0.5">{p.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Choix du Régime */}
+              <div className="pt-2 border-t border-stone-100">
+                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
+                  Style Alimentaire
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses (Longévité & Cœur)' },
+                    { id: 'Omnivore (Manger de tout)', desc: '🍽️ Aucune contrainte, cuisine familiale, variée et gourmande' },
+                    { id: 'Index Glycémique Bas', desc: '🥑 Céréales complètes, zéro sucre rapide, énergie stable (Minceur & Forme)' },
+                    { id: 'Végétarien Gourmand', desc: '🥕 Zéro viande ni poisson, œufs, fromages, légumineuses' }
+                  ].map(r => (
+                    <div
+                      key={r.id}
+                      onClick={() => setSelectedRegime(r.id)}
+                      className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                        selectedRegime === r.id 
+                          ? 'border-[#C25E3E] bg-amber-50/50 shadow-sm' 
+                          : 'border-stone-200 hover:border-stone-300'
+                      }`}
+                    >
+                      <p className={`text-xs font-extrabold ${selectedRegime === r.id ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
+                        {r.id}
+                      </p>
+                      <p className="text-[11px] text-stone-500 font-medium mt-0.5">{r.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Aliments Bannis / Exclusions */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-1">
+                  Aliments Interdits ou Détestés
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
+                  {['Pas de porc', 'Pas de poisson', 'Sans coriandre', 'Pas d\'abats', 'Sans gluten'].map(chip => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => {
+                        const current = exclusionsInput ? exclusionsInput.split(',').map(s => s.trim()) : [];
+                        if (current.includes(chip)) {
+                          setExclusionsInput(current.filter(c => c !== chip).join(', '));
+                        } else {
+                          setExclusionsInput([...current, chip].join(', '));
+                        }
+                      }}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition ${
+                        exclusionsInput.includes(chip) 
+                          ? 'bg-red-50 text-red-700 border-red-200' 
+                          : 'bg-stone-100 text-stone-600 border-stone-200'
+                      }`}
+                    >
+                      {exclusionsInput.includes(chip) ? `✓ ${chip}` : `+ ${chip}`}
+                    </button>
+                  ))}
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Ex: Pas de choux de Bruxelles, pas de poivrons crus..."
+                  value={exclusionsInput}
+                  onChange={(e) => setExclusionsInput(e.target.value)}
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
+                />
+              </div>
+
+              {/* Budget Alimentaire */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-black uppercase tracking-wider text-stone-700">
+                    Budget Cible Alimentation
+                  </label>
+                  <span className="text-sm font-black text-[#C25E3E]">{budgetInput} €</span>
+                </div>
+                <input
+                  type="range"
+                  min="150"
+                  max="350"
+                  step="10"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  className="w-full accent-[#C25E3E]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-black text-xs py-3 rounded-2xl transition shadow-md uppercase tracking-wider active:scale-98"
+              >
+                Enregistrer mes Réglages Foyer
+              </button>
+            </form>
           </div>
         )}
       </main>
@@ -1595,7 +1799,7 @@ Format JSON pur impératif :
       {/* Fiche Recette Détaillée */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-white z-50 overflow-y-auto pb-12">
-          <div className="relative h-60 w-full bg-slate-900">
+          <div className="relative h-60 w-full bg-stone-900">
             <img 
               src={getRecipePhoto(selectedRecipe.nom, selectedRecipe.type)} 
               alt={selectedRecipe.nom} 
@@ -1603,19 +1807,19 @@ Format JSON pur impératif :
             />
             <button
               onClick={() => setSelectedRecipe(null)}
-              className="absolute top-5 right-5 w-10 h-10 rounded-full bg-slate-900/70 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg"
+              className="absolute top-5 right-5 w-10 h-10 rounded-full bg-stone-900/70 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg"
             >
               ✕
             </button>
             <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white">
-              <span className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+              <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
                 Panier {selectedRecipe.basket || activeBasket} • {selectedRecipe.type || 'Frais'}
               </span>
             </div>
           </div>
 
           <div className="p-6">
-            <h2 className="text-2xl font-black text-slate-900 leading-tight mb-2">
+            <h2 className="text-2xl font-black text-stone-900 leading-tight mb-2">
               {selectedRecipe.nom}
             </h2>
 
@@ -1624,38 +1828,38 @@ Format JSON pur impératif :
                 type="button"
                 disabled={swappingId === selectedRecipe.id}
                 onClick={() => swapRecipe(selectedRecipe)}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs py-3 rounded-2xl shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+                className="w-full bg-amber-50 hover:bg-amber-100 text-[#C25E3E] font-extrabold text-xs py-3 rounded-2xl border border-amber-200 transition flex items-center justify-center gap-2 active:scale-98"
               >
                 <span>{swappingId === selectedRecipe.id ? '⏳' : '🔄'}</span>
                 <span>
                   {swappingId === selectedRecipe.id 
-                    ? 'Recherche d\'une alternative en cours...' 
+                    ? 'Recherche d\'une alternative...' 
                     : 'Pas envie de ce plat ? Proposer une alternative gourmande'}
                 </span>
               </button>
             </div>
 
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-3.5 rounded-2xl text-blue-900 font-extrabold text-xs mb-4 flex items-center gap-2">
-              <span>{selectedRecipe.bienfait_sante || "🛡️ Idéal pour booster l'énergie & la digestion"}</span>
+            <div className="bg-amber-50/70 border border-amber-200/50 p-3.5 rounded-2xl text-[#C25E3E] font-extrabold text-xs mb-4 flex items-center gap-2">
+              <span>{selectedRecipe.bienfait_sante || "🛡️ Idéal pour votre santé"}</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3.5 rounded-2xl mb-6 text-center border border-slate-100">
+            <div className="grid grid-cols-3 gap-2 bg-stone-50 p-3.5 rounded-2xl mb-6 text-center border border-stone-200">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Calories</span>
-                <span className="text-sm font-black text-slate-800">{selectedRecipe.calories || '490 kcal'}</span>
+                <span className="text-[10px] font-bold text-stone-400 uppercase block">Calories</span>
+                <span className="text-sm font-black text-stone-800">{selectedRecipe.calories || '490 kcal'}</span>
               </div>
-              <div className="border-x border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Temps</span>
-                <span className="text-sm font-black text-slate-800">{selectedRecipe.temps || '20 min'}</span>
+              <div className="border-x border-stone-200">
+                <span className="text-[10px] font-bold text-stone-400 uppercase block">Temps</span>
+                <span className="text-sm font-black text-stone-800">{selectedRecipe.temps || '20 min'}</span>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block">Portions</span>
-                <span className="text-sm font-black text-slate-800">4 pers.</span>
+                <span className="text-[10px] font-bold text-stone-400 uppercase block">Portions</span>
+                <span className="text-sm font-black text-stone-800">{config.nb_portions || targetPortions} pers.</span>
               </div>
             </div>
 
-            <div className="bg-slate-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-slate-100">
-              <span className="text-xs font-bold text-slate-700">Votre évaluation :</span>
+            <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
+              <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
               <StarRating 
                 rating={selectedRecipe.rating || 0} 
                 onRate={(star) => updateRating(selectedRecipe.id, star)} 
@@ -1671,13 +1875,13 @@ Format JSON pur impératif :
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
-                  Ingrédients nécessaires (4 portions)
+                <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
+                  Ingrédients nécessaires ({config.nb_portions || targetPortions} portions)
                 </h3>
                 <ul className="space-y-2">
                   {selectedRecipe.ingredients?.map((ing, i) => (
-                    <li key={i} className="text-sm text-slate-800 flex items-center gap-2.5 bg-slate-50 p-2 rounded-xl">
-                      <span className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0"></span>
+                    <li key={i} className="text-sm text-stone-800 flex items-center gap-2.5 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+                      <span className="w-2 h-2 rounded-full bg-[#C25E3E] flex-shrink-0"></span>
                       <span className="font-medium">{ing}</span>
                     </li>
                   ))}
@@ -1685,13 +1889,13 @@ Format JSON pur impératif :
               </div>
 
               <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
                   Préparation pas à pas
                 </h3>
                 <div className="space-y-3">
                   {selectedRecipe.etapes?.map((etape, i) => (
-                    <div key={i} className="flex gap-3 text-sm text-slate-800 bg-slate-50 p-3 rounded-2xl">
-                      <span className="font-black text-blue-700 text-base">{i + 1}.</span>
+                    <div key={i} className="flex gap-3 text-sm text-stone-800 bg-stone-50 p-3.5 rounded-2xl border border-stone-100">
+                      <span className="font-black text-[#C25E3E] text-base">{i + 1}.</span>
                       <p className="font-medium leading-relaxed">{etape}</p>
                     </div>
                   ))}
@@ -1702,12 +1906,12 @@ Format JSON pur impératif :
         </div>
       )}
 
-      {/* Barre de navigation basse à 3 Onglets */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 py-2.5 flex justify-around items-center z-30 shadow-lg">
+      {/* BARRE DE NAVIGATION BASSE */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 py-2 flex justify-around items-center z-30 shadow-lg">
         <button
           onClick={() => setView('menu')}
           className={`flex flex-col items-center gap-1 ${
-            view === 'menu' ? 'text-blue-700 font-black' : 'text-slate-400'
+            view === 'menu' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
           }`}
         >
           <span className="text-lg">🍽️</span>
@@ -1717,26 +1921,36 @@ Format JSON pur impératif :
         <button
           onClick={() => setView('shop')}
           className={`flex flex-col items-center gap-1 ${
-            view === 'shop' ? 'text-blue-700 font-black' : 'text-slate-400'
+            view === 'shop' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
           }`}
         >
           <span className="text-lg">🛒</span>
-          <span className="text-[10px] uppercase tracking-wider">Courses Drive</span>
+          <span className="text-[10px] uppercase tracking-wider">Courses</span>
         </button>
 
         <button
           onClick={() => setView('stocks')}
           className={`flex flex-col items-center gap-1 relative ${
-            view === 'stocks' ? 'text-blue-700 font-black' : 'text-slate-400'
+            view === 'stocks' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
           }`}
         >
           <span className="text-lg">🏠</span>
-          <span className="text-[10px] uppercase tracking-wider">Mes Stocks</span>
+          <span className="text-[10px] uppercase tracking-wider">Réserves</span>
           {stockList.length > 0 && (
-            <span className="absolute -top-1 right-2 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+            <span className="absolute -top-1 right-2 bg-[#C25E3E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
               {stockList.length}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setView('profile')}
+          className={`flex flex-col items-center gap-1 ${
+            view === 'profile' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
+          }`}
+        >
+          <span className="text-lg">⚙️</span>
+          <span className="text-[10px] uppercase tracking-wider">Profil</span>
         </button>
       </nav>
     </div>
