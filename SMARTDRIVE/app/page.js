@@ -11,8 +11,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
 const genAI = new GoogleGenerativeAI(geminiKey);
 
+// Filtre de sécurité : nettoie les mots parasites pour les moteurs Drive
+function cleanDriveTerm(text) {
+  if (!text) return "";
+  return text
+    .replace(/\b(aop|igp|bio|frais|sauvage|fruitier|fermier|extra|entier|nature)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function SmartDriveApp() {
-  // 1. DÉTECTION TEMPORELLE AUTOMATIQUE (Mois et Jour réels)
   const moisFrancais = [
     "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
@@ -21,10 +29,8 @@ export default function SmartDriveApp() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
-  // États de l'application
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('menu'); // 'menu' ou 'shop'
-  // Si on a dépassé le 15 du mois, on ouvre par défaut sur le Panier 2 !
+  const [view, setView] = useState('menu');
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -44,7 +50,6 @@ export default function SmartDriveApp() {
     }
   }
 
-  // 2. GESTION DES NOTES (1 À 5 ÉTOILES)
   async function updateRating(recipeId, rating, e) {
     if (e) e.stopPropagation();
     const updatedMenu = (config.menu_json || []).map(r => {
@@ -63,7 +68,6 @@ export default function SmartDriveApp() {
     await supabase.from('smart_config').update({ menu_json: updatedMenu }).eq('id', config.id);
   }
 
-  // 3. GESTION DU STOCK ("J'ai déjà à la maison")
   async function toggleItemStock(basketKey, index) {
     const list = config.panier_json?.[basketKey] || [];
     const updatedList = list.map((item, i) => {
@@ -80,12 +84,10 @@ export default function SmartDriveApp() {
     await supabase.from('smart_config').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // 4. GÉNÉRATION IA AVEC SAISONNALITÉ DYNAMIQUE ET MÉMOIRE DES NOTES
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
 
-    // Analyse des étoiles données par le couple
     const lovedRecipes = (config.menu_json || [])
       .filter(r => r.rating >= 4)
       .map(r => r.nom);
@@ -100,6 +102,10 @@ Envies formulées par le couple : "${config.cravings || 'Cuisine variée, savour
 HISTORIQUE DES GOÛTS :
 - Plats adorés précédemment (note 4 ou 5 étoiles, à réinviter ou s'en inspirer) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun pour le moment'}.
 - Plats détestés (note 1 ou 2 étoiles, NE JAMAIS PROPOSER) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
+
+RÈGLE D'OR POUR LE CHAMP "recherche_drive" :
+Ce champ DOIT contenir UNIQUEMENT 1 ou 2 mots-clés ultra-simples et génériques (ex: "reblochon", "cabillaud", "poulet", "courgettes", "riz complet").
+INTERDICTION FORMELLE d'ajouter des adjectifs comme "aop", "fruitier", "fermier", "bio", "frais", "sauvage", "extra" car ils font échouer le moteur de recherche du Drive.
 
 Format impératif en JSON pur suivant cette structure exacte :
 {
@@ -117,10 +123,10 @@ Format impératif en JSON pur suivant cette structure exacte :
     }
   ],
   "panier_1": [
-    {"nom": "Nom produit", "rayon": "Poissonnerie", "recherche_drive": "terme exact drive", "in_stock": false}
+    {"nom": "Reblochon", "rayon": "Crémerie", "recherche_drive": "reblochon", "in_stock": false}
   ],
   "panier_2": [
-    {"nom": "Nom produit", "rayon": "Boucherie", "recherche_drive": "terme exact drive", "in_stock": false}
+    {"nom": "Pavé de Bœuf", "rayon": "Boucherie", "recherche_drive": "pave boeuf", "in_stock": false}
   ]
 }
 
@@ -183,7 +189,6 @@ Total exact : 9 recettes dans "repas".`;
     }, 1500);
   };
 
-  // Composant interactif de notation 1 à 5 étoiles
   const StarRating = ({ rating = 0, onRate }) => (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
@@ -224,7 +229,6 @@ Total exact : 9 recettes dans "repas".`;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-50 pb-28 shadow-xl">
-      {/* Header avec Détection Dynamique de Date */}
       <header className="bg-[#0066cc] p-5 text-white sticky top-0 z-40 shadow-md">
         <div className="flex justify-between items-center mb-1">
           <div>
@@ -245,11 +249,9 @@ Total exact : 9 recettes dans "repas".`;
         </p>
       </header>
 
-      {/* Contenu principal */}
       <main className="p-4">
         {view === 'menu' ? (
           <div className="space-y-4">
-            {/* Boîte des envies du mois */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-3xl text-white shadow-md">
               <label className="block text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">
                 Vos envies pour {moisActuel}
@@ -300,7 +302,6 @@ Total exact : 9 recettes dans "repas".`;
                       <span className="text-slate-300 text-xs">›</span>
                     </div>
 
-                    {/* Système de notation par étoiles sur chaque carte */}
                     <div className="mt-3 pt-3 border-t border-slate-50 flex justify-between items-center">
                       <span className="text-[10px] font-bold text-slate-400">
                         {repas.rating ? `Votre note : ${repas.rating}/5` : "Pas encore noté"}
@@ -327,7 +328,6 @@ Total exact : 9 recettes dans "repas".`;
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Sélecteur de Panier */}
             <div className="flex bg-slate-200 p-1 rounded-2xl">
               <button
                 onClick={() => setActiveBasket(1)}
@@ -347,7 +347,6 @@ Total exact : 9 recettes dans "repas".`;
               </button>
             </div>
 
-            {/* Compteur "J'ai déjà à la maison" */}
             <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-2xl flex items-center justify-between text-xs text-emerald-800">
               <span>🏠 <b>{inStockCount}</b> produit(s) déjà à la maison</span>
               <span className="text-[10px] font-black uppercase text-emerald-600">
@@ -355,12 +354,13 @@ Total exact : 9 recettes dans "repas".`;
               </span>
             </div>
 
-            {/* Liste des ingrédients du Drive avec 1-Tap Search */}
             <div className="space-y-2.5">
               {activePanierList.map((item, index) => {
-                const queryTerm = item.recherche_drive || item.nom;
-                const leclercUrl = `https://www.e.leclerc/recherche?q=${encodeURIComponent(queryTerm)}`;
-                const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(queryTerm)}`;
+                // Nettoyage automatique des mots-clés superflus pour le Drive
+                const rawTerm = item.recherche_drive || item.nom;
+                const cleanTerm = cleanDriveTerm(rawTerm);
+                const leclercUrl = `https://www.e.leclerc/recherche?q=${encodeURIComponent(cleanTerm)}`;
+                const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(cleanTerm)}`;
 
                 return (
                   <div
@@ -372,7 +372,6 @@ Total exact : 9 recettes dans "repas".`;
                         : 'bg-white border-slate-100 shadow-sm'
                     }`}
                   >
-                    {/* Ligne principale : Checkbox + Nom du produit */}
                     <div className="flex items-center gap-3">
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                         item.in_stock 
@@ -399,10 +398,8 @@ Total exact : 9 recettes dans "repas".`;
                       </div>
                     </div>
 
-                    {/* Ligne d'actions 1-Tap Drive + Bouton Copier (masquée si déjà en stock) */}
                     {!item.in_stock && (
                       <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-slate-50">
-                        {/* 1-Tap Leclerc Drive */}
                         <a
                           href={leclercUrl}
                           target="_blank"
@@ -413,7 +410,6 @@ Total exact : 9 recettes dans "repas".`;
                           <span>🛒</span> Leclerc
                         </a>
 
-                        {/* 1-Tap Carrefour Drive */}
                         <a
                           href={carrefourUrl}
                           target="_blank"
@@ -424,11 +420,10 @@ Total exact : 9 recettes dans "repas".`;
                           <span>🛒</span> Carrefour
                         </a>
 
-                        {/* Bouton Copier historique conservé */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            copyToClipboard(queryTerm, e);
+                            copyToClipboard(cleanTerm, e);
                           }}
                           className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black px-2.5 py-1.5 rounded-lg ml-auto transition"
                         >
@@ -444,7 +439,6 @@ Total exact : 9 recettes dans "repas".`;
         )}
       </main>
 
-      {/* Modal Fiche Recette détaillée */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-white z-50 p-6 overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
@@ -458,7 +452,6 @@ Total exact : 9 recettes dans "repas".`;
           </div>
           <h2 className="text-2xl font-black text-slate-900 mb-2">{selectedRecipe.nom}</h2>
 
-          {/* Notation par étoiles dans la fiche recette */}
           <div className="bg-slate-50 p-3 rounded-2xl flex justify-between items-center mb-4">
             <span className="text-xs font-bold text-slate-600">Votre avis :</span>
             <StarRating 
@@ -505,7 +498,6 @@ Total exact : 9 recettes dans "repas".`;
         </div>
       )}
 
-      {/* Barre de navigation basse */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 py-3 flex justify-around items-center z-30">
         <button
           onClick={() => setView('menu')}
