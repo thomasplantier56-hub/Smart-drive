@@ -86,31 +86,41 @@ export default function SmartDriveApp() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
-  // Gestion du multi-foyer (Session locale)
+  // Gestion de la session Foyer (Multi-utilisateurs)
   const [foyerCode, setFoyerCode] = useState("");
   const [inputCode, setInputCode] = useState("");
   const [isCreatingFoyer, setIsCreatingFoyer] = useState(false);
   const [newFoyerName, setNewFoyerName] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('menu'); // 'menu', 'shop', 'freezer'
+  const [view, setView] = useState('menu'); // 'menu', 'shop' ou 'freezer'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [freezerStock, setFreezerStock] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
-  // Chargement du code foyer au démarrage
+  // Chargement intelligent : gère le lien magique (?foyer=...) ou la mémoire du téléphone
   useEffect(() => {
-    const savedCode = localStorage.getItem('smartdrive_foyer_code') || 'LUNEL-ALES';
-    setFoyerCode(savedCode);
-    setInputCode(savedCode);
-    loadFoyerData(savedCode);
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlFoyer = urlParams.get('foyer');
+    const savedCode = urlFoyer || localStorage.getItem('smartdrive_foyer_code');
+
+    if (savedCode) {
+      const cleanCode = savedCode.trim().toUpperCase();
+      localStorage.setItem('smartdrive_foyer_code', cleanCode);
+      setFoyerCode(cleanCode);
+      setInputCode(cleanCode);
+      loadFoyerData(cleanCode);
+    } else {
+      // Nouvel utilisateur sans code (ex: votre ami) -> Affiche l'écran d'accueil
+      setLoading(false);
+      setConfig(null);
+    }
   }, []);
 
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      // 1. Récupère les données du foyer
       const { data: foyer, error } = await supabase
         .from('foyers')
         .select('*')
@@ -119,7 +129,7 @@ export default function SmartDriveApp() {
 
       if (foyer) {
         setConfig(foyer);
-        // 2. Récupère l'inventaire réel du congélateur pour ce foyer
+        // Lecture de la vraie table du grand congélateur pour ce foyer
         const { data: freezer } = await supabase
           .from('inventaire_congelateur')
           .select('*')
@@ -138,7 +148,6 @@ export default function SmartDriveApp() {
     }
   }
 
-  // Connexion à un foyer existant
   function handleConnectFoyer(e) {
     e.preventDefault();
     const code = inputCode.trim().toUpperCase();
@@ -148,7 +157,6 @@ export default function SmartDriveApp() {
     loadFoyerData(code);
   }
 
-  // Création d'un nouveau foyer (pour un ami beta-testeur)
   async function handleCreateFoyer(e) {
     e.preventDefault();
     const code = inputCode.trim().toUpperCase();
@@ -163,7 +171,7 @@ export default function SmartDriveApp() {
       }).select().single();
 
       if (error) {
-        alert("Ce code foyer est déjà pris, choisissez-en un autre !");
+        alert("Ce code foyer existe déjà, choisissez-en un autre !");
       } else {
         localStorage.setItem('smartdrive_foyer_code', code);
         setFoyerCode(code);
@@ -171,9 +179,18 @@ export default function SmartDriveApp() {
         loadFoyerData(code);
       }
     } catch (err) {
-      alert("Erreur création foyer : " + err.message);
+      alert("Erreur lors de la création : " + err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleLogoutFoyer() {
+    if (confirm("Voulez-vous changer de foyer ou vous déconnecter ?")) {
+      localStorage.removeItem('smartdrive_foyer_code');
+      setConfig(null);
+      setFoyerCode("");
+      setInputCode("");
     }
   }
 
@@ -232,7 +249,7 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // SAUVETAGE CONGÉLATEUR DANS LA VRAIE TABLE Supabase
+  // Sauvetage d'un produit frais directement dans la table 'inventaire_congelateur'
   async function rescueToFreezer(productName, originInfo = "Sauvetage Frigo") {
     if (!config) return;
     try {
@@ -270,9 +287,11 @@ export default function SmartDriveApp() {
     setLoading(true);
 
     const lovedRecipes = (config.menu_json || []).filter(r => r.rating >= 4).map(r => r.nom);
-    const dislikedRecipes = (config.menu_json || []).filter(r => r.rating && r.rating <= 2).map(r => r.nom);
+    const dislikedRecipes = (config.menu_json || [])
+      .filter(r => r.rating && r.rating <= 2)
+      .map(r => r.nom);
 
-    // L'IA lit directement l'inventaire réel de votre grand congélateur !
+    // L'IA lit les vrais produits en stock dans votre grand congélateur !
     const freezerItems = freezerStock.map(i => i.nom_produit);
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour un couple de 40 ans.
@@ -443,21 +462,21 @@ Format impératif en JSON pur :
     </div>
   );
 
-  // ÉCRAN DE CONNEXION / CRÉATION DE FOYER (Si aucun foyer chargé)
+  // ÉCRAN D'ACCUEIL : Saisie du Code Foyer ou Création d'un nouveau foyer
   if (!loading && !config) {
     return (
       <div className="max-w-md mx-auto min-h-screen bg-slate-900 text-white p-6 flex flex-col justify-center">
         <div className="text-center mb-8">
           <span className="text-5xl block mb-3">🛒</span>
-          <h1 className="text-2xl font-black italic">SMART DRIVE MULTI-FOYER</h1>
-          <p className="text-xs text-slate-400 mt-1">Partagez l'application en couple ou avec vos amis</p>
+          <h1 className="text-2xl font-black italic tracking-tight">SMART DRIVE MULTI-FOYER</h1>
+          <p className="text-xs text-slate-400 mt-1">Espaces isolés et synchronisés en direct</p>
         </div>
 
         {!isCreatingFoyer ? (
           <form onSubmit={handleConnectFoyer} className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-blue-400">Rejoindre un Foyer</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-blue-400">Rejoindre votre Foyer</h2>
             <div>
-              <label className="text-[11px] font-bold text-slate-300 block mb-1">Code Foyer</label>
+              <label className="text-[11px] font-bold text-slate-300 block mb-1">Code d'accès Foyer</label>
               <input 
                 type="text" 
                 className="w-full bg-slate-900 border border-slate-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest text-lg focus:outline-none focus:border-blue-500"
@@ -516,7 +535,7 @@ Format impératif en JSON pur :
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-3">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-700 text-sm">Chargement de votre foyer {foyerCode}...</p>
+        <p className="font-bold text-slate-700 text-sm">Chargement du foyer {foyerCode}...</p>
       </div>
     );
   }
@@ -561,6 +580,13 @@ Format impératif en JSON pur :
               <span className="text-[10px] bg-white/20 text-blue-200 font-extrabold px-2 py-0.5 rounded-full">
                 {config.code_foyer}
               </span>
+              <button 
+                onClick={handleLogoutFoyer}
+                className="text-[9px] bg-white/10 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition"
+                title="Changer de foyer"
+              >
+                Changer ✕
+              </button>
             </div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-blue-200 mt-0.5">
               {moisActuel} • 36 Repas • {config.nom_famille}
@@ -729,7 +755,7 @@ Format impératif en JSON pur :
               </div>
             ) : (
               <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
-                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée.</p>
+                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée pour cette quinzaine.</p>
                 <button
                   onClick={generateWithGemini}
                   className="bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow"
