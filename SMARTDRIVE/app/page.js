@@ -11,7 +11,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
 const genAI = new GoogleGenerativeAI(geminiKey);
 
-// Nettoyage automatique des mots-clés superflus pour le Drive
 function cleanDriveTerm(text) {
   if (!text) return "";
   return text
@@ -20,7 +19,6 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// Photos culinaires HD chaleureuses
 function getRecipePhoto(dishName = "", type = "") {
   const name = dishName.toLowerCase();
   if (name.includes("saumon") || name.includes("cabillaud") || name.includes("poisson") || name.includes("poke") || name.includes("poké")) {
@@ -50,7 +48,6 @@ function getRecipePhoto(dishName = "", type = "") {
   return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
 }
 
-// Miniatures ingrédients Drive
 function getProductThumbnail(productName = "", rayon = "") {
   const p = (productName + " " + rayon).toLowerCase();
   if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) {
@@ -109,17 +106,15 @@ export default function SmartDriveApp() {
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
-  // Profil Foyer : Valeur par défaut 'Omnivore' ou 'Crétois'
+  // Profil Foyer
   const [selectedRegime, setSelectedRegime] = useState("Omnivore (Manger de tout)");
   const [exclusionsInput, setExclusionsInput] = useState("");
   const [budgetInput, setBudgetInput] = useState(230);
-
-  // Cadence & Format Modulable
   const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
   const [nbRecettes, setNbRecettes] = useState(14);
   const [nbPortions, setNbPortions] = useState(4);
 
-  // Stocks (Congélateur & Placard)
+  // Stocks
   const [stockList, setStockList] = useState([]);
   const [stockTab, setStockTab] = useState('congelateur');
 
@@ -149,7 +144,7 @@ export default function SmartDriveApp() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer, error } = await supabase
+      const { data: foyer } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -165,7 +160,6 @@ export default function SmartDriveApp() {
         setNbRecettes(foyer.nb_recettes || 14);
         setNbPortions(foyer.nb_portions || 4);
 
-        // Chargement propre des stocks (table indépendante)
         const { data: stocks } = await supabase
           .from('inventaire_congelateur')
           .select('*')
@@ -209,7 +203,8 @@ export default function SmartDriveApp() {
         budget_mensuel: budgetInput,
         duree_planning: dureePlanning,
         nb_recettes: nbRecettes,
-        nb_portions: nbPortions
+        nb_portions: nbPortions,
+        historique_notes: []
       }).select().single();
 
       if (error) {
@@ -236,11 +231,9 @@ export default function SmartDriveApp() {
     }
   }
 
-  // 🚀 SAUVEGARDE AUTOMATIQUE INSTANTANÉE DU RÉGIME AU CLIC !
   async function autoSaveRegime(newRegime) {
     setSelectedRegime(newRegime);
     if (!config) return;
-
     setConfig(prev => ({ ...prev, regime_alimentaire: newRegime }));
     try {
       await supabase.from('foyers').update({ regime_alimentaire: newRegime }).eq('id', config.id);
@@ -249,11 +242,9 @@ export default function SmartDriveApp() {
     }
   }
 
-  // Sauvegarde instantanée des exclusions
   async function autoSaveExclusions(newExclusions) {
     setExclusionsInput(newExclusions);
     if (!config) return;
-
     setConfig(prev => ({ ...prev, exclusions: newExclusions }));
     try {
       await supabase.from('foyers').update({ exclusions: newExclusions }).eq('id', config.id);
@@ -262,11 +253,9 @@ export default function SmartDriveApp() {
     }
   }
 
-  // Sauvegarde instantanée de la durée
   async function autoSaveDuree(newDuree) {
     setDureePlanning(newDuree);
     if (!config) return;
-
     setConfig(prev => ({ ...prev, duree_planning: newDuree }));
     try {
       await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
@@ -275,11 +264,9 @@ export default function SmartDriveApp() {
     }
   }
 
-  // Sauvegarde instantanée des portions
   async function autoSavePortions(newPortions) {
     setNbPortions(newPortions);
     if (!config) return;
-
     setConfig(prev => ({ ...prev, nb_portions: newPortions }));
     try {
       await supabase.from('foyers').update({ nb_portions: newPortions }).eq('id', config.id);
@@ -288,11 +275,9 @@ export default function SmartDriveApp() {
     }
   }
 
-  // Sauvegarde globale manuelle (au besoin)
   async function handleSaveProfile(e) {
     if (e) e.preventDefault();
     if (!config) return;
-
     try {
       await supabase.from('foyers').update({
         regime_alimentaire: selectedRegime,
@@ -384,22 +369,90 @@ export default function SmartDriveApp() {
     }
   }
 
-  async function updateRating(recipeId, rating, e) {
+  // 👨‍🍳 VALIDATION DU PLAT CUISINÉ
+  async function toggleRecipeCooked(recipeId, e) {
     if (e) e.stopPropagation();
+    if (!config) return;
+
+    let targetRecipe = null;
+    let newCookedStatus = false;
+
     const updatedMenu = (config.menu_json || []).map(r => {
       if (r.id === recipeId) {
-        const newRating = r.rating === rating ? 0 : rating;
-        return { ...r, rating: newRating };
+        newCookedStatus = !r.est_cuisine;
+        targetRecipe = r;
+        return {
+          ...r,
+          est_cuisine: newCookedStatus,
+          date_cuisine: newCookedStatus ? `${jourDuMois} ${moisActuel}` : null
+        };
       }
       return r;
     });
 
     setConfig(prev => ({ ...prev, menu_json: updatedMenu }));
     if (selectedRecipe && selectedRecipe.id === recipeId) {
-      setSelectedRecipe(prev => ({ ...prev, rating: prev.rating === rating ? 0 : rating }));
+      setSelectedRecipe(prev => ({
+        ...prev,
+        est_cuisine: newCookedStatus,
+        date_cuisine: newCookedStatus ? `${jourDuMois} ${moisActuel}` : null
+      }));
     }
 
     await supabase.from('foyers').update({ menu_json: updatedMenu }).eq('id', config.id);
+
+    // Décrémentation automatique des réserves
+    if (newCookedStatus && targetRecipe && targetRecipe.ingredients) {
+      const ingredientsText = targetRecipe.ingredients.join(" ").toLowerCase();
+      let deductedCount = 0;
+
+      for (const stockItem of stockList) {
+        if (!stockItem.est_consomme && stockItem.quantite > 0) {
+          const stockNameLower = stockItem.nom_produit.toLowerCase();
+          if (ingredientsText.includes(stockNameLower) || stockNameLower.includes(cleanDriveTerm(stockNameLower))) {
+            await adjustStockQty(stockItem, -1);
+            deductedCount++;
+          }
+        }
+      }
+
+      if (deductedCount > 0) {
+        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" est cuisiné. Vos ingrédients utilisés ont été décomptés de vos réserves.`);
+      }
+    }
+  }
+
+  // ⭐ NOTATION AVEC MÉMOIRE PERMANENTE (CARNET D'OR ET LISTE NOIRE À VIE)
+  async function updateRating(recipeId, rating, e) {
+    if (e) e.stopPropagation();
+    if (!config) return;
+
+    let ratedRecipeName = "";
+    const updatedMenu = (config.menu_json || []).map(r => {
+      if (r.id === recipeId) {
+        const newRating = r.rating === rating ? 0 : rating;
+        ratedRecipeName = r.nom;
+        return { ...r, rating: newRating };
+      }
+      return r;
+    });
+
+    // Enregistrement permanent dans l'historique du foyer
+    const currentHistory = Array.isArray(config.historique_notes) ? config.historique_notes : [];
+    const cleanHistory = currentHistory.filter(h => h.nom !== ratedRecipeName);
+    if (rating > 0) {
+      cleanHistory.push({ nom: ratedRecipeName, rating: rating, date: `${jourDuMois} ${moisActuel}` });
+    }
+
+    setConfig(prev => ({ ...prev, menu_json: updatedMenu, historique_notes: cleanHistory }));
+    if (selectedRecipe && selectedRecipe.id === recipeId) {
+      setSelectedRecipe(prev => ({ ...prev, rating: prev.rating === rating ? 0 : rating }));
+    }
+
+    await supabase.from('foyers').update({
+      menu_json: updatedMenu,
+      historique_notes: cleanHistory
+    }).eq('id', config.id);
   }
 
   async function toggleItemStock(basketKey, index) {
@@ -459,7 +512,7 @@ export default function SmartDriveApp() {
     }
   }
 
-  // ✨ INTÉGRER UNE ENVIE (utilise la sélection active du régime !)
+  // ✨ INTÉGRER UNE ENVIE
   async function handleApplyCraving(e) {
     if (e) e.preventDefault();
     const envie = cravingInput.trim();
@@ -693,17 +746,17 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION DYNAMIQUE : SOURCE DE VÉRITÉ IMMÉDIATE SUR LE RÉGIME CHOISI
+  // 🎯 GÉNÉRATION MENSUELLE LISANT LE CARNET PERMANENT DES NOTES
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
 
-    const lovedRecipes = (config.menu_json || []).filter(r => r.rating >= 4).map(r => r.nom);
-    const dislikedRecipes = (config.menu_json || [])
-      .filter(r => r.rating && r.rating <= 2)
-      .map(r => r.nom);
+    // Lecture des notes permanentes cumulées à vie !
+    const permanentHistory = Array.isArray(config.historique_notes) ? config.historique_notes : [];
+    const lovedRecipes = permanentHistory.filter(h => h.rating >= 4).map(h => h.nom);
+    const dislikedRecipes = permanentHistory.filter(h => h.rating <= 2).map(h => h.nom);
 
-    // Lecture des vrais stocks de la maison (ne sont jamais écrasés !)
+    // Lecture des vrais stocks de la maison
     const stocksActifs = stockList.filter(s => !s.est_consomme && s.quantite > 0);
     const stocksCongelo = stocksActifs
       .filter(s => s.emplacement === 'congelateur')
@@ -712,7 +765,6 @@ Format JSON pur :
       .filter(s => s.emplacement === 'placard')
       .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
-    // Priorité absolue au choix sélectionné à l'écran !
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
     const exclusionsActuelles = exclusionsInput || config.exclusions || 'Aucune';
     const budgetActuel = Number(budgetInput || config.budget_mensuel || 230);
@@ -731,6 +783,12 @@ PROFIL ALIMENTAIRE PRIORITAIRE :
   * Si "Index Glycémique Bas" : Céréales complètes, zéro sucre raffiné, légumes verts, protéines maigres.
   * Si "Végétarien" : Zéro viande ni poisson.
 - ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle d'en mettre !)
+
+HISTORIQUE PERMANENT DES GOÛTS DU FOYER (CRITIQUE) :
+- PLATS ADORÉS PRÉCÉDEMMENT (4 ou 5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun pour le moment'}.
+  -> CONSIGNE : Réinvite ces recettes adorées régulièrement ou inspire-t'en en priorité !
+- PLATS DÉTESTÉS (1 ou 2 étoiles) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
+  -> CONSIGNE STRICTE : INTERDICTION FORMELLE de reproposer ces recettes ou leurs variantes !
 
 CADENCE ET STRUCTURE :
 - Période : ${duree}
@@ -830,7 +888,6 @@ Format JSON pur :
         statut_p2: { recu: false, date_reception: null }
       };
 
-      // Sauvegarde complète et verrouillage du régime actif dans Supabase
       await supabase.from('foyers').update({
         menu_json: response.repas,
         panier_json: initialPanierJson,
@@ -844,7 +901,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu généré avec succès en mode "${regimeActuel}" (${totalRecettes} recettes, ${portions} pers.) !`);
+      alert(`Menu généré avec succès en mode "${regimeActuel}" (${totalRecettes} recettes, ${portions} pers.) ! Vos coups de cœur et refus sont respectés.`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -865,6 +922,7 @@ Format JSON pur :
     }, 1500);
   };
 
+  // Composant Étoiles
   const StarRating = ({ rating = 0, onRate }) => (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
@@ -997,7 +1055,11 @@ Format JSON pur :
     return activeBasket === 1 ? index < q1Threshold : index >= q1Threshold;
   });
 
-  const premierPlatFrais = mealsForActiveQuinzaine.find(r => r.type === 'Frais') || mealsForActiveQuinzaine[0];
+  const premierPlatFrais = mealsForActiveQuinzaine.find(r => r.type === 'Frais' && !r.est_cuisine) || mealsForActiveQuinzaine.find(r => !r.est_cuisine);
+
+  const cookedCount = mealsForActiveQuinzaine.filter(r => r.est_cuisine).length;
+  const totalCount = mealsForActiveQuinzaine.length;
+  const progressPercent = totalCount > 0 ? (cookedCount / totalCount) * 100 : 0;
 
   const filteredStockList = stockList.filter(item => {
     const emp = item.emplacement || 'congelateur';
@@ -1024,7 +1086,6 @@ Format JSON pur :
                 ✕
               </button>
             </div>
-            {/* L'en-tête reflète directement le choix en direct ! */}
             <p className="text-[11px] font-bold uppercase tracking-widest text-amber-100 mt-0.5">
               {moisActuel} • {selectedRegime}
             </p>
@@ -1068,13 +1129,32 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING */}
+        {/* 1. VUE PLANNING AVEC ÉTOILES INTELLIGENTES */}
         {view === 'menu' && (
           <div className="space-y-4">
+            
+            {/* JAUGE DE PROGRESSION */}
+            <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-sm">
+              <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <span>🍽️</span>
+                  <span>Avancement Quinzaine {activeBasket}</span>
+                </span>
+                <span className="text-[#C25E3E] font-black">{cookedCount} / {totalCount} cuisinés</span>
+              </div>
+              <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
+                <div 
+                  className="bg-emerald-600 h-full transition-all duration-500 rounded-full" 
+                  style={{ width: `${progressPercent}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Récapitulatif cadence */}
             <div className="bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2 flex items-center justify-between text-xs text-stone-700">
               <span className="font-bold flex items-center gap-1.5">
                 <span>🎯</span>
-                <span>{targetNbRecettes} recettes • {currentDuree} • {targetPortions} pers.</span>
+                <span>{targetNbRecettes} repas • {currentDuree} • {targetPortions} pers.</span>
               </span>
               <button
                 onClick={() => setView('profile')}
@@ -1084,6 +1164,7 @@ Format JSON pur :
               </button>
             </div>
 
+            {/* ALERTE FRAÎCHEUR FRIGO */}
             {isBasketReceived ? (
               premierPlatFrais && (
                 <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-4 text-white shadow-lg animate-in fade-in">
@@ -1127,6 +1208,7 @@ Format JSON pur :
               </div>
             )}
 
+            {/* Boîte d'envie */}
             <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 space-y-2">
               <label className="block text-[11px] font-black uppercase tracking-wider text-[#C25E3E] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
@@ -1173,18 +1255,22 @@ Format JSON pur :
                 {mealsForActiveQuinzaine.map((repas) => {
                   const photoUrl = getRecipePhoto(repas.nom, repas.type);
                   const isSwapping = swappingId === repas.id;
+                  const hasRating = repas.rating && repas.rating > 0;
+                  const canShowStars = repas.est_cuisine || hasRating;
 
                   return (
                     <div
                       key={repas.id}
                       onClick={() => setSelectedRecipe(repas)}
-                      className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border border-stone-200 transition-all cursor-pointer active:scale-[0.99]"
+                      className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border transition-all cursor-pointer active:scale-[0.99] ${
+                        repas.est_cuisine ? 'border-emerald-300 ring-2 ring-emerald-500/20' : 'border-stone-200'
+                      }`}
                     >
                       <div className="relative h-44 w-full bg-stone-200 overflow-hidden">
                         <img 
                           src={photoUrl} 
                           alt={repas.nom} 
-                          className="w-full h-full object-cover"
+                          className={`w-full h-full object-cover ${repas.est_cuisine ? 'opacity-70 grayscale-[20%]' : ''}`}
                           loading="lazy"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
@@ -1200,6 +1286,11 @@ Format JSON pur :
                           }`}>
                             {repas.type === 'Cheat' ? 'Plaisir' : (repas.type || 'Frais')}
                           </span>
+                          {repas.est_cuisine && (
+                            <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
+                              ✓ Cuisiné
+                            </span>
+                          )}
                         </div>
 
                         <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end text-white">
@@ -1218,7 +1309,7 @@ Format JSON pur :
                           </span>
                         </div>
 
-                        <h3 className="text-base font-extrabold text-stone-900 leading-snug mb-1">
+                        <h3 className={`text-base font-extrabold leading-snug mb-1 ${repas.est_cuisine ? 'text-emerald-950' : 'text-stone-900'}`}>
                           {repas.nom}
                         </h3>
 
@@ -1228,24 +1319,52 @@ Format JSON pur :
                           </p>
                         )}
 
-                        <div className="pt-2.5 border-t border-stone-100 flex justify-between items-center">
-                          <StarRating 
-                            rating={repas.rating || 0} 
-                            onRate={(star, e) => updateRating(repas.id, star, e)} 
-                          />
+                        {/* SECTION ÉTOILES LOGIQUE : MASQUÉE SI PAS ENCORE CUISINÉ ! */}
+                        <div className="pt-2.5 border-t border-stone-100 flex justify-between items-center gap-2">
+                          {canShowStars ? (
+                            <div className="flex items-center gap-1.5">
+                              <StarRating 
+                                rating={repas.rating || 0} 
+                                onRate={(star, e) => updateRating(repas.id, star, e)} 
+                              />
+                              {hasRating && (
+                                <span className="text-[10px] font-bold text-amber-600">({repas.rating}/5)</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-stone-400 italic">
+                              🍽️ À noter après dégustation
+                            </span>
+                          )}
 
-                          <button
-                            type="button"
-                            disabled={isSwapping}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              swapRecipe(repas);
-                            }}
-                            className="text-[11px] font-extrabold text-[#C25E3E] hover:text-[#A84E33] bg-amber-50 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-amber-200/60"
-                          >
-                            <span>{isSwapping ? '⏳' : '🔄'}</span>
-                            <span>{isSwapping ? 'Échange...' : 'Remplacer'}</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => toggleRecipeCooked(repas.id, e)}
+                              className={`text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border ${
+                                repas.est_cuisine
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
+                              }`}
+                              title={repas.est_cuisine ? "Cliquer pour annuler" : "Marquer comme cuisiné"}
+                            >
+                              <span>{repas.est_cuisine ? '✅' : '👨‍🍳'}</span>
+                              <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : 'Cuisiné'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isSwapping}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                swapRecipe(repas);
+                              }}
+                              className="text-[11px] font-extrabold text-[#C25E3E] hover:text-[#A84E33] bg-amber-50 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-amber-200/60"
+                              title="Remplacer cette recette"
+                            >
+                              <span>{isSwapping ? '⏳' : '🔄'}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1662,7 +1781,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 4. VUE PROFIL AVEC SAUVEGARDE INSTANTANÉE */}
+        {/* 4. VUE PROFIL */}
         {view === 'profile' && (
           <div className="space-y-4 animate-in fade-in">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
@@ -1678,7 +1797,7 @@ Format JSON pur :
 
             <form onSubmit={handleSaveProfile} className="bg-white p-5 rounded-3xl border border-stone-200 shadow-sm space-y-5">
               
-              {/* SÉLECTEUR DE CADENCE / DURÉE */}
+              {/* SÉLECTEUR DE CADENCE */}
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
                   Rythme & Période de Planification
@@ -1759,7 +1878,7 @@ Format JSON pur :
                 </div>
               </div>
 
-              {/* CHOIX DU RÉGIME AVEC AUTO-SAVE AU CLIC ! */}
+              {/* CHOIX DU RÉGIME */}
               <div className="pt-2 border-t border-stone-100">
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
                   Style Alimentaire (Sauvegardé au clic !)
@@ -1861,7 +1980,7 @@ Format JSON pur :
         )}
       </main>
 
-      {/* Fiche Recette Détaillée */}
+      {/* Fiche Recette Détaillée avec Étoiles Débloquées quand Cuisiné */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-white z-50 overflow-y-auto pb-12">
           <div className="relative h-60 w-full bg-stone-900">
@@ -1888,19 +2007,29 @@ Format JSON pur :
               {selectedRecipe.nom}
             </h2>
 
-            <div className="mb-4">
+            {/* DUO DE BOUTONS D'ACTION */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={(e) => toggleRecipeCooked(selectedRecipe.id, e)}
+                className={`py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-sm active:scale-98 ${
+                  selectedRecipe.est_cuisine
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                <span>{selectedRecipe.est_cuisine ? '✅' : '👨‍🍳'}</span>
+                <span>{selectedRecipe.est_cuisine ? 'Cuisiné ✓' : 'Marquer Cuisiné'}</span>
+              </button>
+
               <button
                 type="button"
                 disabled={swappingId === selectedRecipe.id}
                 onClick={() => swapRecipe(selectedRecipe)}
-                className="w-full bg-amber-50 hover:bg-amber-100 text-[#C25E3E] font-extrabold text-xs py-3 rounded-2xl border border-amber-200 transition flex items-center justify-center gap-2 active:scale-98"
+                className="bg-amber-50 hover:bg-amber-100 text-[#C25E3E] font-extrabold text-xs py-3 rounded-2xl border border-amber-200 transition flex items-center justify-center gap-1.5 active:scale-98"
               >
                 <span>{swappingId === selectedRecipe.id ? '⏳' : '🔄'}</span>
-                <span>
-                  {swappingId === selectedRecipe.id 
-                    ? 'Recherche d\'une alternative...' 
-                    : 'Pas envie de ce plat ? Proposer une alternative gourmande'}
-                </span>
+                <span>{swappingId === selectedRecipe.id ? 'Échange...' : 'Remplacer'}</span>
               </button>
             </div>
 
@@ -1923,12 +2052,24 @@ Format JSON pur :
               </div>
             </div>
 
+            {/* NOTATION DANS LA FICHE RECETTE */}
             <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
               <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
-              <StarRating 
-                rating={selectedRecipe.rating || 0} 
-                onRate={(star) => updateRating(selectedRecipe.id, star)} 
-              />
+              {selectedRecipe.est_cuisine || (selectedRecipe.rating && selectedRecipe.rating > 0) ? (
+                <div className="flex items-center gap-1.5">
+                  <StarRating 
+                    rating={selectedRecipe.rating || 0} 
+                    onRate={(star) => updateRating(selectedRecipe.id, star)} 
+                  />
+                  {selectedRecipe.rating > 0 && (
+                    <span className="text-xs font-black text-amber-600">({selectedRecipe.rating}/5)</span>
+                  )}
+                </div>
+              ) : (
+                <span className="text-[11px] text-stone-400 italic">
+                  Cuisinez ce plat pour débloquer la note
+                </span>
+              )}
             </div>
             
             {selectedRecipe.conseil && (
