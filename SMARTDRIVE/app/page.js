@@ -71,7 +71,7 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) {
     return "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("huile") || p.includes("sauce")) {
+  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("huile") || p.includes("sauce") || p.includes("thon") || p.includes("conserve")) {
     return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
   }
   return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80";
@@ -86,20 +86,28 @@ export default function SmartDriveApp() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
-  // Gestion de la session Foyer (Multi-utilisateurs)
+  // Gestion multi-foyer
   const [foyerCode, setFoyerCode] = useState("");
   const [inputCode, setInputCode] = useState("");
   const [isCreatingFoyer, setIsCreatingFoyer] = useState(false);
   const [newFoyerName, setNewFoyerName] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('menu'); // 'menu', 'shop' ou 'freezer'
+  const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
-  const [freezerStock, setFreezerStock] = useState([]);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
-  // Chargement intelligent : gère le lien magique (?foyer=...) ou la mémoire du téléphone
+  // État des stocks réels (Congélateur & Placard)
+  const [stockList, setStockList] = useState([]);
+  const [stockTab, setStockTab] = useState('congelateur'); // 'congelateur' ou 'placard'
+
+  // Formulaire d'ajout rapide de stock
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemLocation, setNewItemLocation] = useState("congelateur");
+  const [newItemQty, setNewItemQty] = useState(1);
+
+  // Chargement initial du Foyer
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlFoyer = urlParams.get('foyer');
@@ -112,7 +120,6 @@ export default function SmartDriveApp() {
       setInputCode(cleanCode);
       loadFoyerData(cleanCode);
     } else {
-      // Nouvel utilisateur sans code (ex: votre ami) -> Affiche l'écran d'accueil
       setLoading(false);
       setConfig(null);
     }
@@ -121,7 +128,7 @@ export default function SmartDriveApp() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer, error } = await supabase
+      const { data: foyer } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -129,15 +136,14 @@ export default function SmartDriveApp() {
 
       if (foyer) {
         setConfig(foyer);
-        // Lecture de la vraie table du grand congélateur pour ce foyer
-        const { data: freezer } = await supabase
+        const { data: stocks } = await supabase
           .from('inventaire_congelateur')
           .select('*')
           .eq('foyer_id', foyer.id)
           .eq('est_consomme', false)
           .order('created_at', { ascending: false });
 
-        setFreezerStock(freezer || []);
+        setStockList(stocks || []);
       } else {
         setConfig(null);
       }
@@ -179,7 +185,7 @@ export default function SmartDriveApp() {
         loadFoyerData(code);
       }
     } catch (err) {
-      alert("Erreur lors de la création : " + err.message);
+      alert("Erreur création foyer : " + err.message);
     } finally {
       setLoading(false);
     }
@@ -191,6 +197,70 @@ export default function SmartDriveApp() {
       setConfig(null);
       setFoyerCode("");
       setInputCode("");
+    }
+  }
+
+  async function handleAddStockItem(e) {
+    if (e) e.preventDefault();
+    if (!config || !newItemName.trim()) return;
+
+    try {
+      const isFish = newItemName.toLowerCase().includes("poisson") || newItemName.toLowerCase().includes("saumon");
+      const isVeg = newItemName.toLowerCase().includes("légume") || newItemName.toLowerCase().includes("haricot");
+
+      const { data } = await supabase.from('inventaire_congelateur').insert({
+        foyer_id: config.id,
+        nom_produit: newItemName.trim(),
+        emplacement: newItemLocation,
+        quantite: Number(newItemQty) || 1,
+        date_entree: `${jourDuMois} ${moisActuel}`,
+        origine: 'Inventaire Maison',
+        conservation_mois: newItemLocation === 'placard' ? 18 : isFish ? 4 : isVeg ? 12 : 6,
+        est_consomme: false
+      }).select().single();
+
+      if (data) {
+        setStockList(prev => [data, ...prev]);
+        setNewItemName("");
+        setNewItemQty(1);
+        alert(`✅ "${data.nom_produit}" (x${data.quantite}) ajouté à vos réserves (${data.emplacement === 'placard' ? 'Placard' : 'Congélateur'}) !`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function adjustStockQty(item, delta) {
+    const newQty = (item.quantite || 1) + delta;
+    if (newQty <= 0) {
+      await supabase.from('inventaire_congelateur').update({ est_consomme: true, quantite: 0 }).eq('id', item.id);
+      setStockList(prev => prev.filter(i => i.id !== item.id));
+    } else {
+      await supabase.from('inventaire_congelateur').update({ quantite: newQty }).eq('id', item.id);
+      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty } : i));
+    }
+  }
+
+  async function rescueToFreezer(productName, originInfo = "Sauvetage Frigo") {
+    if (!config) return;
+    try {
+      const { data } = await supabase.from('inventaire_congelateur').insert({
+        foyer_id: config.id,
+        nom_produit: productName,
+        emplacement: 'congelateur',
+        quantite: 1,
+        date_entree: `${jourDuMois} ${moisActuel}`,
+        origine: originInfo,
+        conservation_mois: 6,
+        est_consomme: false
+      }).select().single();
+
+      if (data) {
+        setStockList(prev => [data, ...prev]);
+        alert(`🧊 "${productName}" sauvegardé dans le grand congélateur !`);
+      }
+    } catch (e) {
+      console.error(e);
     }
   }
 
@@ -249,39 +319,7 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // Sauvetage d'un produit frais directement dans la table 'inventaire_congelateur'
-  async function rescueToFreezer(productName, originInfo = "Sauvetage Frigo") {
-    if (!config) return;
-    try {
-      const isFish = productName.toLowerCase().includes("poisson") || productName.toLowerCase().includes("saumon") || productName.toLowerCase().includes("cabillaud");
-      const isVeg = productName.toLowerCase().includes("légume") || productName.toLowerCase().includes("poireau") || productName.toLowerCase().includes("brocoli");
-
-      const { data, error } = await supabase.from('inventaire_congelateur').insert({
-        foyer_id: config.id,
-        nom_produit: productName,
-        date_entree: `${jourDuMois} ${moisActuel}`,
-        origine: originInfo,
-        conservation_mois: isFish ? 4 : isVeg ? 12 : 6
-      }).select().single();
-
-      if (data) {
-        setFreezerStock(prev => [data, ...prev]);
-        alert(`🧊 "${productName}" sauvegardé dans le congélateur du garage !`);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function removeFreezerItem(itemId) {
-    try {
-      await supabase.from('inventaire_congelateur').update({ est_consomme: true }).eq('id', itemId);
-      setFreezerStock(prev => prev.filter(i => i.id !== itemId));
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
+  // GÉNÉRATION GEMINI AVEC FORMULE B : 14 RECETTES (7 Q1 + 7 Q2)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -291,23 +329,32 @@ export default function SmartDriveApp() {
       .filter(r => r.rating && r.rating <= 2)
       .map(r => r.nom);
 
-    // L'IA lit les vrais produits en stock dans votre grand congélateur !
-    const freezerItems = freezerStock.map(i => i.nom_produit);
+    const stocksActifs = stockList.filter(s => !s.est_consomme && s.quantite > 0);
+    const stocksCongelo = stocksActifs
+      .filter(s => s.emplacement === 'congelateur')
+      .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
+    const stocksPlacard = stocksActifs
+      .filter(s => s.emplacement === 'placard')
+      .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour un couple de 40 ans.
-RÉPARTITION DU MOIS EN 2 QUINZAINES :
-- Recettes 1 à 5 : "basket": 1 (Quinzaine 1 - Panier 1). Ultra-frais de début de quinzaine + stock.
-- Recettes 6 à 9 : "basket": 2 (Quinzaine 2 - Panier 2). Réassort ULTRA-FRAIS pour la 2ème quinzaine (poisson/viande fraîche, légumes) + stock.
-Total exact : 9 recettes.
+STRUCTURE INTÉGRALE "FORMULE B" (100% DU MOIS COUVERT) :
+Chaque recette est préparée pour 4 portions (couvre 1 dîner pour 2 personnes + 1 déjeuner pour 2 le lendemain).
+Pour couvrir l'intégralité des 14 jours de chaque quinzaine, tu DOIS générer EXACTEMENT 14 RECETTES AU TOTAL :
+- RECETTES 1 À 7 : "basket": 1 (Quinzaine 1 - Panier 1). Couvrent les 14 jours de la 1ère quinzaine (produits ultra-frais de début de quinzaine + stock).
+- RECETTES 8 À 14 : "basket": 2 (Quinzaine 2 - Panier 2). Couvrent les 14 jours de la 2ème quinzaine (réassort ultra-frais + stock).
+TOTAL STRICT : 14 RECETTES UNIQUES DANS "repas".
 
-STOCK DÉJÀ PRÉSENT DANS LE GRAND CONGÉLATEUR DU GARAGE :
-Le couple a déjà en stock dans son congélateur : ${freezerItems.length ? freezerItems.join(', ') : 'Aucun produit pour le moment'}.
-CONSIGNE ÉCONOMIE ANTI-GASPI : Si possible, propose 1 ou 2 recettes qui utilisent ces ingrédients du congélateur en priorité et NE LES COMMANDE PAS au Drive !
+RÉSERVES ACTUELLES DANS LA MAISON (À UTILISER EN PRIORITÉ ET NE PAS ACHETER) :
+- Grand Congélateur (Garage) : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun produit'}
+- Placard & Épicerie (Conserves, féculents) : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun produit'}
 
-CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour 36 repas (sans alcool ni ménager).
-Marques distributeurs prioritaires (Marque Repère Leclerc, Carrefour Classic).
+CONSIGNE ÉCONOMIE "ZÉRO GASPI" :
+1. Utilise en priorité les stocks existants pour composer tes recettes.
+2. NE METS PAS ces ingrédients dans panier_1 ou panier_2 s'ils sont déjà disponibles dans le placard ou le congélateur !
+3. CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour l'ensemble des 14 recettes. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
 
-Génère 9 recettes de saison pour ${moisActuel.toUpperCase()} en France (4 portions par recette = 36 repas).
+Génère 14 recettes de saison pour ${moisActuel.toUpperCase()} en France.
 Profil santé : 40 ans, IG bas, vitalité, immunité de saison, 1 cheat meal par quinzaine.
 Envies du couple : "${config.cravings || 'Cuisine savoureuse, saine et équilibrée'}".
 
@@ -320,7 +367,7 @@ Pour chaque ingrédient dans panier_1 et panier_2 :
 - "rayon": Rayon Drive
 - "a_alternative_congelo": true si une version surgelée existe, false sinon
 - "mode_choisi": "frais"
-- "prix_frais": prix en euros
+- "prix_frais": prix réaliste en euros
 - "recherche_frais": 1 ou 2 mots simples (ex: "saumon", "poulet", "brocolis")
 - "prix_congelo": prix surgelé économique, ou null
 - "recherche_congelo": mot simple (ex: "saumon surgele"), ou null
@@ -345,7 +392,7 @@ Format impératif en JSON pur :
       "rating": 0
     },
     {
-      "id": 6,
+      "id": 8,
       "nom": "Nom recette Q2",
       "type": "Frais",
       "calories": "480 kcal",
@@ -419,7 +466,7 @@ Format impératif en JSON pur :
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu généré avec succès pour le foyer ${config.nom_famille} !`);
+      alert(`Menu Formule B généré : 14 recettes pour couvrir 100% du mois de ${moisActuel} !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -462,7 +509,7 @@ Format impératif en JSON pur :
     </div>
   );
 
-  // ÉCRAN D'ACCUEIL : Saisie du Code Foyer ou Création d'un nouveau foyer
+  // ÉCRAN DE CONNEXION / CRÉATION FOYER
   if (!loading && !config) {
     return (
       <div className="max-w-md mx-auto min-h-screen bg-slate-900 text-white p-6 flex flex-col justify-center">
@@ -560,18 +607,25 @@ Format impératif en JSON pur :
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
+  // Formule B : 7 recettes par quinzaine (14 recettes au total)
   const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
     }
-    return activeBasket === 1 ? index < 5 : index >= 5;
+    // Sécurité : 7 recettes en Q1, 7 recettes en Q2
+    return activeBasket === 1 ? index < 7 : index >= 7;
   });
 
   const premierPlatFrais = mealsForActiveQuinzaine.find(r => r.type === 'Frais') || mealsForActiveQuinzaine[0];
 
+  const filteredStockList = stockList.filter(item => {
+    const emp = item.emplacement || 'congelateur';
+    return emp === stockTab;
+  });
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-100 pb-28 shadow-2xl">
-      {/* Header Premium Dynamique Multi-Foyer */}
+      {/* Header Premium Multi-Foyer */}
       <header className="bg-gradient-to-r from-blue-700 to-indigo-800 p-5 text-white sticky top-0 z-40 shadow-lg">
         <div className="flex justify-between items-center mb-1">
           <div>
@@ -589,7 +643,7 @@ Format impératif en JSON pur :
               </button>
             </div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-blue-200 mt-0.5">
-              {moisActuel} • 36 Repas • {config.nom_famille}
+              {moisActuel} • 14 Recettes (100% Couvert) • {config.nom_famille}
             </p>
           </div>
           <button
@@ -610,7 +664,7 @@ Format impératif en JSON pur :
 
       <main className="p-4">
         {/* Sélecteur de Quinzaine universel */}
-        {view !== 'freezer' && (
+        {view !== 'stocks' && (
           <div className="flex bg-slate-200 p-1 rounded-2xl mb-4 shadow-inner">
             <button
               onClick={() => setActiveBasket(1)}
@@ -631,7 +685,7 @@ Format impératif en JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING & ALERTE FRIGO DU SOIR */}
+        {/* 1. VUE PLANNING (7 RECETTES PAR QUINZAINE) */}
         {view === 'menu' && (
           <div className="space-y-4">
             {premierPlatFrais && (
@@ -675,10 +729,10 @@ Format impératif en JSON pur :
 
             <div className="flex justify-between items-center pl-1 pr-1">
               <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Repas de la Quinzaine {activeBasket}
+                Repas de la Quinzaine {activeBasket} (Formule B)
               </h2>
               <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                {mealsForActiveQuinzaine.length} Recettes ({mealsForActiveQuinzaine.length * 4} Portions)
+                {mealsForActiveQuinzaine.length} Recettes (14 Jours Couverts à Deux)
               </span>
             </div>
 
@@ -755,7 +809,7 @@ Format impératif en JSON pur :
               </div>
             ) : (
               <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
-                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée pour cette quinzaine.</p>
+                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée.</p>
                 <button
                   onClick={generateWithGemini}
                   className="bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow"
@@ -797,7 +851,7 @@ Format impératif en JSON pur :
               </div>
 
               <p className="text-[10px] text-slate-300 italic font-medium">
-                💡 <b>Verdict de l'Arbitre :</b> Leclerc Lunel est ~{ecartEconomieDrive} € plus économique cette quinzaine sur vos produits de base.
+                💡 <b>Verdict de l'Arbitre :</b> Leclerc Lunel est ~{ecartEconomieDrive} € plus économique cette quinzaine sur votre panier complet.
               </p>
             </div>
 
@@ -981,55 +1035,181 @@ Format impératif en JSON pur :
           </div>
         )}
 
-        {/* 3. VUE MON CONGÉLATEUR (VRAIE TABLE SUPABASE) */}
-        {view === 'freezer' && (
+        {/* 3. VUE MES STOCKS (CONGÉLATEUR + PLACARD) */}
+        {view === 'stocks' && (
           <div className="space-y-4">
-            <div className="bg-gradient-to-r from-sky-600 to-blue-800 rounded-3xl p-5 text-white shadow-xl">
+            <div className="bg-gradient-to-r from-sky-600 to-indigo-800 rounded-3xl p-5 text-white shadow-xl">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-black uppercase tracking-wider text-sky-200">Inventaire Réel Garage</span>
-                <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{freezerStock.length} articles</span>
+                <span className="text-xs font-black uppercase tracking-wider text-sky-200">Inventaire Réel Foyer</span>
+                <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{stockList.length} articles</span>
               </div>
-              <h2 className="text-xl font-black">Mon Grand Congélateur 🧊</h2>
+              <h2 className="text-xl font-black">Réserves de la Maison 🏠</h2>
               <p className="text-xs text-sky-100 font-medium mt-1">
-                Les ingrédients enregistrés ici sont lus par Gemini pour réduire vos prochains paniers Drive !
+                L'IA utilise ces ingrédients en priorité pour vous faire économiser au Drive !
               </p>
             </div>
 
-            {freezerStock.length > 0 ? (
+            <div className="flex bg-slate-200 p-1 rounded-2xl shadow-inner">
+              <button
+                onClick={() => setStockTab('congelateur')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  stockTab === 'congelateur' ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span>🧊</span> Grand Congélateur ({stockList.filter(i => (i.emplacement || 'congelateur') === 'congelateur').length})
+              </button>
+              <button
+                onClick={() => setStockTab('placard')}
+                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  stockTab === 'placard' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span>🥫</span> Placard & Épicerie ({stockList.filter(i => i.emplacement === 'placard').length})
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStockItem} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                  + Ajouter un produit existant
+                </span>
+                <div className="flex gap-1 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setNewItemLocation('congelateur')}
+                    className={`px-2 py-1 rounded-lg font-bold transition ${
+                      newItemLocation === 'congelateur' ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    🧊 Au Congélo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewItemLocation('placard')}
+                    className={`px-2 py-1 rounded-lg font-bold transition ${
+                      newItemLocation === 'placard' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    🥫 Au Placard
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder={newItemLocation === 'congelateur' ? "Ex: 4 Steaks hachés, Pavés de saumon..." : "Ex: Pâtes Penne, Coulis de tomate, Thon..."}
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+
+                <div className="flex items-center bg-slate-100 rounded-xl border border-slate-200 px-1">
+                  <button
+                    type="button"
+                    onClick={() => setNewItemQty(Math.max(1, newItemQty - 1))}
+                    className="w-7 h-7 font-black text-slate-500 hover:text-slate-800"
+                  >
+                    -
+                  </button>
+                  <span className="w-6 text-center text-xs font-black text-slate-800">{newItemQty}</span>
+                  <button
+                    type="button"
+                    onClick={() => setNewItemQty(newItemQty + 1)}
+                    className="w-7 h-7 font-black text-slate-500 hover:text-slate-800"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-slate-500">
+                {(newItemLocation === 'congelateur' 
+                  ? ['Steaks hachés', 'Poulet 1kg', 'Saumon', 'Haricots verts', 'Frites']
+                  : ['Pâtes', 'Riz basmati', 'Coulis de tomate', 'Thon en boîte', 'Pois chiches']
+                ).map(sug => (
+                  <button
+                    key={sug}
+                    type="button"
+                    onClick={() => setNewItemName(sug)}
+                    className="bg-slate-50 hover:bg-slate-200 px-2 py-0.5 rounded-lg border border-slate-200 whitespace-nowrap transition"
+                  >
+                    + {sug}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs py-2.5 rounded-xl transition shadow"
+              >
+                Ajouter à mes réserves
+              </button>
+            </form>
+
+            {filteredStockList.length > 0 ? (
               <div className="space-y-3">
-                {freezerStock.map((item) => (
+                {filteredStockList.map((item) => (
                   <div key={item.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-sky-50 text-sky-700 rounded-2xl flex items-center justify-center text-lg font-black">
-                        🧊
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl font-black ${
+                        item.emplacement === 'placard' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
+                      }`}>
+                        {item.emplacement === 'placard' ? '🥫' : '🧊'}
                       </div>
                       <div>
                         <h4 className="text-sm font-extrabold text-slate-900">{item.nom_produit}</h4>
                         <p className="text-[11px] text-slate-500 font-medium">
-                          Entré le {item.date_entree} • <span className="text-emerald-600 font-bold">{item.origine}</span>
+                          Ajouté le {item.date_entree} • <span className="text-blue-600 font-bold">{item.origine}</span>
                         </p>
-                        <p className="text-[10px] text-sky-600 font-bold">
-                          Conservation max : ~{item.conservation_mois} mois
+                        <p className="text-[10px] text-slate-400">
+                          Conservation : ~{item.conservation_mois} mois
                         </p>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => removeFreezerItem(item.id)}
-                      className="text-slate-400 hover:text-red-500 p-2 text-xs font-bold transition"
-                      title="Sortir du congélateur"
-                    >
-                      ✕ Consommé
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center bg-slate-100 rounded-xl border border-slate-200 p-0.5">
+                        <button
+                          type="button"
+                          onClick={() => adjustStockQty(item, -1)}
+                          className="w-7 h-7 rounded-lg bg-white shadow-sm font-black text-xs text-slate-700 hover:bg-slate-50 transition"
+                          title="Diminuer la quantité"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center text-xs font-black text-slate-900">
+                          x{item.quantite || 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => adjustStockQty(item, 1)}
+                          className="w-7 h-7 rounded-lg bg-white shadow-sm font-black text-xs text-slate-700 hover:bg-slate-50 transition"
+                          title="Augmenter la quantité"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => adjustStockQty(item, -999)}
+                        className="text-slate-300 hover:text-red-500 p-1 text-sm transition"
+                        title="Supprimer définitivement"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
-                <span className="text-3xl block mb-2">🧊</span>
-                <p className="text-slate-600 font-bold text-sm">Votre grand congélateur est vide pour le moment.</p>
+                <span className="text-3xl block mb-2">{stockTab === 'placard' ? '🥫' : '🧊'}</span>
+                <p className="text-slate-600 font-bold text-sm">
+                  Votre {stockTab === 'placard' ? 'placard à épicerie' : 'grand congélateur'} est vide.
+                </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Utilisez le bouton "Sauver au Congélo" ou commandez en surgelé pour stocker ici !
+                  Utilisez le formulaire ci-dessus pour renseigner vos premiers produits !
                 </p>
               </div>
             )}
@@ -1154,16 +1334,16 @@ Format impératif en JSON pur :
         </button>
 
         <button
-          onClick={() => setView('freezer')}
+          onClick={() => setView('stocks')}
           className={`flex flex-col items-center gap-1 relative ${
-            view === 'freezer' ? 'text-blue-700 font-black' : 'text-slate-400'
+            view === 'stocks' ? 'text-blue-700 font-black' : 'text-slate-400'
           }`}
         >
-          <span className="text-lg">🧊</span>
-          <span className="text-[10px] uppercase tracking-wider">Mon Congélo</span>
-          {freezerStock.length > 0 && (
-            <span className="absolute -top-1 right-2 bg-sky-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-              {freezerStock.length}
+          <span className="text-lg">🏠</span>
+          <span className="text-[10px] uppercase tracking-wider">Mes Stocks</span>
+          {stockList.length > 0 && (
+            <span className="absolute -top-1 right-2 bg-blue-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+              {stockList.length}
             </span>
           )}
         </button>
