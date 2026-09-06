@@ -11,6 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
 const genAI = new GoogleGenerativeAI(geminiKey);
 
+// Nettoyage automatique des mots-clés superflus pour le Drive
 function cleanDriveTerm(text) {
   if (!text) return "";
   return text
@@ -19,7 +20,7 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE HAUTE DÉFINITION & VARIÉE
+// 📸 BIBLIOTHÈQUE CULINAIRE RICHE & HAUTE DÉFINITION
 const PHOTO_LIBRARY = {
   poisson_blanc: [
     "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
@@ -93,33 +94,15 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
 
 function getProductThumbnail(productName = "", rayon = "") {
   const p = (productName + " " + rayon).toLowerCase();
-  if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) {
-    return "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) {
-    return "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("poissonnerie") || p.includes("thon")) {
-    return "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) {
-    return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) {
-    return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) {
-    return "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("curry") || p.includes("coriandre") || p.includes("épice") || p.includes("herbe") || p.includes("sel") || p.includes("poivre")) {
-    return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("huile") || p.includes("vinaigre") || p.includes("sauce") || p.includes("moutarde")) {
-    return "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80";
-  }
-  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve")) {
-    return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
-  }
+  if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) return "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) return "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("thon")) return "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) return "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("curry") || p.includes("coriandre") || p.includes("épice") || p.includes("herbe") || p.includes("sel") || p.includes("poivre")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("huile") || p.includes("vinaigre") || p.includes("sauce") || p.includes("moutarde")) return "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve")) return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
   return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80";
 }
 
@@ -132,7 +115,7 @@ export default function App() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
-  // Multi-foyer
+  // Session Foyer
   const [foyerCode, setFoyerCode] = useState("");
   const [inputCode, setInputCode] = useState("");
   const [isCreatingFoyer, setIsCreatingFoyer] = useState(false);
@@ -143,7 +126,6 @@ export default function App() {
   const [isInjectingCraving, setIsInjectingCraving] = useState(false);
   const [cravingInput, setCravingInput] = useState("");
 
-  // Navigation (4 univers)
   const [view, setView] = useState('menu');
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
@@ -156,20 +138,18 @@ export default function App() {
   const [budgetInput, setBudgetInput] = useState(230);
   const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
   const [nbRecettes, setNbRecettes] = useState(14);
-
-  // NOUVEAU : Option Moments de repas (Midi seul, Soir seul, ou Midi + Soir)
   const [typeRepasPlanifies, setTypeRepasPlanifies] = useState("Dîner + Lunchbox midi");
 
-  // Composition familiale
+  // 👪 COMPOSITION FAMILIALE
   const [nbAdultes, setNbAdultes] = useState(2);
-  const [nbEnfants, setNbEnfants] = useState(0);
-  const [optionEnfants, setOptionEnfants] = useState(false);
+  const [nbEnfants, setNbEnfants] = useState(1);
+  const [optionEnfants, setOptionEnfants] = useState(true);
 
   // URLs Drive
   const [driveUrl1, setDriveUrl1] = useState("https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=");
   const [driveUrl2, setDriveUrl2] = useState("https://www.carrefour.fr/s?q=");
-  const [driveNom1, setDriveNom1] = useState("Leclerc");
-  const [driveNom2, setDriveNom2] = useState("Carrefour");
+  const [driveNom1, setDriveNom1] = useState("Leclerc Lunel");
+  const [driveNom2, setDriveNom2] = useState("Carrefour Alès");
 
   // Stocks
   const [stockList, setStockList] = useState([]);
@@ -206,7 +186,7 @@ export default function App() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer } = await supabase
+      const { data: foyer, error } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -222,9 +202,10 @@ export default function App() {
         setNbRecettes(foyer.nb_recettes || 14);
         setTypeRepasPlanifies(foyer.type_repas_planifies || "Dîner + Lunchbox midi");
 
-        setNbAdultes(foyer.nb_adultes ?? 2);
-        setNbEnfants(foyer.nb_enfants ?? 0);
-        setOptionEnfants(foyer.option_enfants ?? (foyer.nb_enfants > 0));
+        // Chargement fidèle de la famille
+        setNbAdultes(foyer.nb_adultes !== undefined && foyer.nb_adultes !== null ? foyer.nb_adultes : 2);
+        setNbEnfants(foyer.nb_enfants !== undefined && foyer.nb_enfants !== null ? foyer.nb_enfants : 1);
+        setOptionEnfants(foyer.option_enfants !== undefined && foyer.option_enfants !== null ? foyer.option_enfants : true);
 
         if (foyer.drive_leclerc_url) setDriveUrl1(foyer.drive_leclerc_url);
         if (foyer.drive_carrefour_url) setDriveUrl2(foyer.drive_carrefour_url);
@@ -305,26 +286,62 @@ export default function App() {
     }
   }
 
-  // Sauvegardes instantanées
+  // 🚀 SAUVEGARDE AUTOMATIQUE INSTANTANÉE DE LA FAMILLE DANS SUPABASE
+  async function saveFamilyImmediate(adults, kids, optKids) {
+    setNbAdultes(adults);
+    setNbEnfants(kids);
+    setOptionEnfants(optKids);
+
+    if (!config) return;
+    try {
+      await supabase.from('foyers').update({
+        nb_adultes: adults,
+        nb_enfants: kids,
+        option_enfants: optKids
+      }).eq('id', config.id);
+
+      setConfig(prev => ({
+        ...prev,
+        nb_adultes: adults,
+        nb_enfants: kids,
+        option_enfants: optKids
+      }));
+    } catch (e) {
+      console.error("Erreur sauvegarde famille :", e);
+    }
+  }
+
   async function autoSaveRegime(newRegime) {
     setSelectedRegime(newRegime);
     if (!config) return;
     setConfig(prev => ({ ...prev, regime_alimentaire: newRegime }));
-    await supabase.from('foyers').update({ regime_alimentaire: newRegime }).eq('id', config.id);
+    try {
+      await supabase.from('foyers').update({ regime_alimentaire: newRegime }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function autoSaveMealType(newMealType) {
     setTypeRepasPlanifies(newMealType);
     if (!config) return;
     setConfig(prev => ({ ...prev, type_repas_planifies: newMealType }));
-    await supabase.from('foyers').update({ type_repas_planifies: newMealType }).eq('id', config.id);
+    try {
+      await supabase.from('foyers').update({ type_repas_planifies: newMealType }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function autoSaveExclusions(newExclusions) {
     setExclusionsInput(newExclusions);
     if (!config) return;
     setConfig(prev => ({ ...prev, exclusions: newExclusions }));
-    await supabase.from('foyers').update({ exclusions: newExclusions }).eq('id', config.id);
+    try {
+      await supabase.from('foyers').update({ exclusions: newExclusions }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const activeExclusionsList = (exclusionsInput || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -351,7 +368,11 @@ export default function App() {
     setDureePlanning(newDuree);
     if (!config) return;
     setConfig(prev => ({ ...prev, duree_planning: newDuree }));
-    await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
+    try {
+      await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function handleSaveProfile(e) {
@@ -365,9 +386,9 @@ export default function App() {
         duree_planning: dureePlanning,
         nb_recettes: Number(nbRecettes) || 14,
         type_repas_planifies: typeRepasPlanifies,
-        nb_adultes: nbAdultes,
-        nb_enfants: nbEnfants,
-        option_enfants: optionEnfants,
+        nb_adultes: Number(nbAdultes) || 2,
+        nb_enfants: Number(nbEnfants) || 0,
+        option_enfants: Boolean(optionEnfants),
         drive_leclerc_url: driveUrl1,
         drive_carrefour_url: driveUrl2
       }).eq('id', config.id);
@@ -380,14 +401,14 @@ export default function App() {
         duree_planning: dureePlanning,
         nb_recettes: Number(nbRecettes) || 14,
         type_repas_planifies: typeRepasPlanifies,
-        nb_adultes: nbAdultes,
-        nb_enfants: nbEnfants,
-        option_enfants: optionEnfants,
+        nb_adultes: Number(nbAdultes) || 2,
+        nb_enfants: Number(nbEnfants) || 0,
+        option_enfants: Boolean(optionEnfants),
         drive_leclerc_url: driveUrl1,
         drive_carrefour_url: driveUrl2
       }));
 
-      alert("✅ Configuration du foyer enregistrée avec succès !");
+      alert("✅ Profil complet du foyer enregistré !");
     } catch (err) {
       console.error(err);
       alert("Erreur sauvegarde : " + err.message);
@@ -417,7 +438,7 @@ export default function App() {
         setStockList(prev => [data, ...prev]);
         setNewItemName("");
         setNewItemQty(1);
-        alert(`✅ "${data.nom_produit}" (x${data.quantite}) ajouté à vos réserves !`);
+        alert(`✅ "${data.nom_produit}" ajouté à vos réserves !`);
       }
     } catch (err) {
       console.error(err);
@@ -458,7 +479,6 @@ export default function App() {
     }
   }
 
-  // 👨‍🍳 VALIDATION DU PLAT CUISINÉ (avec mention Midi ou Soir)
   async function toggleRecipeCooked(recipeId, moment = null, e) {
     if (e) e.stopPropagation();
     if (!config) return;
@@ -501,7 +521,7 @@ export default function App() {
       await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
 
       if (deductedItems.length > 0) {
-        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" validé (${moment || 'Repas'}). ${deductedItems.length} ingrédient(s) décomptés de vos réserves.`);
+        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" validé. ${deductedItems.length} ingrédient(s) décomptés de vos réserves.`);
       }
     } 
     else if (!newCookedStatus && targetRecipe) {
@@ -531,7 +551,7 @@ export default function App() {
       setConfig(prev => ({ ...prev, menu_json: finalMenu }));
       await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
 
-      alert(`↩️ Annulation : "${targetRecipe.nom}" repasse en attente et vos ingrédients ont été réintégrés !`);
+      alert(`↩️ Annulation : "${targetRecipe.nom}" repasse en attente et vos réserves ont été réintégrées !`);
     }
   }
 
@@ -623,7 +643,6 @@ export default function App() {
     }
   }
 
-  // ✨ INTÉGRER UNE ENVIE (avec distinction Midi ou Soir)
   async function handleApplyCraving(e) {
     if (e) e.preventDefault();
     const envie = cravingInput.trim();
@@ -636,16 +655,16 @@ export default function App() {
     const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour l'application "À Table !".
-Le couple a formulé une ENVIE TRÈS PRÉCISE : "${envie}".
-Génère UNE RECETTE correspondant à cette envie pour ${moisActuel.toUpperCase()} en France (${portions} portions).
-Contraintes :
-- Quinzaine : ${activeBasket} (Panier ${activeBasket})
-- Portions : ${portions} personnes
-- Moment : Midi ou Soir (repas adapté)
-- Régime respecté : ${regimeActuel}
-- Aliments interdits : ${exclusionsInput || config.exclusions || 'Aucun'}
-- Inclus tous les condiments nécessaires (oignons, ail, huile, épices).
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour "À Table !".
+ENVIE PRÉCISE DU FOYER : "${envie}".
+COMPOSITION FAMILIALE OBLIGATOIRE :
+- Adultes : ${nbAdultes}
+- Enfants (<12 ans) : ${nbEnfants}
+- Option Kid-Friendly : ${optionEnfants ? "OUI (textures douces, légumes habilement intégrés, zéro piment, adoré des enfants)" : "NON"}
+- Portions totales par plat : ${portions} personnes.
+- Régime respecté : ${regimeActuel}.
+- Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
+Inclus tous les condiments nécessaires (oignons, ail, huile, épices).
 
 Format JSON pur impératif :
 {
@@ -656,8 +675,9 @@ Format JSON pur impératif :
     "moment": "Soir",
     "calories": "520 kcal",
     "temps": "25 min",
-    "bienfait_sante": "✨ Recette adaptée à votre profil",
+    "bienfait_sante": "✨ Recette adaptée à toute la famille",
     "saison_atout": "Ingrédients de saison",
+    "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
@@ -729,7 +749,7 @@ Format JSON pur impératif :
         panier_json: updatedPanierJson
       }));
 
-      alert(`🎉 Votre envie "${envie}" a été ajoutée à la Quinzaine ${activeBasket} !`);
+      alert(`🎉 Votre envie "${envie}" (${portions} pers.) a été intégrée avec succès !`);
     } catch (err) {
       console.error(err);
       alert("Erreur intégration : " + err.message);
@@ -738,7 +758,6 @@ Format JSON pur impératif :
     }
   }
 
-  // 🔄 REMPLACER UNE RECETTE
   async function swapRecipe(recipeToSwap) {
     if (!config || !recipeToSwap) return;
     setSwappingId(recipeToSwap.id);
@@ -748,18 +767,12 @@ Format JSON pur impératif :
     const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour l'application "À Table !".
-Le couple ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
-PROFIL DU FOYER :
-- Régime respecté : ${regimeActuel}
-- Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}
-Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) pour ${moisActuel.toUpperCase()} en France.
-Contraintes :
-- Quinzaine : ${targetBasket} (Panier ${targetBasket})
-- Portions : ${portions} pers.
-- Moment : ${recipeToSwap.moment || 'Midi ou Soir'}
-- Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
-- Inclus les condiments indispensables dans "nouveaux_ingredients_drive".
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour "À Table !".
+Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
+COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants (<12 ans). Total ${portions} portions.
+Option Enfants : ${optionEnfants ? 'OUI (recette kid-friendly qui régale les enfants)' : 'NON'}.
+Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
+Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
 
 Format JSON pur :
 {
@@ -770,8 +783,9 @@ Format JSON pur :
     "moment": "${recipeToSwap.moment || 'Soir'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Bienfait santé",
+    "bienfait_sante": "🛡️ Adapté aux petits et grands",
     "saison_atout": "Légumes de saison",
+    "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
@@ -861,7 +875,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION MENSUELLE (avec distinction Midi & Soir)
+  // 🎯 GÉNÉRATION MENSUELLE RESPECTANT LES ENFANTS ET LE NOMBRE EXACT DE PERSONNES
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -878,45 +892,54 @@ Format JSON pur :
       .filter(s => s.emplacement === 'placard')
       .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
+    // Priorité absolue aux réglages actifs à l'écran
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
     const exclusionsActuelles = exclusionsInput || config.exclusions || 'Aucune';
     const budgetActuel = Number(budgetInput || config.budget_mensuel || 230);
     const duree = dureePlanning || config.duree_planning || "1 Mois (2 Paniers)";
     const totalRecettes = Number(nbRecettes || config.nb_recettes || 14);
-    const portions = targetPortions;
     const modeRepas = typeRepasPlanifies || config.type_repas_planifies || "Dîner + Lunchbox midi";
+
+    // COMPOSITION DU FOYER VERROUILLÉE
+    const adults = Number(nbAdultes !== undefined ? nbAdultes : (config.nb_adultes ?? 2));
+    const kids = Number(nbEnfants !== undefined ? nbEnfants : (config.nb_enfants ?? 1));
+    const isKidFriendly = optionEnfants !== undefined ? optionEnfants : Boolean(config.option_enfants);
+    const totalPersons = adults + kids;
+    const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
     const isMonth = duree.includes('Mois');
     const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour l'application "À Table !".
-PROFIL ALIMENTAIRE PRIORITAIRE :
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour "À Table !".
+COMPOSITION FAMILIALE DU FOYER (CRITIQUE ET OBLIGATOIRE) :
+- Adultes : ${adults}
+- Enfants (<12 ans) : ${kids}
+- Option Enfants (Kid-Friendly) : ${isKidFriendly ? "OUI STRICTEMENT (Recettes qui plaisent aux enfants : légumes habilement intégrés en gratins/purées/sauces douces, zéro piment fort, textures gourmandes et saines)" : "NON"}
+- Nombre de portions par plat : ${portions} portions (pour nourrir ${totalPersons} personnes).
+
+PROFIL ALIMENTAIRE :
 - Régime choisi : ${regimeActuel}
 - ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle d'en mettre !)
 
-GESTION DU MIDI ET DU SOIR :
-- Mode sélectionné : "${modeRepas}"
-  * Si "Midi & Soir (Deux repas par jour)" : Alterne des recettes adaptées au midi (fraîches, digestes, salades, bowls, omelettes) et des recettes pour le soir (plats chauds réconfortants, gratins, mijotés). Dans chaque recette, indique impérativement "moment": "Midi" ou "moment": "Soir".
-  * Si "Dîner + Lunchbox midi" : Plats chauds complets du soir qui se réchauffent idéalement le midi. "moment": "Soir + Lunchbox".
-  * Si "Dîner uniquement" : Plats du soir. "moment": "Soir".
+MOMENTS DE REPAS : "${modeRepas}" (Alterne "Midi" et "Soir" si deux repas par jour sont demandés).
+
+HISTORIQUE DU FOYER :
+- PLATS ADORÉS (4-5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun'}.
+- PLATS DÉTESTÉS (1-2 étoiles) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'} (BANNIS).
 
 CADENCE ET STRUCTURE :
 - Période : ${duree}
-- Portions : ${portions} portions par recette
 - Nombre STRICT DE RECETTES À GÉNÉRER : EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
-${isMonth ? `- Répartition : Les recettes 1 à ${q1Count} ont "basket": 1 (Panier 1). Les recettes ${q1Count + 1} à ${totalRecettes} ont "basket": 2 (Panier 2).` : `- Toutes les recettes ont "basket": 1.`}
+${isMonth ? `- Répartition : Recettes 1 à ${q1Count} en Panier 1, Recettes ${q1Count + 1} à ${totalRecettes} en Panier 2.` : `- Toutes les recettes ont "basket": 1.`}
 
-RÉSERVES DU FOYER :
+RÉSERVES DU FOYER (À UTILISER EN PRIORITÉ ET NE PAS ACHETER AU DRIVE) :
 - Grand Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
-- Placard & Épicerie : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
-Utilise ces réserves en priorité et NE LES COMMANDE PAS au Drive !
+- Placard : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
 
 CONDIMENTS ET AROMATES : Inclus systématiquement oignons, ail, herbes et épices dans les paniers avec "est_condiment": true.
 CONTRAINTE BUDGÉTAIRE : ~${budgetActuel}€ max. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
 
 Génère ${totalRecettes} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions).
-Envies formulées par le couple : "${config.cravings || 'Cuisine savoureuse, saine et équilibrée'}".
-
 Format JSON pur :
 {
   "repas": [
@@ -924,14 +947,15 @@ Format JSON pur :
       "id": 1,
       "nom": "Nom recette 1",
       "type": "Frais",
-      "moment": "Midi",
+      "moment": "Soir",
       "calories": "510 kcal",
       "temps": "25 min",
       "bienfait_sante": "🛡️ Bienfait santé",
       "saison_atout": "Légumes d'automne",
+      "kid_friendly": ${isKidFriendly},
       "ingredients": ["Ingrédient 1", "Ingrédient 2"],
       "etapes": ["Étape 1", "Étape 2"],
-      "conseil": "Astuce chef",
+      "conseil": "Astuce chef pour petits et grands",
       "basket": 1,
       "rating": 0
     }
@@ -1000,6 +1024,7 @@ Format JSON pur :
         statut_p2: { recu: false, date_reception: null }
       };
 
+      // VERROUILLAGE DÉFINITIF DANS SUPABASE (NE POURRA PLUS DISPARAÎTRE !)
       await supabase.from('foyers').update({
         menu_json: response.repas,
         panier_json: initialPanierJson,
@@ -1009,11 +1034,14 @@ Format JSON pur :
         duree_planning: duree,
         nb_recettes: totalRecettes,
         type_repas_planifies: modeRepas,
+        nb_adultes: adults,
+        nb_enfants: kids,
+        option_enfants: isKidFriendly,
         current_month: moisActuel
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu "À Table !" généré avec succès en mode ${regimeActuel} (${modeRepas}) !`);
+      alert(`Menu "À Table !" généré pour ${adults} adulte(s) et ${kids} enfant(s) (${isKidFriendly ? 'Mode Enfants Actif 🧸' : ''}) !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -1204,7 +1232,7 @@ Format JSON pur :
                   </button>
                 </div>
                 <p className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-amber-100 mt-0.5">
-                  {moisActuel} • {selectedRegime}
+                  {moisActuel} • {nbAdultes} Adulte(s) {nbEnfants > 0 && `• ${nbEnfants} Enfant(s)`} {optionEnfants && '🧸'}
                 </p>
               </div>
             </div>
@@ -1272,11 +1300,11 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING AVEC DISTINCTION MIDI & SOIR */}
+        {/* 1. VUE PLANNING */}
         {view === 'menu' && (
           <div className="space-y-6">
             
-            {/* Progression & Paramètres actifs */}
+            {/* Progression & Cadence active */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-center">
                 <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-2">
@@ -1297,9 +1325,11 @@ Format JSON pur :
               <div className="bg-amber-50 border border-amber-200/60 rounded-3xl px-5 py-4 flex items-center justify-between text-xs text-stone-700 shadow-sm">
                 <div>
                   <span className="font-extrabold text-sm block text-stone-800">
-                    🎯 {targetNbRecettes} repas • {typeRepasPlanifies}
+                    🎯 {targetNbRecettes} repas • {nbAdultes} Adulte(s) {nbEnfants > 0 && `• ${nbEnfants} Enfant(s)`}
                   </span>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Portions : {targetPortions} pers. ({currentDuree})</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    {portions} pers. cuisinées par plat {optionEnfants && '• Mode Kid-Friendly 🧸'}
+                  </p>
                 </div>
                 <button
                   onClick={() => setView('profile')}
@@ -1320,7 +1350,7 @@ Format JSON pur :
                       <span className="text-xs md:text-sm font-black uppercase tracking-wider">Fraîcheur Frigo (Courses du {basketStatus.date_reception})</span>
                     </div>
                     <p className="text-xs md:text-sm font-medium leading-snug">
-                      À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> ({premierPlatFrais.moment || 'Repas'}). Pas le temps ?
+                      À cuisiner en priorité : <b>{premierPlatFrais.nom}</b>. Pas le temps ?
                     </p>
                   </div>
                   <div className="flex gap-2.5 flex-shrink-0">
@@ -1370,7 +1400,7 @@ Format JSON pur :
               <div className="flex gap-2.5">
                 <input
                   type="text"
-                  placeholder="Ex: Lasagnes, Poké bowl du midi, Tajine du soir..."
+                  placeholder="Ex: Lasagnes maison, nuggets sains, gratin doux..."
                   value={cravingInput}
                   onChange={(e) => setCravingInput(e.target.value)}
                   className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-4 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
@@ -1392,11 +1422,11 @@ Format JSON pur :
                 {isPlanningMonth ? `Repas de la Quinzaine ${activeBasket}` : `Repas du cycle (${currentDuree})`}
               </h2>
               <span className="text-xs text-emerald-700 font-black bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers.
+                {mealsForActiveQuinzaine.length} Recettes • {portions} pers. {optionEnfants && '🧸'}
               </span>
             </div>
 
-            {/* GRILLE DES PLATS AVEC DISTINCTION MIDI ET SOIR */}
+            {/* GRILLE DES PLATS AVEC BADGE ENFANT */}
             {mealsForActiveQuinzaine.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {mealsForActiveQuinzaine.map((repas) => {
@@ -1425,16 +1455,15 @@ Format JSON pur :
                           <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
                           
                           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                            {/* NOUVEAU BADGE CLAIR : MIDI OU SOIR */}
                             <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
                               isMidi ? 'bg-amber-400 text-stone-950' : 'bg-indigo-900 text-white'
                             }`}>
                               {isMidi ? '☀️ Midi' : '🌙 Soir'}
                             </span>
 
-                            {isPlanningMonth && (
-                              <span className="bg-white/90 backdrop-blur text-stone-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                                Panier {activeBasket}
+                            {repas.kid_friendly && (
+                              <span className="bg-amber-400 text-stone-950 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow flex items-center gap-1">
+                                <span>🧸</span> Kid-Friendly
                               </span>
                             )}
 
@@ -1491,7 +1520,6 @@ Format JSON pur :
                         )}
 
                         <div className="flex items-center gap-1.5">
-                          {/* BOUTON CUISINÉ CONTEXTUEL MIDI OU SOIR */}
                           <button
                             type="button"
                             onClick={(e) => toggleRecipeCooked(repas.id, repas.moment || 'Repas', e)}
@@ -1500,10 +1528,10 @@ Format JSON pur :
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                 : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
                             }`}
-                            title={repas.est_cuisine ? "Cliquer pour annuler et restituer les stocks" : `Marquer cuisiné pour le ${repas.moment || 'repas'}`}
+                            title={repas.est_cuisine ? "Cliquer pour annuler" : "Marquer cuisiné"}
                           >
                             <span>{repas.est_cuisine ? '✅' : isMidi ? '☀️' : '🌙'}</span>
-                            <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : isMidi ? 'Cuisiné ce midi' : 'Cuisiné ce soir'}</span>
+                            <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : 'Cuisiné'}</span>
                           </button>
 
                           <button
@@ -1549,7 +1577,7 @@ Format JSON pur :
                     {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} en attente`}
                   </h4>
                   <p className="text-xs text-stone-400">
-                    {isBasketReceived ? 'Suivi fraîcheur actif' : 'Cliquez une fois vos sacs rangés'}
+                    {isBasketReceived ? 'Suivi fraîcheur actif dans votre Planning' : 'Cliquez une fois vos sacs rangés'}
                   </p>
                 </div>
               </div>
@@ -1564,7 +1592,6 @@ Format JSON pur :
               </button>
             </div>
 
-            {/* Arbitre Drive */}
             <div className="bg-[#1C1917] rounded-3xl p-5 md:p-6 text-white shadow-xl border border-stone-800">
               <div className="flex items-center justify-between mb-4 border-b border-stone-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -1591,15 +1618,14 @@ Format JSON pur :
               </div>
 
               <p className="text-xs text-stone-300 italic font-medium">
-                💡 <b>Verdict de l'Arbitre :</b> {driveNom1} est ~{ecartEconomieDrive} € plus économique sur ce panier.
+                💡 <b>Verdict de l'Arbitre :</b> {driveNom1} est ~{ecartEconomieDrive} € plus économique sur ce panier complet.
               </p>
             </div>
 
-            {/* Suivi Budgétaire */}
             <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-5 rounded-3xl shadow-md flex justify-between items-center">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90 block">
-                  Total Panier {activeBasket}
+                  Total Panier {activeBasket} ({portions} pers.)
                 </span>
                 <span className="text-2xl md:text-3xl font-black">
                   {totalPanierEstime.toFixed(2)} €
@@ -1621,7 +1647,6 @@ Format JSON pur :
               </span>
             </div>
 
-            {/* Grille des articles */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
@@ -1932,7 +1957,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 4. VUE PROFIL (AVEC OPTION MIDI & SOIR !) */}
+        {/* 4. VUE PROFIL : TABLEAU DE BORD PLEIN FORMAT AVEC SAUVEGARDE ENFANTS INSTANTANÉE */}
         {view === 'profile' && (
           <div className="space-y-6 max-w-2xl mx-auto animate-in fade-in">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-6 text-white shadow-xl flex justify-between items-center">
@@ -1940,7 +1965,7 @@ Format JSON pur :
                 <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration du Foyer</span>
                 <h2 className="text-2xl font-black mt-0.5 font-serif">Profil & Préférences ⚙️</h2>
                 <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
-                  Enregistré en direct à chaque modification !
+                  Tous les réglages sont sauvegardés en direct !
                 </p>
               </div>
               <span className="bg-white/20 px-3.5 py-1 rounded-full text-xs font-bold text-amber-100">{config.code_foyer}</span>
@@ -1949,19 +1974,89 @@ Format JSON pur :
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                {/* COLONNE GAUCHE : RYTHME, MIDI/SOIR, ENFANTS & BUDGET */}
+                {/* COLONNE GAUCHE */}
                 <div className="space-y-6">
                   
-                  {/* NOUVEAU : CHOIX DES MOMENTS DE REPAS (MIDI VS SOIR) */}
+                  {/* COMPOSITION FAMILIALE (SAUVEGARDÉE IMMÉDIATEMENT AU CLIC !) */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700 flex items-center justify-between">
+                      <span>1. Composition du Foyer</span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                        Total : {totalPersonnesFoyer} pers.
+                      </span>
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-center">
+                        <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">Adultes</label>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => saveFamilyImmediate(Math.max(1, nbAdultes - 1), nbEnfants, optionEnfants)}
+                            className="w-8 h-8 bg-white rounded-xl border border-stone-200 font-black text-sm shadow-sm active:scale-95 transition"
+                          >-</button>
+                          <span className="text-lg font-black text-stone-800">{nbAdultes}</span>
+                          <button
+                            type="button"
+                            onClick={() => saveFamilyImmediate(nbAdultes + 1, nbEnfants, optionEnfants)}
+                            className="w-8 h-8 bg-white rounded-xl border border-stone-200 font-black text-sm shadow-sm active:scale-95 transition"
+                          >+</button>
+                        </div>
+                      </div>
+
+                      <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200 text-center">
+                        <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">Enfants (&lt;12 ans)</label>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => saveFamilyImmediate(nbAdultes, Math.max(0, nbEnfants - 1), nbEnfants - 1 > 0 ? optionEnfants : false)}
+                            className="w-8 h-8 bg-white rounded-xl border border-stone-200 font-black text-sm shadow-sm active:scale-95 transition"
+                          >-</button>
+                          <span className="text-lg font-black text-stone-800">{nbEnfants}</span>
+                          <button
+                            type="button"
+                            onClick={() => saveFamilyImmediate(nbAdultes, nbEnfants + 1, true)}
+                            className="w-8 h-8 bg-white rounded-xl border border-stone-200 font-black text-sm shadow-sm active:scale-95 transition"
+                          >+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Option Menus Kid-Friendly */}
+                    <div className="pt-2">
+                      <div 
+                        onClick={() => saveFamilyImmediate(nbAdultes, nbEnfants, !optionEnfants)}
+                        className={`flex items-center gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none ${
+                          optionEnfants ? 'bg-amber-50/80 border-amber-300 shadow-sm' : 'bg-stone-50 border-stone-200'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center font-bold text-xs ${
+                          optionEnfants ? 'bg-[#C25E3E] text-white border-[#C25E3E]' : 'border-stone-300 bg-white'
+                        }`}>
+                          {optionEnfants && '✓'}
+                        </div>
+                        <div>
+                          <p className="text-xs font-extrabold text-stone-800 flex items-center gap-1.5">
+                            <span>🧸</span> Option Recettes Kid-Friendly
+                          </p>
+                          <p className="text-[10px] text-stone-500 mt-0.5 leading-snug">
+                            Légumes habilement cuisinés, zéro piment, saveurs et textures adaptées aux enfants de moins de 12 ans.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CHOIX DES REPAS */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      1. Quels repas planifier ?
+                      2. Quels repas planifier ?
                     </h3>
                     <div className="grid grid-cols-1 gap-2">
                       {[
                         { id: 'Dîner + Lunchbox midi', icon: '🥡', desc: 'Dîner le soir + Lunchbox le lendemain (La formule éco)' },
                         { id: 'Midi & Soir (Deux repas par jour)', icon: '☀️🌙', desc: 'Des recettes différentes pour le midi et pour le soir' },
-                        { id: 'Dîner uniquement (Soir)', icon: '🌙', desc: 'Uniquement les repas du soir (déjeuners libres le midi)' }
+                        { id: 'Dîner uniquement (Soir)', icon: '🌙', desc: 'Uniquement les repas du soir' }
                       ].map(m => (
                         <div
                           key={m.id}
@@ -1982,10 +2077,10 @@ Format JSON pur :
                     </div>
                   </div>
 
-                  {/* Cadence & Durée */}
+                  {/* Cadence */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      2. Rythme & Nombre de Recettes
+                      3. Rythme & Nombre de Recettes
                     </h3>
                     
                     <div className="grid grid-cols-3 gap-2">
@@ -2012,7 +2107,7 @@ Format JSON pur :
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-xs font-bold text-stone-600">Nombre de Recettes</label>
+                        <label className="text-xs font-bold text-stone-600">Nombre de Recettes Souhaité</label>
                         <span className="text-sm font-black text-[#C25E3E]">{nbRecettes} recettes</span>
                       </div>
                       <input
@@ -2026,100 +2121,21 @@ Format JSON pur :
                       />
                     </div>
                   </div>
-
-                  {/* Composition Foyer (Adultes & Enfants) */}
-                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      3. Composition du Foyer
-                    </h3>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200 text-center">
-                        <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">Adultes</label>
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setNbAdultes(Math.max(1, nbAdultes - 1))}
-                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
-                          >-</button>
-                          <span className="text-base font-black text-stone-800">{nbAdultes}</span>
-                          <button
-                            type="button"
-                            onClick={() => setNbAdultes(nbAdultes + 1)}
-                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
-                          >+</button>
-                        </div>
-                      </div>
-
-                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200 text-center">
-                        <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">Enfants (&lt;12 ans)</label>
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setNbEnfants(Math.max(0, nbEnfants - 1))}
-                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
-                          >-</button>
-                          <span className="text-base font-black text-stone-800">{nbEnfants}</span>
-                          <button
-                            type="button"
-                            onClick={() => setNbEnfants(nbEnfants + 1)}
-                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
-                          >+</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <label 
-                        onClick={() => setOptionEnfants(!optionEnfants)}
-                        className="flex items-center gap-2.5 cursor-pointer select-none bg-amber-50/70 p-3 rounded-2xl border border-amber-200/50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={optionEnfants}
-                          onChange={() => {}}
-                          className="w-4 h-4 accent-[#C25E3E] rounded"
-                        />
-                        <span className="text-xs font-bold text-stone-800">
-                          🧸 Option Recettes adaptées aux enfants (zéro piment, légumes habiles)
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Budget */}
-                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                        4. Budget Alimentaire Mensuel
-                      </h3>
-                      <span className="text-base font-black text-[#C25E3E]">{budgetInput} €</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="150"
-                      max="350"
-                      step="10"
-                      value={budgetInput}
-                      onChange={(e) => setBudgetInput(Number(e.target.value))}
-                      className="w-full accent-[#C25E3E]"
-                    />
-                  </div>
                 </div>
 
-                {/* COLONNE DROITE : STYLE, EXCLUSIONS & DRIVES */}
+                {/* COLONNE DROITE */}
                 <div className="space-y-6">
                   
                   {/* Style Alimentaire */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      5. Style Alimentaire
+                      4. Style Alimentaire
                     </h3>
                     <div className="grid grid-cols-1 gap-2.5">
                       {[
                         { id: 'Omnivore (Manger de tout)', desc: '🍽️ Aucune contrainte, cuisine familiale, variée et gourmande' },
-                        { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses (Longévité)' },
-                        { id: 'Index Glycémique Bas', desc: '🥑 Zéro sucre rapide, céréales complètes, énergie stable (Forme)' },
+                        { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses' },
+                        { id: 'Index Glycémique Bas', desc: '🥑 Zéro sucre rapide, céréales complètes, énergie stable' },
                         { id: 'Végétarien Gourmand', desc: '🥕 Zéro viande ni poisson, œufs, fromages, légumineuses' }
                       ].map(r => (
                         <div
@@ -2148,7 +2164,7 @@ Format JSON pur :
                   {/* Aliments Bannis */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      6. Aliments Bannis du Foyer
+                      5. Aliments Bannis du Foyer
                     </h3>
                     <div className="flex gap-2">
                       <input
@@ -2185,6 +2201,25 @@ Format JSON pur :
                         ))}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Budget */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs font-black uppercase tracking-wider text-stone-700">
+                        6. Budget Cible Alimentation
+                      </label>
+                      <span className="text-sm font-black text-[#C25E3E]">{budgetInput} €</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="150"
+                      max="400"
+                      step="10"
+                      value={budgetInput}
+                      onChange={(e) => setBudgetInput(Number(e.target.value))}
+                      className="w-full accent-[#C25E3E]"
+                    />
                   </div>
 
                   {/* Drives */}
@@ -2309,7 +2344,7 @@ Format JSON pur :
                 </div>
               </div>
 
-              {/* NOTATION */}
+              {/* NOTATION DANS LA FICHE */}
               <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
                 <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
                 {selectedRecipe.est_cuisine || (selectedRecipe.rating && selectedRecipe.rating > 0) ? (
