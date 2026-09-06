@@ -29,13 +29,13 @@ function getRecipePhoto(dishName = "", type = "") {
   if (name.includes("burger")) {
     return "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("curry") || name.includes("poulet") || name.includes("wok")) {
+  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde")) {
     return "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne")) {
+  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle")) {
     return "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak")) {
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("porc")) {
     return "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80";
   }
   if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa")) {
@@ -44,7 +44,7 @@ function getRecipePhoto(dishName = "", type = "") {
   if (name.includes("pizza")) {
     return "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe")) {
+  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté")) {
     return "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80";
   }
   return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
@@ -56,7 +56,7 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) {
     return "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie")) {
+  if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) {
     return "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=160&q=80";
   }
   if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("poissonnerie")) {
@@ -93,6 +93,7 @@ export default function SmartDriveApp() {
   const [newFoyerName, setNewFoyerName] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [swappingId, setSwappingId] = useState(null); // ID de la recette en cours d'échange
   const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
@@ -319,7 +320,129 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // GÉNÉRATION GEMINI AVEC FORMULE B : 14 RECETTES STRICTES (7 EN Q1 + 7 EN Q2)
+  // 🔄 REMPLACER UNE RECETTE (PRINCIPAL : GEMINI 3.6 FLASH | SECOURS : GEMINI 3.5 FLASH)
+  async function swapRecipe(recipeToSwap) {
+    if (!config || !recipeToSwap) return;
+    setSwappingId(recipeToSwap.id);
+
+    const targetBasket = recipeToSwap.basket || activeBasket;
+    const basketKey = targetBasket === 1 ? 'p1' : 'p2';
+
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
+Le couple de 40 ans ne souhaite PAS cuisiner le plat suivant : "${recipeToSwap.nom}".
+Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT de saison pour ${moisActuel.toUpperCase()} en France (4 portions).
+Contraintes :
+- Quinzaine : ${targetBasket} (Panier ${targetBasket}).
+- Profil santé : 40 ans, sain, équilibré, IG bas.
+- Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
+- Propose un plat TOTALEMENT DIFFÉRENT et très appétissant.
+
+Format JSON pur impératif :
+{
+  "nouvelle_recette": {
+    "id": ${recipeToSwap.id},
+    "nom": "Nom de la nouvelle recette",
+    "type": "${recipeToSwap.type || 'Frais'}",
+    "calories": "490 kcal",
+    "temps": "25 min",
+    "bienfait_sante": "🛡️ Bouclier immunitaire & Vitalité",
+    "saison_atout": "Légumes de saison d'automne",
+    "ingredients": ["Ingrédient 1 (quantité)", "Ingrédient 2 (quantité)"],
+    "etapes": ["Étape 1", "Étape 2", "Étape 3"],
+    "conseil": "Astuce gourmande du chef",
+    "basket": ${targetBasket},
+    "rating": 0
+  },
+  "anciens_mots_cles_a_retirer": [
+    // Liste des noms ou mots-clés des ingrédients de l'ancienne recette "${recipeToSwap.nom}" à retirer du panier Drive
+  ],
+  "nouveaux_ingredients_drive": [
+    {
+      "nom": "Nom produit",
+      "rayon": "Rayon Drive",
+      "a_alternative_congelo": true,
+      "mode_choisi": "frais",
+      "prix_frais": 5.50,
+      "recherche_frais": "mot simple",
+      "prix_congelo": 3.80,
+      "recherche_congelo": "mot surgele",
+      "gain_anti_radin": "-30%",
+      "conseil_anti_gaspi": "astuce",
+      "recette_id": ${recipeToSwap.id},
+      "in_stock": false
+    }
+  ]
+}`;
+
+    try {
+      let responseText;
+      try {
+        // MOTEUR PRINCIPAL : GEMINI 3.6 FLASH
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-3.6-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await model.generateContent(prompt);
+        responseText = result.response.text();
+      } catch (err) {
+        console.warn("Modèle 3.6 saturé, bascule automatique sur GEMINI 3.5 FLASH...", err);
+        // SERVEUR DE SECOURS : GEMINI 3.5 FLASH
+        const fallback = genAI.getGenerativeModel({ 
+          model: "gemini-3.5-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await fallback.generateContent(prompt);
+        responseText = result.response.text();
+      }
+
+      const response = JSON.parse(responseText);
+
+      // 1. Mise à jour de la recette dans menu_json
+      const updatedMenu = (config.menu_json || []).map(r => 
+        r.id === recipeToSwap.id ? response.nouvelle_recette : r
+      );
+
+      // 2. Nettoyage du Panier Drive : retrait des anciens ingrédients + ajout des nouveaux
+      const currentBasketList = config.panier_json?.[basketKey] || [];
+      const keywordsToRemove = (response.anciens_mots_cles_a_retirer || []).map(k => k.toLowerCase());
+
+      const cleanedBasket = currentBasketList.filter(item => {
+        if (item.recette_id && item.recette_id === recipeToSwap.id) return false;
+        const itemName = item.nom.toLowerCase();
+        if (keywordsToRemove.some(k => itemName.includes(k))) return false;
+        return true;
+      });
+
+      const updatedPanierJson = {
+        ...config.panier_json,
+        [basketKey]: [...cleanedBasket, ...(response.nouveaux_ingredients_drive || [])]
+      };
+
+      await supabase.from('foyers').update({
+        menu_json: updatedMenu,
+        panier_json: updatedPanierJson
+      }).eq('id', config.id);
+
+      setConfig(prev => ({
+        ...prev,
+        menu_json: updatedMenu,
+        panier_json: updatedPanierJson
+      }));
+
+      if (selectedRecipe && selectedRecipe.id === recipeToSwap.id) {
+        setSelectedRecipe(response.nouvelle_recette);
+      }
+
+      alert(`🎉 Plat remplacé par : "${response.nouvelle_recette.nom}" ! Vos listes de courses Drive ont été mises à jour.`);
+    } catch (e) {
+      console.error(e);
+      alert("Erreur lors de l'échange : " + e.message);
+    } finally {
+      setSwappingId(null);
+    }
+  }
+
+  // GÉNÉRATION MENSUELLE (PRINCIPAL : GEMINI 3.6 FLASH | SECOURS : GEMINI 3.5 FLASH)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -362,18 +485,7 @@ HISTORIQUE DES GOÛTS :
 - Plats adorés (4 ou 5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun'}.
 - Plats détestés (1 ou 2 étoiles, BANNIS) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
 
-Pour chaque ingrédient dans panier_1 et panier_2 :
-- "nom": Nom produit
-- "rayon": Rayon Drive
-- "a_alternative_congelo": true si une version surgelée existe, false sinon
-- "mode_choisi": "frais"
-- "prix_frais": prix réaliste en euros
-- "recherche_frais": 1 ou 2 mots simples (ex: "saumon", "poulet", "brocolis")
-- "prix_congelo": prix surgelé économique, ou null
-- "recherche_congelo": mot simple (ex: "saumon surgele"), ou null
-- "gain_anti_radin": économie (ex: "-30%"), ou null
-- "conseil_anti_gaspi": astuce courte
-
+Pour chaque ingrédient dans panier_1 et panier_2, INCLUS "recette_id" correspondant au numéro id de la recette liée (1 à 14).
 Format impératif en JSON pur :
 {
   "repas": [
@@ -418,6 +530,7 @@ Format impératif en JSON pur :
       "recherche_congelo": "saumon surgele",
       "gain_anti_radin": "-34%",
       "conseil_anti_gaspi": "🧊 Idéal en surgelé pour votre grand congélateur",
+      "recette_id": 1,
       "in_stock": false
     }
   ],
@@ -433,6 +546,7 @@ Format impératif en JSON pur :
       "recherche_congelo": "steak hache surgele",
       "gain_anti_radin": "-28%",
       "conseil_anti_gaspi": "🌿 Ultra-frais pour démarrer la 2ème quinzaine",
+      "recette_id": 8,
       "in_stock": false
     }
   ]
@@ -441,16 +555,18 @@ Format impératif en JSON pur :
     try {
       let responseText;
       try {
+        // MOTEUR PRINCIPAL : GEMINI 3.6 FLASH
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-3.5-flash",
+          model: "gemini-3.6-flash",
           generationConfig: { responseMimeType: "application/json" }
         });
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
-        console.warn("Bascule sur 2.5-flash...", err);
+        console.warn("Modèle 3.6 saturé, bascule automatique sur GEMINI 3.5 FLASH...", err);
+        // SERVEUR DE SECOURS : GEMINI 3.5 FLASH
         const fallback = genAI.getGenerativeModel({ 
-          model: "gemini-2.5-flash",
+          model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
         });
         const result = await fallback.generateContent(prompt);
@@ -612,7 +728,6 @@ Format impératif en JSON pur :
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
     }
-    // Sécurité stricte : 7 recettes en Q1, 7 recettes en Q2
     return activeBasket === 1 ? index < 7 : index >= 7;
   });
 
@@ -685,7 +800,7 @@ Format impératif en JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING (7 RECETTES PAR QUINZAINE) */}
+        {/* 1. VUE PLANNING AVEC BOUTON REMPLACER */}
         {view === 'menu' && (
           <div className="space-y-4">
             {premierPlatFrais && (
@@ -731,7 +846,6 @@ Format impératif en JSON pur :
               <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">
                 Repas de la Quinzaine {activeBasket} (Formule B)
               </h2>
-              {/* Calcul dynamique exact : X recettes x 2 repas = Y jours couverts */}
               <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 {mealsForActiveQuinzaine.length} Recettes • {mealsForActiveQuinzaine.length * 2} jours couverts à deux
               </span>
@@ -741,6 +855,7 @@ Format impératif en JSON pur :
               <div className="space-y-4">
                 {mealsForActiveQuinzaine.map((repas) => {
                   const photoUrl = getRecipePhoto(repas.nom, repas.type);
+                  const isSwapping = swappingId === repas.id;
 
                   return (
                     <div
@@ -795,13 +910,24 @@ Format impératif en JSON pur :
                         )}
 
                         <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center">
-                          <span className="text-[11px] font-bold text-slate-500">
-                            {repas.rating ? `Votre note : ${repas.rating}/5` : "Avis après dégustation :"}
-                          </span>
                           <StarRating 
                             rating={repas.rating || 0} 
                             onRate={(star, e) => updateRating(repas.id, star, e)} 
                           />
+
+                          {/* BOUTON RAPIDE DE REMPLACEMENT */}
+                          <button
+                            type="button"
+                            disabled={isSwapping}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              swapRecipe(repas);
+                            }}
+                            className="text-[11px] font-extrabold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-blue-100"
+                          >
+                            <span>{isSwapping ? '⏳' : '🔄'}</span>
+                            <span>{isSwapping ? 'Échange...' : 'Remplacer'}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1218,7 +1344,7 @@ Format impératif en JSON pur :
         )}
       </main>
 
-      {/* Fiche Recette Détaillée */}
+      {/* Fiche Recette Détaillée avec Bouton Échange / Alternative */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-white z-50 overflow-y-auto pb-12">
           <div className="relative h-60 w-full bg-slate-900">
@@ -1244,6 +1370,23 @@ Format impératif en JSON pur :
             <h2 className="text-2xl font-black text-slate-900 leading-tight mb-2">
               {selectedRecipe.nom}
             </h2>
+
+            {/* GRAND BOUTON ÉCHANGE DANS LA FICHE RECETTE */}
+            <div className="mb-4">
+              <button
+                type="button"
+                disabled={swappingId === selectedRecipe.id}
+                onClick={() => swapRecipe(selectedRecipe)}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs py-3 rounded-2xl shadow-md transition flex items-center justify-center gap-2 active:scale-98"
+              >
+                <span>{swappingId === selectedRecipe.id ? '⏳' : '🔄'}</span>
+                <span>
+                  {swappingId === selectedRecipe.id 
+                    ? 'Recherche d\'une alternative en cours...' 
+                    : 'Pas envie de ce plat ? Proposer une alternative gourmande'}
+                </span>
+              </button>
+            </div>
 
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-3.5 rounded-2xl text-blue-900 font-extrabold text-xs mb-4 flex items-center gap-2">
               <span>{selectedRecipe.bienfait_sante || "🛡️ Idéal pour booster l'énergie & la digestion"}</span>
