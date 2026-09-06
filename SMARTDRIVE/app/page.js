@@ -359,7 +359,7 @@ Total exact : 9 recettes dans "repas".`;
                 // Nettoyage automatique des mots-clés superflus pour le Drive
                 const rawTerm = item.recherche_drive || item.nom;
                 const cleanTerm = cleanDriveTerm(rawTerm);
-                const leclercUrl = `https://www.e.leclerc/recherche?q=${encodeURIComponent(cleanTerm)}`;
+                const leclercUrl = `https://www.leclercdrive.fr/recherche.aspx?TexteRecherche=${encodeURIComponent(cleanTerm)}`;
                 const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(cleanTerm)}`;
 
                 return (
