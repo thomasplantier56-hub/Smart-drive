@@ -20,7 +20,7 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE AVEC ROTATION AUTOMATIQUE DES PHOTOS
+// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE AVEC ROTATION AUTOMATIQUE
 const PHOTO_LIBRARY = {
   poisson_blanc: [
     "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
@@ -109,7 +109,7 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("cremerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) {
     return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) {
+  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail") || p.includes("betterave") || p.includes("chou")) {
     return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
   }
   if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) {
@@ -148,7 +148,7 @@ export default function App() {
   const [cravingInput, setCravingInput] = useState("");
 
   // Navigation (4 univers)
-  const [view, setView] = useState('menu');
+  const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks', 'profile'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -156,12 +156,13 @@ export default function App() {
   // Profil Foyer
   const [selectedRegime, setSelectedRegime] = useState("Omnivore (Manger de tout)");
   const [exclusionsInput, setExclusionsInput] = useState("");
+  const [customBannedWord, setCustomBannedWord] = useState(""); // Nouveau : Saisie libre d'aliments interdits
   const [budgetInput, setBudgetInput] = useState(230);
   const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
   const [nbRecettes, setNbRecettes] = useState(14);
   const [nbPortions, setNbPortions] = useState(4);
 
-  // URLs Drive personnalisables par foyer
+  // URLs Drive
   const [driveUrl1, setDriveUrl1] = useState("https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=");
   const [driveUrl2, setDriveUrl2] = useState("https://www.carrefour.fr/s?q=");
   const [driveNom1, setDriveNom1] = useState("Leclerc");
@@ -197,7 +198,7 @@ export default function App() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer } = await supabase
+      const { data: foyer, error } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -288,6 +289,7 @@ export default function App() {
     }
   }
 
+  // Sauvegardes instantanées
   async function autoSaveRegime(newRegime) {
     setSelectedRegime(newRegime);
     if (!config) return;
@@ -308,6 +310,32 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
+  }
+
+  // 🚫 GESTIONNAIRE D'ÉTIQUETTES ALIMENTS BANNIS (Ajout et Suppression fluides)
+  const activeExclusionsList = (exclusionsInput || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  async function handleAddCustomBanned(e) {
+    if (e) e.preventDefault();
+    const word = customBannedWord.trim();
+    if (!word) return;
+
+    if (activeExclusionsList.some(item => item.toLowerCase() === word.toLowerCase())) {
+      setCustomBannedWord("");
+      return;
+    }
+
+    const updated = [...activeExclusionsList, word].join(', ');
+    setCustomBannedWord("");
+    await autoSaveExclusions(updated);
+  }
+
+  async function handleRemoveBanned(term) {
+    const updated = activeExclusionsList.filter(item => item.toLowerCase() !== term.toLowerCase()).join(', ');
+    await autoSaveExclusions(updated);
   }
 
   async function autoSaveDuree(newDuree) {
@@ -359,7 +387,7 @@ export default function App() {
         drive_carrefour_url: driveUrl2
       }));
 
-      alert("✅ Profil et configuration Drive enregistrés !");
+      alert("✅ Configuration du foyer enregistrée avec succès !");
     } catch (err) {
       console.error(err);
       alert("Erreur sauvegarde : " + err.message);
@@ -403,7 +431,7 @@ export default function App() {
       setStockList(prev => prev.filter(i => i.id !== item.id));
     } else {
       await supabase.from('inventaire_congelateur').update({ quantite: newQty, est_consomme: false }).eq('id', item.id);
-      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty, est_consomme: false } : i));
+      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty } : i));
     }
   }
 
@@ -430,7 +458,7 @@ export default function App() {
     }
   }
 
-  // 👨‍🍳 VALIDATION ET ANNULATION DU PLAT CUISINÉ (AVEC RESTITUTION DES STOCKS EN CAS D'ERREUR !)
+  // 👨‍🍳 VALIDATION ET ANNULATION DU PLAT CUISINÉ (AVEC RESTITUTION IMMÉDIATE DES STOCKS)
   async function toggleRecipeCooked(recipeId, e) {
     if (e) e.stopPropagation();
     if (!config) return;
@@ -452,7 +480,7 @@ export default function App() {
       return r;
     });
 
-    // CAS 1 : VALIDATION DU PLAT (Décompte des réserves)
+    // CAS 1 : VALIDATION (Décompte des réserves)
     if (newCookedStatus && targetRecipe && targetRecipe.ingredients) {
       const ingredientsText = targetRecipe.ingredients.join(" ").toLowerCase();
 
@@ -466,7 +494,6 @@ export default function App() {
         }
       }
 
-      // On mémorise les ingrédients décomptés pour pouvoir les réintégrer si annulation !
       targetRecipe.stocks_deduits = deductedItems;
       const finalMenu = updatedMenu.map(r => r.id === recipeId ? { ...r, stocks_deduits: deductedItems } : r);
 
@@ -477,7 +504,7 @@ export default function App() {
         alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" est validé. ${deductedItems.length} ingrédient(s) ont été décomptés de vos réserves.`);
       }
     } 
-    // CAS 2 : ANNULATION (Fausse manipulation / Test -> Restitution immédiate des stocks !)
+    // CAS 2 : ANNULATION (Fausse manip / Restitution immédiate)
     else if (!newCookedStatus && targetRecipe) {
       const previouslyDeducted = targetRecipe.stocks_deduits || [];
       for (const d of previouslyDeducted) {
@@ -485,7 +512,6 @@ export default function App() {
         if (itemInList) {
           await adjustStockQty(itemInList, +1);
         } else {
-          // Si le produit avait disparu (qté 0), on le recrée !
           const { data } = await supabase.from('inventaire_congelateur').insert({
             foyer_id: config.id,
             nom_produit: d.nom,
@@ -506,7 +532,7 @@ export default function App() {
       setConfig(prev => ({ ...prev, menu_json: finalMenu }));
       await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
 
-      alert(`↩️ Annulation prise en compte : "${targetRecipe.nom}" repasse en attente et vos ingrédients ont été réintégrés dans vos stocks !`);
+      alert(`↩️ Annulation prise en compte : "${targetRecipe.nom}" repasse en attente et vos ingrédients ont été réintégrés dans vos réserves !`);
     }
   }
 
@@ -703,10 +729,10 @@ Format JSON pur impératif :
         panier_json: updatedPanierJson
       }));
 
-      alert(`🎉 Votre envie "${envie}" a été ajoutée à la Quinzaine ${activeBasket} !`);
+      alert(`🎉 Votre envie "${envie}" (${portions} pers. • ${regimeActuel}) a été ajoutée à la Quinzaine ${activeBasket} !`);
     } catch (err) {
       console.error(err);
-      alert("Erreur intégration : " + err.message);
+      alert("Erreur lors de l'intégration : " + err.message);
     } finally {
       setIsInjectingCraving(false);
     }
@@ -742,7 +768,7 @@ Format JSON pur :
     "type": "${recipeToSwap.type || 'Frais'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Bienfait santé",
+    "bienfait_sante": "🛡️ Conforme à votre régime ${regimeActuel}",
     "saison_atout": "Légumes de saison",
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
@@ -780,6 +806,7 @@ Format JSON pur :
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
+        console.warn("Modèle 3.6 saturé, bascule sur Gemini 3.5 Flash...", err);
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -1154,53 +1181,81 @@ Format JSON pur :
   });
 
   return (
-    // 🖥️ RESPONSIVE : S'adapte en grand écran sur ordinateur (max-w-6xl) tout en restant parfait sur smartphone !
-    <div className="w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto min-h-screen bg-[#FAF8F5] pb-28 shadow-2xl font-sans text-stone-900 transition-all">
+    // 🖥️ RESPONSIVE GRAND ÉCRAN : Utilise toute la largeur disponible avec max-w-7xl
+    <div className="w-full min-h-screen bg-[#FAF8F5] pb-28 font-sans text-stone-900 transition-all flex flex-col justify-between">
       
-      {/* HEADER BISTROT GOURMAND "À TABLE !" */}
-      <header className="bg-gradient-to-r from-[#C25E3E] to-[#A84E33] p-5 md:px-8 text-white sticky top-0 z-40 shadow-md">
-        <div className="flex justify-between items-center mb-1">
-          <div>
+      {/* HEADER BISTROT GOURMAND "À TABLE !" AVEC NAVIGATION ORDINATEUR DIRECTE */}
+      <header className="bg-gradient-to-r from-[#C25E3E] to-[#A84E33] text-white sticky top-0 z-40 shadow-md">
+        <div className="max-w-7xl mx-auto w-full p-4 md:px-8 flex justify-between items-center">
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-xl border border-white/20 shadow-inner">
+              <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-xl border border-white/20 shadow-inner">
                 🍽️
               </div>
-              <h1 className="font-black italic text-2xl md:text-3xl tracking-tight font-serif">À Table !</h1>
-              <span className="text-[10px] bg-white/20 text-amber-100 font-extrabold px-2.5 py-0.5 rounded-full">
-                {config.code_foyer}
-              </span>
-              <button 
-                onClick={handleLogoutFoyer}
-                className="text-[9px] bg-white/10 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition"
-                title="Changer de foyer"
-              >
-                ✕
-              </button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-black italic text-2xl md:text-3xl tracking-tight font-serif">À Table !</h1>
+                  <span className="text-[10px] bg-white/20 text-amber-100 font-extrabold px-2.5 py-0.5 rounded-full">
+                    {config.code_foyer}
+                  </span>
+                  <button 
+                    onClick={handleLogoutFoyer}
+                    className="text-[9px] bg-white/10 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition"
+                    title="Changer de foyer"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-amber-100 mt-0.5">
+                  {moisActuel} • {selectedRegime}
+                </p>
+              </div>
             </div>
-            <p className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-amber-100 mt-0.5">
-              {moisActuel} • {selectedRegime}
-            </p>
-          </div>
-          <button
-            onClick={generateWithGemini}
-            className="bg-white text-[#C25E3E] hover:bg-amber-100 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition"
-          >
-            ⚡ Générer
-          </button>
-        </div>
 
-        <div className="flex items-center justify-between text-[11px] md:text-xs text-amber-100 font-medium mt-2 pt-2 border-t border-white/15">
-          <span>📅 {jourDuMois} {moisActuel}</span>
-          <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-            {isPlanningMonth ? `Quinzaine ${activeBasket}` : currentDuree}
-          </span>
+            {/* NAVIGATION VISIBLE EN HAUT SUR ORDINATEUR ! */}
+            <nav className="hidden md:flex items-center gap-2 ml-4">
+              {[
+                { id: 'menu', label: '🍽️ Planning' },
+                { id: 'shop', label: '🛒 Courses Drive' },
+                { id: 'stocks', label: '🏠 Réserves' },
+                { id: 'profile', label: '⚙️ Profil & Drives' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setView(tab.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                    view === tab.id 
+                      ? 'bg-white text-[#C25E3E] shadow-sm' 
+                      : 'text-amber-100 hover:bg-white/10'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden md:block text-right text-xs text-amber-100 font-medium">
+              <p>📅 {jourDuMois} {moisActuel}</p>
+              <p className="text-[10px] opacity-90">{isPlanningMonth ? `Quinzaine ${activeBasket}` : currentDuree}</p>
+            </div>
+            <button
+              onClick={generateWithGemini}
+              className="bg-white text-[#C25E3E] hover:bg-amber-100 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition flex items-center gap-1.5"
+            >
+              <span>⚡</span>
+              <span>Générer</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="p-4 md:p-6 lg:p-8">
+      {/* CONTENEUR PRINCIPAL PLEIN FORMAT */}
+      <main className="max-w-7xl mx-auto w-full p-4 md:p-8 flex-1">
         {/* Sélecteur de Quinzaine universel */}
         {view !== 'stocks' && view !== 'profile' && isPlanningMonth && (
-          <div className="flex bg-stone-200/70 p-1 rounded-2xl mb-5 shadow-inner max-w-lg mx-auto">
+          <div className="flex bg-stone-200/70 p-1.5 rounded-2xl mb-6 shadow-inner max-w-md mx-auto">
             <button
               onClick={() => setActiveBasket(1)}
               className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
@@ -1220,64 +1275,67 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING (GRILLE ADAPTATIVE 1 COLONNE SUR MOBILE, 2 OU 3 SUR PC !) */}
+        {/* 1. VUE PLANNING (GRILLE DE 1 À 4 COLONNES SUR ORDINATEUR !) */}
         {view === 'menu' && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             
-            {/* JAUGE DE PROGRESSION */}
-            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
-              <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <span>🍽️</span>
-                  <span>Avancement Quinzaine {activeBasket}</span>
-                </span>
-                <span className="text-[#C25E3E] font-black">{cookedCount} / {totalCount} cuisinés</span>
+            {/* Barre supérieure : Jauge & Cadence */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-center">
+                <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <span>🍽️</span>
+                    <span>Avancement Quinzaine {activeBasket}</span>
+                  </span>
+                  <span className="text-[#C25E3E] font-black">{cookedCount} / {totalCount} cuisinés</span>
+                </div>
+                <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-emerald-600 h-full transition-all duration-500 rounded-full" 
+                    style={{ width: `${progressPercent}%` }}
+                  ></div>
+                </div>
               </div>
-              <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-emerald-600 h-full transition-all duration-500 rounded-full" 
-                  style={{ width: `${progressPercent}%` }}
-                ></div>
-              </div>
-            </div>
 
-            {/* Récapitulatif cadence */}
-            <div className="bg-amber-50 border border-amber-200/60 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs text-stone-700">
-              <span className="font-bold flex items-center gap-1.5">
-                <span>🎯</span>
-                <span>{targetNbRecettes} repas • {currentDuree} • {targetPortions} pers.</span>
-              </span>
-              <button
-                onClick={() => setView('profile')}
-                className="text-[10px] font-black uppercase tracking-wider text-[#C25E3E] hover:underline"
-              >
-                Ajuster ⚙️
-              </button>
+              <div className="bg-amber-50 border border-amber-200/60 rounded-3xl px-5 py-4 flex items-center justify-between text-xs text-stone-700 shadow-sm">
+                <div>
+                  <span className="font-extrabold text-sm block text-stone-800">
+                    🎯 {targetNbRecettes} repas • {currentDuree}
+                  </span>
+                  <p className="text-[11px] text-stone-500 mt-0.5">Portions : {targetPortions} personnes par plat</p>
+                </div>
+                <button
+                  onClick={() => setView('profile')}
+                  className="bg-white text-[#C25E3E] border border-amber-200 font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-sm hover:bg-amber-100 transition"
+                >
+                  Ajuster ⚙️
+                </button>
+              </div>
             </div>
 
             {/* ALERTE FRAÎCHEUR FRIGO */}
             {isBasketReceived ? (
               premierPlatFrais && (
-                <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-4 md:p-5 text-white shadow-lg animate-in fade-in">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
+                <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-5 text-white shadow-lg animate-in fade-in flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
                       <span className="text-xl">🚨</span>
                       <span className="text-xs md:text-sm font-black uppercase tracking-wider">Fraîcheur Frigo (Courses du {basketStatus.date_reception})</span>
                     </div>
+                    <p className="text-xs md:text-sm font-medium leading-snug">
+                      À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> (produit ultra-frais). Pas le temps ce soir ?
+                    </p>
                   </div>
-                  <p className="text-xs md:text-sm font-medium leading-snug mb-3">
-                    À cuisiner en priorité : <b>{premierPlatFrais.nom}</b>. Pas le temps ce soir ?
-                  </p>
-                  <div className="flex gap-2.5">
+                  <div className="flex gap-2.5 flex-shrink-0">
                     <button
                       onClick={() => setSelectedRecipe(premierPlatFrais)}
-                      className="flex-1 bg-white text-stone-900 font-extrabold text-[11px] md:text-xs py-2.5 rounded-xl shadow active:scale-95 transition"
+                      className="bg-white text-stone-900 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow active:scale-95 transition"
                     >
                       👨‍🍳 Cuisiner ce soir
                     </button>
                     <button
                       onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
-                      className="flex-1 bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-[11px] md:text-xs py-2.5 rounded-xl border border-white/20 active:scale-95 transition"
+                      className="bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl border border-white/20 active:scale-95 transition"
                     >
                       🧊 Sauver au Congélo
                     </button>
@@ -1285,14 +1343,14 @@ Format JSON pur :
                 </div>
               )
             ) : (
-              <div className="bg-stone-100 border border-stone-200 rounded-3xl p-3.5 md:p-4 flex items-center justify-between text-xs text-stone-700">
+              <div className="bg-stone-100 border border-stone-200 rounded-3xl p-4 flex items-center justify-between text-xs text-stone-700">
                 <span className="flex items-center gap-2 font-medium">
                   <span>🛒</span>
                   <span>Panier {activeBasket} à commander au Drive</span>
                 </span>
                 <button
                   onClick={() => setView('shop')}
-                  className="bg-[#C25E3E] text-white font-bold text-[10px] px-3.5 py-2 rounded-xl uppercase tracking-wider hover:bg-[#A84E33] transition"
+                  className="bg-[#C25E3E] text-white font-bold text-xs px-4 py-2 rounded-xl uppercase tracking-wider hover:bg-[#A84E33] transition"
                 >
                   Voir ma liste
                 </button>
@@ -1300,31 +1358,31 @@ Format JSON pur :
             )}
 
             {/* Boîte d'envie */}
-            <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 space-y-2">
-              <label className="block text-[11px] font-black uppercase tracking-wider text-[#C25E3E] flex items-center justify-between">
+            <form onSubmit={handleApplyCraving} className="bg-white p-5 rounded-3xl shadow-sm border border-stone-200 space-y-2">
+              <label className="block text-xs font-black uppercase tracking-wider text-[#C25E3E] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <span>✨</span> Une envie gourmande précise ?
                 </span>
                 {config?.cravings && (
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full font-bold">
                     Actuel : {config.cravings}
                   </span>
                 )}
               </label>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <input
                   type="text"
                   placeholder="Ex: Lasagnes, Poké bowl, Tajine..."
                   value={cravingInput}
                   onChange={(e) => setCravingInput(e.target.value)}
-                  className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-3.5 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-4 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
                 />
 
                 <button
                   type="submit"
                   disabled={isInjectingCraving || !cravingInput.trim()}
-                  className="bg-[#C25E3E] hover:bg-[#A84E33] disabled:opacity-40 text-white px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow transition flex items-center gap-1.5 active:scale-95 flex-shrink-0"
+                  className="bg-[#C25E3E] hover:bg-[#A84E33] disabled:opacity-40 text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow transition flex items-center gap-1.5 active:scale-95 flex-shrink-0"
                 >
                   <span>{isInjectingCraving ? '⏳' : '✨'}</span>
                   <span>{isInjectingCraving ? 'Cuisine...' : 'Intégrer'}</span>
@@ -1336,14 +1394,14 @@ Format JSON pur :
               <h2 className="text-xs md:text-sm font-black text-stone-600 uppercase tracking-widest">
                 {isPlanningMonth ? `Repas de la Quinzaine ${activeBasket}` : `Repas du cycle (${currentDuree})`}
               </h2>
-              <span className="text-[10px] md:text-xs text-emerald-700 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <span className="text-xs text-emerald-700 font-black bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                 {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers.
               </span>
             </div>
 
-            {/* 🖥️ GRILLE DES RECETTES : 1 COLONNE SUR SMARTPHONE, 2 SUR TABLETTE, 3 SUR GRAND ÉCRAN ! */}
+            {/* GRILLE MULTI-COLONNES SUR ORDINATEUR */}
             {mealsForActiveQuinzaine.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {mealsForActiveQuinzaine.map((repas) => {
                   const photoUrl = getRecipePhoto(repas.nom, repas.id);
                   const isSwapping = swappingId === repas.id;
@@ -1359,7 +1417,7 @@ Format JSON pur :
                       }`}
                     >
                       <div>
-                        <div className="relative h-44 w-full bg-stone-200 overflow-hidden">
+                        <div className="relative h-48 w-full bg-stone-200 overflow-hidden">
                           <img 
                             src={photoUrl} 
                             alt={repas.nom} 
@@ -1395,7 +1453,7 @@ Format JSON pur :
                           </div>
                         </div>
 
-                        <div className="p-4">
+                        <div className="p-5">
                           <div className="mb-2">
                             <span className="inline-block bg-amber-50 text-[#C25E3E] text-[11px] font-extrabold px-3 py-1 rounded-full border border-amber-200/50">
                               {repas.bienfait_sante || "🛡️ Équilibre & Vitalité"}
@@ -1414,8 +1472,7 @@ Format JSON pur :
                         </div>
                       </div>
 
-                      {/* PIED DE CARTE AVEC ÉTOILES ET ACTIONS */}
-                      <div className="p-4 pt-2.5 border-t border-stone-100 flex justify-between items-center gap-2 mt-auto">
+                      <div className="p-5 pt-2.5 border-t border-stone-100 flex justify-between items-center gap-2 mt-auto">
                         {canShowStars ? (
                           <div className="flex items-center gap-1">
                             <StarRating 
@@ -1479,17 +1536,17 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 2. VUE COURSES & ARBITRE DRIVE (ADAPTATIVE SUR ORDINATEUR) */}
+        {/* 2. VUE COURSES (PLEIN FORMAT SUR ORDINATEUR) */}
         {view === 'shop' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xl">{isBasketReceived ? '✅' : '📦'}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{isBasketReceived ? '✅' : '📦'}</span>
                 <div>
-                  <h4 className="text-xs md:text-sm font-black text-stone-800">
+                  <h4 className="text-sm font-black text-stone-800">
                     {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} en attente`}
                   </h4>
-                  <p className="text-[10px] md:text-xs text-stone-400">
+                  <p className="text-xs text-stone-400">
                     {isBasketReceived ? 'Suivi fraîcheur actif dans votre Planning' : 'Cliquez une fois vos sacs rangés à la maison'}
                   </p>
                 </div>
@@ -1497,7 +1554,7 @@ Format JSON pur :
 
               <button
                 onClick={() => toggleBasketReceivedStatus(currentBasketKey)}
-                className={`text-[10px] md:text-xs font-black px-3.5 py-2 rounded-xl transition uppercase tracking-wider ${
+                className={`text-xs font-black px-4 py-2.5 rounded-xl transition uppercase tracking-wider ${
                   isBasketReceived ? 'bg-stone-100 text-stone-600' : 'bg-emerald-600 text-white'
                 }`}
               >
@@ -1506,38 +1563,38 @@ Format JSON pur :
             </div>
 
             {/* Arbitre Drive */}
-            <div className="bg-[#1C1917] rounded-3xl p-5 text-white shadow-xl border border-stone-800">
-              <div className="flex items-center justify-between mb-3 border-b border-stone-800 pb-2">
+            <div className="bg-[#1C1917] rounded-3xl p-5 md:p-6 text-white shadow-xl border border-stone-800">
+              <div className="flex items-center justify-between mb-4 border-b border-stone-800 pb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-base">⚖️</span>
-                  <span className="text-xs md:text-sm font-black uppercase tracking-wider text-amber-400">L'Arbitre Drive IA</span>
+                  <span className="text-lg">⚖️</span>
+                  <span className="text-sm font-black uppercase tracking-wider text-amber-400">L'Arbitre Drive IA</span>
                 </div>
-                <span className="text-[10px] font-bold text-stone-400">Panier {activeBasket}</span>
+                <span className="text-xs font-bold text-stone-400">Panier {activeBasket}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-2">
-                <div className="bg-white/10 p-3.5 rounded-2xl border border-emerald-500/40 relative">
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div className="bg-white/10 p-4 rounded-2xl border border-emerald-500/40 relative">
                   <span className="absolute -top-2 right-2 bg-emerald-500 text-stone-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase">
                     Le moins cher
                   </span>
-                  <p className="text-[11px] font-bold text-stone-300 uppercase truncate">{driveNom1}</p>
-                  <p className="text-xl md:text-2xl font-black text-emerald-400 mt-0.5">{estimationDrive1} €</p>
+                  <p className="text-xs font-bold text-stone-300 uppercase truncate">{driveNom1}</p>
+                  <p className="text-2xl md:text-3xl font-black text-emerald-400 mt-0.5">{estimationDrive1} €</p>
                 </div>
 
-                <div className="bg-white/5 p-3.5 rounded-2xl border border-white/10">
-                  <p className="text-[11px] font-bold text-stone-400 uppercase truncate">{driveNom2}</p>
-                  <p className="text-xl md:text-2xl font-black text-stone-200 mt-0.5">{estimationDrive2} €</p>
-                  <p className="text-[9px] text-amber-300 mt-0.5">+{ecartEconomieDrive} € d'écart</p>
+                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                  <p className="text-xs font-bold text-stone-400 uppercase truncate">{driveNom2}</p>
+                  <p className="text-2xl md:text-3xl font-black text-stone-200 mt-0.5">{estimationDrive2} €</p>
+                  <p className="text-[10px] text-amber-300 mt-0.5">+{ecartEconomieDrive} € d'écart</p>
                 </div>
               </div>
 
-              <p className="text-[11px] text-stone-300 italic font-medium">
+              <p className="text-xs text-stone-300 italic font-medium">
                 💡 <b>Verdict de l'Arbitre :</b> {driveNom1} est ~{ecartEconomieDrive} € plus économique sur ce panier complet.
               </p>
             </div>
 
             {/* Suivi Budgétaire */}
-            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-4 md:p-5 rounded-3xl shadow-md flex justify-between items-center">
+            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-5 rounded-3xl shadow-md flex justify-between items-center">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90 block">
                   Total Panier {activeBasket}
@@ -1548,7 +1605,7 @@ Format JSON pur :
               </div>
               
               {totalEconomiesRealisees > 0 && (
-                <div className="bg-white/20 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 text-emerald-100">
+                <div className="bg-white/20 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 text-emerald-100">
                   <span>🧊</span>
                   <span>Économie : <b>{totalEconomiesRealisees.toFixed(2)} €</b> grâce au congélateur !</span>
                 </div>
@@ -1562,8 +1619,8 @@ Format JSON pur :
               </span>
             </div>
 
-            {/* 🖥️ GRILLE COURSES : 1 COLONNE SUR MOBILE, 2 COLONNES SUR PC ! */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {/* GRILLE DES ARTICLES : 1 COLONNE SUR SMARTPHONE, 2 SUR ORDINATEUR */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
                 const canFreeze = item.a_alternative_congelo || 
@@ -1646,7 +1703,7 @@ Format JSON pur :
                       {!item.in_stock && canFreeze && (
                         <div className="mt-3 pt-2.5 border-t border-stone-100">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-[10px] font-bold text-stone-500">Option d'achat :</div>
+                            <div className="text-[10px] font-bold text-stone-500">Votre choix :</div>
                             <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
                               <button
                                 type="button"
@@ -1717,9 +1774,9 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 3. VUE MES STOCKS (ADAPTATIVE SUR ORDINATEUR) */}
+        {/* 3. VUE MES STOCKS (GRILLE 2 COLONNES SUR PC) */}
         {view === 'stocks' && (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 md:p-6 text-white shadow-xl">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-black uppercase tracking-wider text-amber-200">Inventaire Réel Foyer</span>
@@ -1731,7 +1788,7 @@ Format JSON pur :
               </p>
             </div>
 
-            <div className="flex bg-stone-200/70 p-1 rounded-2xl shadow-inner max-w-lg mx-auto">
+            <div className="flex bg-stone-200/70 p-1 rounded-2xl shadow-inner max-w-md mx-auto">
               <button
                 onClick={() => setStockTab('congelateur')}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
@@ -1750,7 +1807,7 @@ Format JSON pur :
               </button>
             </div>
 
-            <form onSubmit={handleAddStockItem} className="bg-white p-4 md:p-5 rounded-3xl border border-stone-200 shadow-sm space-y-3 max-w-2xl mx-auto">
+            <form onSubmit={handleAddStockItem} className="bg-white p-5 rounded-3xl border border-stone-200 shadow-sm space-y-3 max-w-xl mx-auto">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-stone-700">
                   + Ajouter un produit existant
@@ -1783,7 +1840,7 @@ Format JSON pur :
                   placeholder={newItemLocation === 'congelateur' ? "Ex: Steaks hachés, Saumon..." : "Ex: Huile d'olive, Curry, Pâtes..."}
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
                 />
 
                 <div className="flex items-center bg-stone-100 rounded-xl border border-stone-200 px-1">
@@ -1813,9 +1870,8 @@ Format JSON pur :
               </button>
             </form>
 
-            {/* Grille des stocks 1 ou 2 colonnes sur ordi */}
             {filteredStockList.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredStockList.map((item) => (
                   <div key={item.id} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1874,233 +1930,293 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 4. VUE PROFIL */}
+        {/* 4. VUE PROFIL : TABLEAU DE BORD PLEIN FORMAT 2 COLONNES SUR ORDINATEUR ! */}
         {view === 'profile' && (
-          <div className="space-y-5 max-w-2xl mx-auto animate-in fade-in">
-            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 md:p-6 text-white shadow-xl">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration Foyer</span>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">{config.code_foyer}</span>
+          <div className="space-y-6 animate-in fade-in">
+            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-6 text-white shadow-xl flex justify-between items-center">
+              <div>
+                <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration du Foyer</span>
+                <h2 className="text-2xl font-black mt-0.5">Profil & Préférences Culinaires ⚙️</h2>
+                <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
+                  Les modifications sont enregistrées en direct à chaque clic !
+                </p>
               </div>
-              <h2 className="text-xl md:text-2xl font-black">Profil & Magasins ⚙️</h2>
-              <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
-                Personnalisez vos drives, votre cadence et vos goûts.
-              </p>
+              <span className="bg-white/20 px-3.5 py-1 rounded-full text-xs font-bold text-amber-100">{config.code_foyer}</span>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-5">
-              <div>
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-1">
-                  Vos Magasins Drive Préférés
-                </label>
-                <p className="text-[11px] text-stone-400 mb-3">
-                  Personnalisez les 2 enseignes utilisées pour vos boutons d'achat rapide.
-                </p>
-
-                <div className="space-y-3">
-                  <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
-                    <label className="text-[10px] font-black uppercase text-blue-700 block mb-1">Drive n°1 (ex: Leclerc)</label>
-                    <input
-                      type="text"
-                      placeholder="Lien de recherche Drive 1..."
-                      value={driveUrl1}
-                      onChange={(e) => setDriveUrl1(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
-                    />
-                  </div>
-
-                  <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
-                    <label className="text-[10px] font-black uppercase text-sky-700 block mb-1">Drive n°2 (ex: Carrefour / Auchan)</label>
-                    <input
-                      type="text"
-                      placeholder="Lien de recherche Drive 2..."
-                      value={driveUrl2}
-                      onChange={(e) => setDriveUrl2(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SÉLECTEUR DE CADENCE */}
-              <div className="pt-2 border-t border-stone-100">
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
-                  Rythme & Période
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois (2 Drives)' },
-                    { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine' },
-                    { id: '1 Semaine Express', icon: '⚡', label: '1 Semaine' }
-                  ].map(d => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => autoSaveDuree(d.id)}
-                      className={`p-3 rounded-2xl border text-center transition-all ${
-                        dureePlanning === d.id 
-                          ? 'border-[#C25E3E] bg-amber-50 text-[#C25E3E] font-black shadow-sm' 
-                          : 'border-stone-200 text-stone-600 hover:border-stone-300 font-medium'
-                      }`}
-                    >
-                      <span className="text-base block mb-0.5">{d.icon}</span>
-                      <span className="text-[10px] leading-tight block">{d.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* NOMBRE DE RECETTES */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-black uppercase tracking-wider text-stone-700">
-                    Nombre de Recettes Souhaité
-                  </label>
-                  <span className="text-sm font-black text-[#C25E3E]">{nbRecettes} recettes</span>
-                </div>
-                <input
-                  type="range"
-                  min="4"
-                  max="14"
-                  step="1"
-                  value={nbRecettes}
-                  onChange={(e) => setNbRecettes(Number(e.target.value))}
-                  className="w-full accent-[#C25E3E]"
-                />
-              </div>
-
-              {/* PORTIONS */}
-              <div>
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
-                  Portions par Recette Cuisinée
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { val: 2, label: '2 Portions', desc: 'Dîner du soir uniquement' },
-                    { val: 4, label: '4 Portions (Idéal)', desc: 'Dîner + Lunchbox le lendemain' }
-                  ].map(p => (
-                    <button
-                      key={p.val}
-                      type="button"
-                      onClick={() => autoSavePortions(p.val)}
-                      className={`p-3 rounded-2xl border text-left transition-all ${
-                        nbPortions === p.val 
-                          ? 'border-[#C25E3E] bg-amber-50 shadow-sm' 
-                          : 'border-stone-200 hover:border-stone-300'
-                      }`}
-                    >
-                      <p className={`text-xs font-black ${nbPortions === p.val ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
-                        {p.label}
-                      </p>
-                      <p className="text-[10px] text-stone-500 mt-0.5">{p.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* CHOIX DU RÉGIME */}
-              <div className="pt-2 border-t border-stone-100">
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
-                  Style Alimentaire
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { id: 'Omnivore (Manger de tout)', desc: '🍽️ Aucune contrainte, cuisine familiale, variée et gourmande' },
-                    { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses (Longévité)' },
-                    { id: 'Index Glycémique Bas', desc: '🥑 Zéro sucre rapide, céréales complètes, énergie stable (Forme)' },
-                    { id: 'Végétarien Gourmand', desc: '🥕 Zéro viande ni poisson, œufs, fromages, légumineuses' }
-                  ].map(r => (
-                    <div
-                      key={r.id}
-                      onClick={() => autoSaveRegime(r.id)}
-                      className={`p-3 rounded-2xl border transition-all cursor-pointer active:scale-98 ${
-                        selectedRegime === r.id 
-                          ? 'border-[#C25E3E] bg-amber-50/70 shadow-sm' 
-                          : 'border-stone-200 hover:border-stone-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className={`text-xs font-extrabold ${selectedRegime === r.id ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
-                          {r.id}
-                        </p>
-                        {selectedRegime === r.id && (
-                          <span className="text-[10px] bg-[#C25E3E] text-white px-2 py-0.5 rounded-full font-bold">Actif ✓</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-stone-500 font-medium mt-0.5">{r.desc}</p>
+            <form onSubmit={handleSaveProfile} className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* COLONNE GAUCHE : CADENCE, BUDGET & DRIVES */}
+                <div className="space-y-6">
+                  
+                  {/* Cadence & Durée */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      1. Rythme & Cadence de Planification
+                    </h3>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois (2 Drives)' },
+                        { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine' },
+                        { id: '1 Semaine Express', icon: '⚡', label: '1 Semaine' }
+                      ].map(d => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => autoSaveDuree(d.id)}
+                          className={`p-3 rounded-2xl border text-center transition-all ${
+                            dureePlanning === d.id 
+                              ? 'border-[#C25E3E] bg-amber-50 text-[#C25E3E] font-black shadow-sm' 
+                              : 'border-stone-200 text-stone-600 hover:border-stone-300 font-medium'
+                          }`}
+                        >
+                          <span className="text-base block mb-0.5">{d.icon}</span>
+                          <span className="text-[10px] leading-tight block">{d.label}</span>
+                        </button>
+                      ))}
                     </div>
-                  ))}
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-xs font-bold text-stone-600">Nombre de Recettes</label>
+                        <span className="text-sm font-black text-[#C25E3E]">{nbRecettes} recettes</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="4"
+                        max="14"
+                        step="1"
+                        value={nbRecettes}
+                        onChange={(e) => setNbRecettes(Number(e.target.value))}
+                        className="w-full accent-[#C25E3E]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-stone-600 block mb-2">Portions cuisinées par recette</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { val: 2, label: '2 Portions', desc: 'Dîner du soir seul' },
+                          { val: 4, label: '4 Portions', desc: 'Dîner + Lunchbox midi' }
+                        ].map(p => (
+                          <button
+                            key={p.val}
+                            type="button"
+                            onClick={() => autoSavePortions(p.val)}
+                            className={`p-3 rounded-2xl border text-left transition-all ${
+                              nbPortions === p.val 
+                                ? 'border-[#C25E3E] bg-amber-50 shadow-sm' 
+                                : 'border-stone-200 hover:border-stone-300'
+                            }`}
+                          >
+                            <p className={`text-xs font-black ${nbPortions === p.val ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
+                              {p.label}
+                            </p>
+                            <p className="text-[10px] text-stone-500 mt-0.5">{p.desc}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Budget Alimentaire */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                        2. Budget Alimentaire Mensuel
+                      </h3>
+                      <span className="text-base font-black text-[#C25E3E]">{budgetInput} €</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="150"
+                      max="350"
+                      step="10"
+                      value={budgetInput}
+                      onChange={(e) => setBudgetInput(Number(e.target.value))}
+                      className="w-full accent-[#C25E3E]"
+                    />
+                    <div className="flex justify-between text-[10px] text-stone-400 font-bold">
+                      <span>150 €</span>
+                      <span>230 € (Standard)</span>
+                      <span>350 €</span>
+                    </div>
+                  </div>
+
+                  {/* Drives Préférés */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      3. Vos Magasins Drive Préférés
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
+                        <label className="text-[10px] font-black uppercase text-blue-700 block mb-1">Drive n°1 (ex: Leclerc)</label>
+                        <input
+                          type="text"
+                          value={driveUrl1}
+                          onChange={(e) => setDriveUrl1(e.target.value)}
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                        />
+                      </div>
+
+                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
+                        <label className="text-[10px] font-black uppercase text-sky-700 block mb-1">Drive n°2 (ex: Carrefour)</label>
+                        <input
+                          type="text"
+                          value={driveUrl2}
+                          onChange={(e) => setDriveUrl2(e.target.value)}
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* COLONNE DROITE : STYLE ALIMENTAIRE & ÉTIQUETTES ALIMENTS BANNIS */}
+                <div className="space-y-6">
+                  
+                  {/* Régimes */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      4. Style Alimentaire
+                    </h3>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {[
+                        { id: 'Omnivore (Manger de tout)', desc: '🍽️ Aucune contrainte, cuisine familiale, variée et gourmande' },
+                        { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses (Longévité)' },
+                        { id: 'Index Glycémique Bas', desc: '🥑 Zéro sucre rapide, céréales complètes, énergie stable (Forme)' },
+                        { id: 'Végétarien Gourmand', desc: '🥕 Zéro viande ni poisson, œufs, fromages, légumineuses' }
+                      ].map(r => (
+                        <div
+                          key={r.id}
+                          onClick={() => autoSaveRegime(r.id)}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer active:scale-98 ${
+                            selectedRegime === r.id 
+                              ? 'border-[#C25E3E] bg-amber-50/70 shadow-sm' 
+                              : 'border-stone-200 hover:border-stone-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className={`text-xs font-extrabold ${selectedRegime === r.id ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
+                              {r.id}
+                            </p>
+                            {selectedRegime === r.id && (
+                              <span className="text-[10px] bg-[#C25E3E] text-white px-2.5 py-0.5 rounded-full font-bold">Actif ✓</span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-stone-500 font-medium mt-0.5">{r.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* GESTIONNAIRE COMPLET D'ALIMENTS BANNIS AVEC ÉTIQUETTES & SAISIE LIBRE */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      5. Aliments Bannis du Foyer
+                    </h3>
+                    <p className="text-[11px] text-stone-500 leading-snug">
+                      L'IA refusera catégoriquement toute recette contenant ces ingrédients.
+                    </p>
+
+                    {/* Champ d'ajout libre au clavier */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Tapez un aliment (ex: poivrons, céleri...)"
+                        value={customBannedWord}
+                        onChange={(e) => setCustomBannedWord(e.target.value)}
+                        onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddCustomBanned(); }}}
+                        className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomBanned}
+                        className="bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition flex-shrink-0"
+                      >
+                        + Bannir
+                      </button>
+                    </div>
+
+                    {/* Liste des étiquettes actives avec bouton croix (✕) */}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">
+                        Aliments actuellement interdits ({activeExclusionsList.length}) :
+                      </p>
+                      {activeExclusionsList.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {activeExclusionsList.map((item, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 bg-red-50 text-red-800 border border-red-200 px-3 py-1 rounded-xl text-xs font-bold animate-in fade-in"
+                            >
+                              <span>🚫 {item}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveBanned(item)}
+                                className="text-red-500 hover:text-red-700 font-black text-sm ml-0.5"
+                                title="Supprimer cette interdiction"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-stone-400 italic">Aucun aliment interdit. L'IA a quartier libre !</p>
+                      )}
+                    </div>
+
+                    {/* Suggestions d'exclusions rapides en 1 clic */}
+                    <div className="pt-2 border-t border-stone-100">
+                      <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Suggestions rapides :</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {['Porc', 'Poisson', 'Coriandre', 'Abats', 'Gluten', 'Lactose', 'Poivrons', 'Champignons'].map(sug => {
+                          const isAlreadyBanned = activeExclusionsList.some(item => item.toLowerCase() === sug.toLowerCase());
+                          return (
+                            <button
+                              key={sug}
+                              type="button"
+                              onClick={() => {
+                                if (isAlreadyBanned) handleRemoveBanned(sug);
+                                else {
+                                  const updated = [...activeExclusionsList, sug].join(', ');
+                                  autoSaveExclusions(updated);
+                                }
+                              }}
+                              className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition ${
+                                isAlreadyBanned 
+                                  ? 'bg-red-50 text-red-700 border-red-300' 
+                                  : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                              }`}
+                            >
+                              {isAlreadyBanned ? `✓ ${sug}` : `+ ${sug}`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Aliments Bannis */}
-              <div>
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-1">
-                  Aliments Interdits ou Détestés
-                </label>
-                <div className="flex flex-wrap gap-1.5 mb-2.5">
-                  {['Pas de porc', 'Pas de poisson', 'Sans coriandre', 'Pas d\'abats', 'Sans gluten'].map(chip => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => {
-                        const current = exclusionsInput ? exclusionsInput.split(',').map(s => s.trim()) : [];
-                        const updated = current.includes(chip) 
-                          ? current.filter(c => c !== chip).join(', ')
-                          : [...current, chip].join(', ');
-                        autoSaveExclusions(updated);
-                      }}
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition ${
-                        exclusionsInput.includes(chip) 
-                          ? 'bg-red-50 text-red-700 border-red-200' 
-                          : 'bg-stone-100 text-stone-600 border-stone-200'
-                      }`}
-                    >
-                      {exclusionsInput.includes(chip) ? `✓ ${chip}` : `+ ${chip}`}
-                    </button>
-                  ))}
-                </div>
-
-                <input
-                  type="text"
-                  placeholder="Ex: Pas de choux de Bruxelles, pas de poivrons crus..."
-                  value={exclusionsInput}
-                  onChange={(e) => autoSaveExclusions(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
-                />
+              {/* Bouton de confirmation en bas */}
+              <div className="pt-4 text-center">
+                <button
+                  type="submit"
+                  className="w-full md:w-auto md:px-12 bg-[#C25E3E] hover:bg-[#A84E33] text-white font-black text-xs md:text-sm py-3.5 rounded-2xl transition shadow-md uppercase tracking-wider active:scale-98"
+                >
+                  Valider tous les Réglages du Foyer
+                </button>
               </div>
-
-              {/* Budget */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-black uppercase tracking-wider text-stone-700">
-                    Budget Cible Alimentation
-                  </label>
-                  <span className="text-sm font-black text-[#C25E3E]">{budgetInput} €</span>
-                </div>
-                <input
-                  type="range"
-                  min="150"
-                  max="350"
-                  step="10"
-                  value={budgetInput}
-                  onChange={(e) => setBudgetInput(Number(e.target.value))}
-                  className="w-full accent-[#C25E3E]"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-black text-xs py-3 rounded-2xl transition shadow-md uppercase tracking-wider active:scale-98"
-              >
-                Enregistrer la Configuration du Foyer
-              </button>
             </form>
           </div>
         )}
       </main>
 
-      {/* 🖥️ MODAL RECETTE DÉTAILLÉE : CENTRÉE ET ÉLÉGANTE SUR ORDINATEUR ! */}
+      {/* MODAL RECETTE DÉTAILLÉE PLEIN FORMAT & CENTRÉE SUR PC */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-6 overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-none md:rounded-[32px] overflow-hidden shadow-2xl relative min-h-screen md:min-h-0 md:max-h-[90vh] overflow-y-auto pb-8">
@@ -2172,7 +2288,6 @@ Format JSON pur :
                 </div>
               </div>
 
-              {/* NOTATION DANS LA FICHE */}
               <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
                 <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
                 {selectedRecipe.est_cuisine || (selectedRecipe.rating && selectedRecipe.rating > 0) ? (
@@ -2233,7 +2348,7 @@ Format JSON pur :
         </div>
       )}
 
-      {/* BARRE DE NAVIGATION BASSE (DOCK CENTRÉ SUR ORDINATEUR) */}
+      {/* BARRE DE NAVIGATION BASSE (DOCK MOBILE & ORDINATEUR) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 py-2.5 z-30 shadow-lg flex justify-center">
         <div className="w-full max-w-md md:max-w-xl flex justify-around items-center px-4">
           <button
