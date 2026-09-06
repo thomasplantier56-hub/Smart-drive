@@ -11,6 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
 const genAI = new GoogleGenerativeAI(geminiKey);
 
+// Nettoyage automatique des mots-clés superflus pour le Drive
 function cleanDriveTerm(text) {
   if (!text) return "";
   return text
@@ -19,35 +20,81 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-function getRecipePhoto(dishName = "", type = "") {
+// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE AVEC ROTATION AUTOMATIQUE DES PHOTOS
+const PHOTO_LIBRARY = {
+  poisson_blanc: [
+    "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
+  ],
+  saumon: [
+    "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
+  ],
+  poulet: [
+    "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1606728035253-49e8a23146de?auto=format&fit=crop&w=700&q=80"
+  ],
+  boeuf: [
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=700&q=80"
+  ],
+  porc: [
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=700&q=80"
+  ],
+  pates_lasagnes: [
+    "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=700&q=80"
+  ],
+  salade_bowl: [
+    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=700&q=80"
+  ],
+  dahl_soupe: [
+    "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1584278860047-22db9ff82bed?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1574484284002-952d92456975?auto=format&fit=crop&w=700&q=80"
+  ],
+  burger: [
+    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=700&q=80"
+  ],
+  pizza_tarte: [
+    "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=700&q=80"
+  ]
+};
+
+function getRecipePhoto(dishName = "", recipeId = 1) {
   const name = dishName.toLowerCase();
-  if (name.includes("saumon") || name.includes("cabillaud") || name.includes("poisson") || name.includes("poke") || name.includes("poké")) {
-    return "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("burger")) {
-    return "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine")) {
-    return "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("risotto")) {
-    return "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("porc")) {
-    return "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa") || name.includes("avocat")) {
-    return "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("pizza") || name.includes("tarte") || name.includes("quiche")) {
-    return "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80";
-  }
-  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté") || name.includes("pois")) {
-    return "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80";
-  }
-  return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
+  const pick = (list) => list[Math.abs(Number(recipeId) || 0) % list.length];
+
+  if (name.includes("saumon")) return pick(PHOTO_LIBRARY.saumon);
+  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin")) return pick(PHOTO_LIBRARY.poisson_blanc);
+  if (name.includes("burger")) return pick(PHOTO_LIBRARY.burger);
+  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine")) return pick(PHOTO_LIBRARY.poulet);
+  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("risotto")) return pick(PHOTO_LIBRARY.pates_lasagnes);
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché")) return pick(PHOTO_LIBRARY.boeuf);
+  if (name.includes("porc") || name.includes("mignon")) return pick(PHOTO_LIBRARY.porc);
+  if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa") || name.includes("avocat") || name.includes("poke")) return pick(PHOTO_LIBRARY.salade_bowl);
+  if (name.includes("pizza") || name.includes("tarte") || name.includes("quiche")) return pick(PHOTO_LIBRARY.pizza_tarte);
+  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté") || name.includes("pois")) return pick(PHOTO_LIBRARY.dahl_soupe);
+
+  return pick(PHOTO_LIBRARY.salade_bowl);
 }
 
+// Miniatures ingrédients Drive
 function getProductThumbnail(productName = "", rayon = "") {
   const p = (productName + " " + rayon).toLowerCase();
   if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) {
@@ -80,7 +127,7 @@ function getProductThumbnail(productName = "", rayon = "") {
   return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80";
 }
 
-export default function SmartDriveApp() {
+export default function App() {
   const moisFrancais = [
     "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
@@ -101,7 +148,7 @@ export default function SmartDriveApp() {
   const [cravingInput, setCravingInput] = useState("");
 
   // Navigation (4 univers)
-  const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks', 'profile'
+  const [view, setView] = useState('menu');
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -114,11 +161,17 @@ export default function SmartDriveApp() {
   const [nbRecettes, setNbRecettes] = useState(14);
   const [nbPortions, setNbPortions] = useState(4);
 
+  // URLs Drive personnalisables par foyer
+  const [driveUrl1, setDriveUrl1] = useState("https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=");
+  const [driveUrl2, setDriveUrl2] = useState("https://www.carrefour.fr/s?q=");
+  const [driveNom1, setDriveNom1] = useState("Leclerc");
+  const [driveNom2, setDriveNom2] = useState("Carrefour");
+
   // Stocks
   const [stockList, setStockList] = useState([]);
   const [stockTab, setStockTab] = useState('congelateur');
 
-  // Formulaire d'ajout rapide stock
+  // Formulaire ajout stock
   const [newItemName, setNewItemName] = useState("");
   const [newItemLocation, setNewItemLocation] = useState("congelateur");
   const [newItemQty, setNewItemQty] = useState(1);
@@ -159,6 +212,8 @@ export default function SmartDriveApp() {
         setDureePlanning(foyer.duree_planning || "1 Mois (2 Paniers)");
         setNbRecettes(foyer.nb_recettes || 14);
         setNbPortions(foyer.nb_portions || 4);
+        if (foyer.drive_leclerc_url) setDriveUrl1(foyer.drive_leclerc_url);
+        if (foyer.drive_carrefour_url) setDriveUrl2(foyer.drive_carrefour_url);
 
         const { data: stocks } = await supabase
           .from('inventaire_congelateur')
@@ -204,6 +259,8 @@ export default function SmartDriveApp() {
         duree_planning: dureePlanning,
         nb_recettes: nbRecettes,
         nb_portions: nbPortions,
+        drive_leclerc_url: driveUrl1,
+        drive_carrefour_url: driveUrl2,
         historique_notes: []
       }).select().single();
 
@@ -285,7 +342,9 @@ export default function SmartDriveApp() {
         budget_mensuel: Number(budgetInput) || 230,
         duree_planning: dureePlanning,
         nb_recettes: Number(nbRecettes) || 14,
-        nb_portions: Number(nbPortions) || 4
+        nb_portions: Number(nbPortions) || 4,
+        drive_leclerc_url: driveUrl1,
+        drive_carrefour_url: driveUrl2
       }).eq('id', config.id);
 
       setConfig(prev => ({
@@ -295,13 +354,15 @@ export default function SmartDriveApp() {
         budget_mensuel: Number(budgetInput) || 230,
         duree_planning: dureePlanning,
         nb_recettes: Number(nbRecettes) || 14,
-        nb_portions: Number(nbPortions) || 4
+        nb_portions: Number(nbPortions) || 4,
+        drive_leclerc_url: driveUrl1,
+        drive_carrefour_url: driveUrl2
       }));
 
-      alert("✅ Profil et cadence enregistrés avec succès !");
+      alert("✅ Profil et configuration Drive enregistrés !");
     } catch (err) {
       console.error(err);
-      alert("Erreur sauvegarde profil : " + err.message);
+      alert("Erreur sauvegarde : " + err.message);
     }
   }
 
@@ -341,8 +402,8 @@ export default function SmartDriveApp() {
       await supabase.from('inventaire_congelateur').update({ est_consomme: true, quantite: 0 }).eq('id', item.id);
       setStockList(prev => prev.filter(i => i.id !== item.id));
     } else {
-      await supabase.from('inventaire_congelateur').update({ quantite: newQty }).eq('id', item.id);
-      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty } : i));
+      await supabase.from('inventaire_congelateur').update({ quantite: newQty, est_consomme: false }).eq('id', item.id);
+      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty, est_consomme: false } : i));
     }
   }
 
@@ -369,13 +430,14 @@ export default function SmartDriveApp() {
     }
   }
 
-  // 👨‍🍳 VALIDATION DU PLAT CUISINÉ
+  // 👨‍🍳 VALIDATION ET ANNULATION DU PLAT CUISINÉ (AVEC RESTITUTION DES STOCKS EN CAS D'ERREUR !)
   async function toggleRecipeCooked(recipeId, e) {
     if (e) e.stopPropagation();
     if (!config) return;
 
     let targetRecipe = null;
     let newCookedStatus = false;
+    let deductedItems = [];
 
     const updatedMenu = (config.menu_json || []).map(r => {
       if (r.id === recipeId) {
@@ -390,39 +452,65 @@ export default function SmartDriveApp() {
       return r;
     });
 
-    setConfig(prev => ({ ...prev, menu_json: updatedMenu }));
-    if (selectedRecipe && selectedRecipe.id === recipeId) {
-      setSelectedRecipe(prev => ({
-        ...prev,
-        est_cuisine: newCookedStatus,
-        date_cuisine: newCookedStatus ? `${jourDuMois} ${moisActuel}` : null
-      }));
-    }
-
-    await supabase.from('foyers').update({ menu_json: updatedMenu }).eq('id', config.id);
-
-    // Décrémentation automatique des réserves
+    // CAS 1 : VALIDATION DU PLAT (Décompte des réserves)
     if (newCookedStatus && targetRecipe && targetRecipe.ingredients) {
       const ingredientsText = targetRecipe.ingredients.join(" ").toLowerCase();
-      let deductedCount = 0;
 
       for (const stockItem of stockList) {
         if (!stockItem.est_consomme && stockItem.quantite > 0) {
           const stockNameLower = stockItem.nom_produit.toLowerCase();
           if (ingredientsText.includes(stockNameLower) || stockNameLower.includes(cleanDriveTerm(stockNameLower))) {
             await adjustStockQty(stockItem, -1);
-            deductedCount++;
+            deductedItems.push({ id: stockItem.id, nom: stockItem.nom_produit, emplacement: stockItem.emplacement });
           }
         }
       }
 
-      if (deductedCount > 0) {
-        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" est cuisiné. Vos ingrédients utilisés ont été décomptés de vos réserves.`);
+      // On mémorise les ingrédients décomptés pour pouvoir les réintégrer si annulation !
+      targetRecipe.stocks_deduits = deductedItems;
+      const finalMenu = updatedMenu.map(r => r.id === recipeId ? { ...r, stocks_deduits: deductedItems } : r);
+
+      setConfig(prev => ({ ...prev, menu_json: finalMenu }));
+      await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
+
+      if (deductedItems.length > 0) {
+        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" est validé. ${deductedItems.length} ingrédient(s) ont été décomptés de vos réserves.`);
       }
+    } 
+    // CAS 2 : ANNULATION (Fausse manipulation / Test -> Restitution immédiate des stocks !)
+    else if (!newCookedStatus && targetRecipe) {
+      const previouslyDeducted = targetRecipe.stocks_deduits || [];
+      for (const d of previouslyDeducted) {
+        const itemInList = stockList.find(s => s.id === d.id);
+        if (itemInList) {
+          await adjustStockQty(itemInList, +1);
+        } else {
+          // Si le produit avait disparu (qté 0), on le recrée !
+          const { data } = await supabase.from('inventaire_congelateur').insert({
+            foyer_id: config.id,
+            nom_produit: d.nom,
+            emplacement: d.emplacement || 'congelateur',
+            quantite: 1,
+            date_entree: `${jourDuMois} ${moisActuel}`,
+            origine: 'Restitution Annulation',
+            conservation_mois: 6,
+            est_consomme: false
+          }).select().single();
+          if (data) setStockList(prev => [data, ...prev]);
+        }
+      }
+
+      targetRecipe.stocks_deduits = [];
+      const finalMenu = updatedMenu.map(r => r.id === recipeId ? { ...r, stocks_deduits: [] } : r);
+
+      setConfig(prev => ({ ...prev, menu_json: finalMenu }));
+      await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
+
+      alert(`↩️ Annulation prise en compte : "${targetRecipe.nom}" repasse en attente et vos ingrédients ont été réintégrés dans vos stocks !`);
     }
   }
 
-  // ⭐ NOTATION AVEC MÉMOIRE PERMANENTE (CARNET D'OR ET LISTE NOIRE À VIE)
+  // ⭐ NOTATION PERMANENTE
   async function updateRating(recipeId, rating, e) {
     if (e) e.stopPropagation();
     if (!config) return;
@@ -437,7 +525,6 @@ export default function SmartDriveApp() {
       return r;
     });
 
-    // Enregistrement permanent dans l'historique du foyer
     const currentHistory = Array.isArray(config.historique_notes) ? config.historique_notes : [];
     const cleanHistory = currentHistory.filter(h => h.nom !== ratedRecipeName);
     if (rating > 0) {
@@ -508,7 +595,7 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
 
     if (newStatus.recu) {
-      alert(`✅ Courses du Panier ${activeBasket} marquées comme rangées au frigo ! Le suivi fraîcheur est activé.`);
+      alert(`✅ Courses du Panier ${activeBasket} rangées au frigo !`);
     }
   }
 
@@ -525,7 +612,7 @@ export default function SmartDriveApp() {
     const portions = Number(nbPortions || config.nb_portions || 4);
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour l'application "À Table !".
 Le couple a formulé une ENVIE TRÈS PRÉCISE : "${envie}".
 Génère UNE RECETTE correspondant à cette envie pour ${moisActuel.toUpperCase()} en France (${portions} portions).
 Contraintes :
@@ -616,10 +703,10 @@ Format JSON pur impératif :
         panier_json: updatedPanierJson
       }));
 
-      alert(`🎉 Votre envie "${envie}" (${portions} pers. • ${regimeActuel}) a été ajoutée à la Quinzaine ${activeBasket} !`);
+      alert(`🎉 Votre envie "${envie}" a été ajoutée à la Quinzaine ${activeBasket} !`);
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de l'intégration : " + err.message);
+      alert("Erreur intégration : " + err.message);
     } finally {
       setIsInjectingCraving(false);
     }
@@ -635,7 +722,7 @@ Format JSON pur impératif :
     const portions = Number(nbPortions || config.nb_portions || 4);
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour l'application "À Table !".
 Le couple ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
 PROFIL DU FOYER :
 - Régime respecté : ${regimeActuel}
@@ -655,7 +742,7 @@ Format JSON pur :
     "type": "${recipeToSwap.type || 'Frais'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Conforme à votre régime ${regimeActuel}",
+    "bienfait_sante": "🛡️ Bienfait santé",
     "saison_atout": "Légumes de saison",
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
@@ -746,17 +833,15 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION MENSUELLE LISANT LE CARNET PERMANENT DES NOTES
+  // 🎯 GÉNÉRATION MENSUELLE
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
 
-    // Lecture des notes permanentes cumulées à vie !
     const permanentHistory = Array.isArray(config.historique_notes) ? config.historique_notes : [];
     const lovedRecipes = permanentHistory.filter(h => h.rating >= 4).map(h => h.nom);
     const dislikedRecipes = permanentHistory.filter(h => h.rating <= 2).map(h => h.nom);
 
-    // Lecture des vrais stocks de la maison
     const stocksActifs = stockList.filter(s => !s.est_consomme && s.quantite > 0);
     const stocksCongelo = stocksActifs
       .filter(s => s.emplacement === 'congelateur')
@@ -775,7 +860,7 @@ Format JSON pur :
     const isMonth = duree.includes('Mois');
     const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive.
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour l'application "À Table !".
 PROFIL ALIMENTAIRE PRIORITAIRE :
 - Régime choisi : ${regimeActuel}
   * Si "Omnivore (Manger de tout)" : Aucune restriction, cuisine familiale, gourmande, variée (viandes, volailles, poissons, œufs, féculents).
@@ -784,7 +869,7 @@ PROFIL ALIMENTAIRE PRIORITAIRE :
   * Si "Végétarien" : Zéro viande ni poisson.
 - ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle d'en mettre !)
 
-HISTORIQUE PERMANENT DES GOÛTS DU FOYER (CRITIQUE) :
+HISTORIQUE DES GOÛTS DU FOYER :
 - PLATS ADORÉS PRÉCÉDEMMENT (4 ou 5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun pour le moment'}.
   -> CONSIGNE : Réinvite ces recettes adorées régulièrement ou inspire-t'en en priorité !
 - PLATS DÉTESTÉS (1 ou 2 étoiles) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
@@ -796,9 +881,10 @@ CADENCE ET STRUCTURE :
 - Nombre STRICT DE RECETTES À GÉNÉRER : EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
 ${isMonth ? `- Répartition : Les recettes 1 à ${q1Count} ont "basket": 1 (Panier 1). Les recettes ${q1Count + 1} à ${totalRecettes} ont "basket": 2 (Panier 2).` : `- Toutes les recettes ont "basket": 1.`}
 
-RÉSERVES DU FOYER (À UTILISER EN PRIORITÉ ET NE PAS ACHETER AU DRIVE) :
+RÉSERVES DU FOYER :
 - Grand Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
 - Placard & Épicerie : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
+Utilise ces réserves en priorité et NE LES COMMANDE PAS au Drive !
 
 CONDIMENTS ET AROMATES : Inclus systématiquement oignons, ail, herbes et épices dans les paniers avec "est_condiment": true.
 CONTRAINTE BUDGÉTAIRE : ~${budgetActuel}€ max. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
@@ -901,7 +987,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu généré avec succès en mode "${regimeActuel}" (${totalRecettes} recettes, ${portions} pers.) ! Vos coups de cœur et refus sont respectés.`);
+      alert(`Menu généré pour "À Table !" : ${totalRecettes} recettes en mode ${regimeActuel} !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -922,7 +1008,6 @@ Format JSON pur :
     }, 1500);
   };
 
-  // Composant Étoiles
   const StarRating = ({ rating = 0, onRate }) => (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
@@ -943,68 +1028,70 @@ Format JSON pur :
   // ÉCRAN DE CONNEXION / CRÉATION FOYER
   if (!loading && !config) {
     return (
-      <div className="max-w-md mx-auto min-h-screen bg-[#1C1917] text-white p-6 flex flex-col justify-center font-sans">
-        <div className="text-center mb-8">
-          <span className="text-5xl block mb-3">🌿</span>
-          <h1 className="text-2xl font-black italic tracking-tight">SMART DRIVE PRO</h1>
-          <p className="text-xs text-stone-400 mt-1">Votre chef personnel connecté à vos Drives</p>
-        </div>
+      <div className="w-full min-h-screen bg-[#1C1917] text-white p-6 flex flex-col justify-center items-center font-sans">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <span className="text-5xl block mb-3">🍽️</span>
+            <h1 className="text-3xl font-black italic tracking-tight font-serif">À Table !</h1>
+            <p className="text-xs text-stone-400 mt-1">Vos repas cuisinés et vos courses Drive, zéro stress</p>
+          </div>
 
-        {!isCreatingFoyer ? (
-          <form onSubmit={handleConnectFoyer} className="bg-[#292524] p-6 rounded-3xl border border-stone-700 shadow-2xl space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400">Rejoindre votre Foyer</h2>
-            <div>
-              <label className="text-[11px] font-bold text-stone-300 block mb-1">Code d'accès Foyer</label>
-              <input 
-                type="text" 
-                className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest text-lg focus:outline-none focus:border-amber-400"
-                placeholder="EX: LUNEL-ALES"
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-extrabold py-3 rounded-xl transition shadow-lg">
-              Accéder à mes Repas
-            </button>
-            <div className="pt-2 text-center">
-              <button type="button" onClick={() => setIsCreatingFoyer(true)} className="text-xs text-stone-400 hover:text-white underline">
-                Créer un nouveau foyer (pour un ami)
+          {!isCreatingFoyer ? (
+            <form onSubmit={handleConnectFoyer} className="bg-[#292524] p-6 rounded-3xl border border-stone-700 shadow-2xl space-y-4">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-400">Rejoindre votre Foyer</h2>
+              <div>
+                <label className="text-[11px] font-bold text-stone-300 block mb-1">Code d'accès Foyer</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest text-lg focus:outline-none focus:border-amber-400"
+                  placeholder="EX: FOYER-PA"
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-extrabold py-3 rounded-xl transition shadow-lg">
+                Accéder à mes Repas
               </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleCreateFoyer} className="bg-[#292524] p-6 rounded-3xl border border-stone-700 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Créer un Nouveau Foyer</h2>
-            <div>
-              <label className="text-[11px] font-bold text-stone-300 block mb-1">Nom du foyer / Famille</label>
-              <input 
-                type="text" 
-                className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white text-sm"
-                placeholder="Ex: Famille Dupont"
-                value={newFoyerName}
-                onChange={(e) => setNewFoyerName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold text-stone-300 block mb-1">Code Foyer Unique</label>
-              <input 
-                type="text" 
-                className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest"
-                placeholder="EX: FOYER-DUPONT"
-                value={inputCode}
-                onChange={(e) => setInputCode(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 rounded-xl transition shadow-lg">
-              Créer et Démarrer
-            </button>
-            <div className="pt-2 text-center">
-              <button type="button" onClick={() => setIsCreatingFoyer(false)} className="text-xs text-stone-400 hover:text-white underline">
-                Retour à la connexion
+              <div className="pt-2 text-center">
+                <button type="button" onClick={() => setIsCreatingFoyer(true)} className="text-xs text-stone-400 hover:text-white underline">
+                  Créer un nouveau foyer (pour un ami)
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleCreateFoyer} className="bg-[#292524] p-6 rounded-3xl border border-stone-700 shadow-xl space-y-4">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Créer un Nouveau Foyer</h2>
+              <div>
+                <label className="text-[11px] font-bold text-stone-300 block mb-1">Nom du foyer / Famille</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white text-sm"
+                  placeholder="Ex: Famille Dupont"
+                  value={newFoyerName}
+                  onChange={(e) => setNewFoyerName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-stone-300 block mb-1">Code Foyer Unique</label>
+                <input 
+                  type="text" 
+                  className="w-full bg-[#1C1917] border border-stone-600 rounded-xl p-3 text-white uppercase font-black text-center tracking-widest"
+                  placeholder="EX: FOYER-DUPONT"
+                  value={inputCode}
+                  onChange={(e) => setInputCode(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 rounded-xl transition shadow-lg">
+                Créer et Démarrer
               </button>
-            </div>
-          </form>
-        )}
+              <div className="pt-2 text-center">
+                <button type="button" onClick={() => setIsCreatingFoyer(false)} className="text-xs text-stone-400 hover:text-white underline">
+                  Retour à la connexion
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     );
   }
@@ -1013,7 +1100,7 @@ Format JSON pur :
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-[#FAF8F5] gap-3">
         <div className="w-10 h-10 border-4 border-[#C25E3E] border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-stone-700 text-sm">Chargement de votre univers culinaire...</p>
+        <p className="font-bold text-stone-700 text-sm">Chargement de votre table...</p>
       </div>
     );
   }
@@ -1033,9 +1120,9 @@ Format JSON pur :
       return sum + prix;
     }, 0);
 
-  const estimationLeclercLunel = totalPanierEstime > 0 ? (totalPanierEstime * 0.97).toFixed(2) : "0.00";
-  const estimationCarrefourAles = totalPanierEstime > 0 ? (totalPanierEstime * 1.03).toFixed(2) : "0.00";
-  const ecartEconomieDrive = (Number(estimationCarrefourAles) - Number(estimationLeclercLunel)).toFixed(2);
+  const estimationDrive1 = totalPanierEstime > 0 ? (totalPanierEstime * 0.97).toFixed(2) : "0.00";
+  const estimationDrive2 = totalPanierEstime > 0 ? (totalPanierEstime * 1.03).toFixed(2) : "0.00";
+  const ecartEconomieDrive = (Number(estimationDrive2) - Number(estimationDrive1)).toFixed(2);
 
   const totalEconomiesRealisees = activePanierList
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
@@ -1067,14 +1154,18 @@ Format JSON pur :
   });
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-[#FAF8F5] pb-28 shadow-2xl font-sans text-stone-900">
+    // 🖥️ RESPONSIVE : S'adapte en grand écran sur ordinateur (max-w-6xl) tout en restant parfait sur smartphone !
+    <div className="w-full max-w-md md:max-w-4xl lg:max-w-6xl mx-auto min-h-screen bg-[#FAF8F5] pb-28 shadow-2xl font-sans text-stone-900 transition-all">
       
-      {/* HEADER BISTROT CHALEUREUX */}
-      <header className="bg-gradient-to-r from-[#C25E3E] to-[#A84E33] p-5 text-white sticky top-0 z-40 shadow-md">
+      {/* HEADER BISTROT GOURMAND "À TABLE !" */}
+      <header className="bg-gradient-to-r from-[#C25E3E] to-[#A84E33] p-5 md:px-8 text-white sticky top-0 z-40 shadow-md">
         <div className="flex justify-between items-center mb-1">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-black italic text-2xl tracking-tight">SMART DRIVE</h1>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-xl border border-white/20 shadow-inner">
+                🍽️
+              </div>
+              <h1 className="font-black italic text-2xl md:text-3xl tracking-tight font-serif">À Table !</h1>
               <span className="text-[10px] bg-white/20 text-amber-100 font-extrabold px-2.5 py-0.5 rounded-full">
                 {config.code_foyer}
               </span>
@@ -1086,19 +1177,19 @@ Format JSON pur :
                 ✕
               </button>
             </div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-amber-100 mt-0.5">
+            <p className="text-[11px] md:text-xs font-bold uppercase tracking-widest text-amber-100 mt-0.5">
               {moisActuel} • {selectedRegime}
             </p>
           </div>
           <button
             onClick={generateWithGemini}
-            className="bg-white text-[#C25E3E] hover:bg-amber-100 px-3.5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition"
+            className="bg-white text-[#C25E3E] hover:bg-amber-100 px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md active:scale-95 transition"
           >
             ⚡ Générer
           </button>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-amber-100 font-medium mt-2 pt-2 border-t border-white/15">
+        <div className="flex items-center justify-between text-[11px] md:text-xs text-amber-100 font-medium mt-2 pt-2 border-t border-white/15">
           <span>📅 {jourDuMois} {moisActuel}</span>
           <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
             {isPlanningMonth ? `Quinzaine ${activeBasket}` : currentDuree}
@@ -1106,10 +1197,10 @@ Format JSON pur :
         </div>
       </header>
 
-      <main className="p-4">
+      <main className="p-4 md:p-6 lg:p-8">
         {/* Sélecteur de Quinzaine universel */}
         {view !== 'stocks' && view !== 'profile' && isPlanningMonth && (
-          <div className="flex bg-stone-200/70 p-1 rounded-2xl mb-4 shadow-inner">
+          <div className="flex bg-stone-200/70 p-1 rounded-2xl mb-5 shadow-inner max-w-lg mx-auto">
             <button
               onClick={() => setActiveBasket(1)}
               className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
@@ -1129,12 +1220,12 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING AVEC ÉTOILES INTELLIGENTES */}
+        {/* 1. VUE PLANNING (GRILLE ADAPTATIVE 1 COLONNE SUR MOBILE, 2 OU 3 SUR PC !) */}
         {view === 'menu' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             
             {/* JAUGE DE PROGRESSION */}
-            <div className="bg-white p-3.5 rounded-2xl border border-stone-200 shadow-sm">
+            <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-sm">
               <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-1.5">
                 <span className="flex items-center gap-1.5">
                   <span>🍽️</span>
@@ -1142,7 +1233,7 @@ Format JSON pur :
                 </span>
                 <span className="text-[#C25E3E] font-black">{cookedCount} / {totalCount} cuisinés</span>
               </div>
-              <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
                 <div 
                   className="bg-emerald-600 h-full transition-all duration-500 rounded-full" 
                   style={{ width: `${progressPercent}%` }}
@@ -1151,7 +1242,7 @@ Format JSON pur :
             </div>
 
             {/* Récapitulatif cadence */}
-            <div className="bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2 flex items-center justify-between text-xs text-stone-700">
+            <div className="bg-amber-50 border border-amber-200/60 rounded-2xl px-4 py-2.5 flex items-center justify-between text-xs text-stone-700">
               <span className="font-bold flex items-center gap-1.5">
                 <span>🎯</span>
                 <span>{targetNbRecettes} repas • {currentDuree} • {targetPortions} pers.</span>
@@ -1167,26 +1258,26 @@ Format JSON pur :
             {/* ALERTE FRAÎCHEUR FRIGO */}
             {isBasketReceived ? (
               premierPlatFrais && (
-                <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-4 text-white shadow-lg animate-in fade-in">
+                <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-4 md:p-5 text-white shadow-lg animate-in fade-in">
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🚨</span>
-                      <span className="text-xs font-black uppercase tracking-wider">Fraîcheur Frigo (Courses du {basketStatus.date_reception})</span>
+                      <span className="text-xs md:text-sm font-black uppercase tracking-wider">Fraîcheur Frigo (Courses du {basketStatus.date_reception})</span>
                     </div>
                   </div>
-                  <p className="text-xs font-medium leading-snug mb-3">
+                  <p className="text-xs md:text-sm font-medium leading-snug mb-3">
                     À cuisiner en priorité : <b>{premierPlatFrais.nom}</b>. Pas le temps ce soir ?
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2.5">
                     <button
                       onClick={() => setSelectedRecipe(premierPlatFrais)}
-                      className="flex-1 bg-white text-stone-900 font-extrabold text-[11px] py-2 rounded-xl shadow active:scale-95 transition"
+                      className="flex-1 bg-white text-stone-900 font-extrabold text-[11px] md:text-xs py-2.5 rounded-xl shadow active:scale-95 transition"
                     >
                       👨‍🍳 Cuisiner ce soir
                     </button>
                     <button
                       onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
-                      className="flex-1 bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-[11px] py-2 rounded-xl border border-white/20 active:scale-95 transition"
+                      className="flex-1 bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-[11px] md:text-xs py-2.5 rounded-xl border border-white/20 active:scale-95 transition"
                     >
                       🧊 Sauver au Congélo
                     </button>
@@ -1194,14 +1285,14 @@ Format JSON pur :
                 </div>
               )
             ) : (
-              <div className="bg-stone-100 border border-stone-200 rounded-3xl p-3.5 flex items-center justify-between text-xs text-stone-700">
-                <span className="flex items-center gap-2">
+              <div className="bg-stone-100 border border-stone-200 rounded-3xl p-3.5 md:p-4 flex items-center justify-between text-xs text-stone-700">
+                <span className="flex items-center gap-2 font-medium">
                   <span>🛒</span>
                   <span>Panier {activeBasket} à commander au Drive</span>
                 </span>
                 <button
                   onClick={() => setView('shop')}
-                  className="bg-[#C25E3E] text-white font-bold text-[10px] px-3 py-1.5 rounded-xl uppercase tracking-wider hover:bg-[#A84E33] transition"
+                  className="bg-[#C25E3E] text-white font-bold text-[10px] px-3.5 py-2 rounded-xl uppercase tracking-wider hover:bg-[#A84E33] transition"
                 >
                   Voir ma liste
                 </button>
@@ -1212,7 +1303,7 @@ Format JSON pur :
             <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 space-y-2">
               <label className="block text-[11px] font-black uppercase tracking-wider text-[#C25E3E] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <span>✨</span> Une envie gourmande ?
+                  <span>✨</span> Une envie gourmande précise ?
                 </span>
                 {config?.cravings && (
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
@@ -1241,19 +1332,20 @@ Format JSON pur :
               </div>
             </form>
 
-            <div className="flex justify-between items-center pl-1 pr-1">
-              <h2 className="text-xs font-black text-stone-500 uppercase tracking-widest">
+            <div className="flex justify-between items-center pl-1 pr-1 pt-2">
+              <h2 className="text-xs md:text-sm font-black text-stone-600 uppercase tracking-widest">
                 {isPlanningMonth ? `Repas de la Quinzaine ${activeBasket}` : `Repas du cycle (${currentDuree})`}
               </h2>
-              <span className="text-[10px] text-emerald-700 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <span className="text-[10px] md:text-xs text-emerald-700 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers.
               </span>
             </div>
 
+            {/* 🖥️ GRILLE DES RECETTES : 1 COLONNE SUR SMARTPHONE, 2 SUR TABLETTE, 3 SUR GRAND ÉCRAN ! */}
             {mealsForActiveQuinzaine.length > 0 ? (
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {mealsForActiveQuinzaine.map((repas) => {
-                  const photoUrl = getRecipePhoto(repas.nom, repas.type);
+                  const photoUrl = getRecipePhoto(repas.nom, repas.id);
                   const isSwapping = swappingId === repas.id;
                   const hasRating = repas.rating && repas.rating > 0;
                   const canShowStars = repas.est_cuisine || hasRating;
@@ -1262,109 +1354,111 @@ Format JSON pur :
                     <div
                       key={repas.id}
                       onClick={() => setSelectedRecipe(repas)}
-                      className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border transition-all cursor-pointer active:scale-[0.99] ${
+                      className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border transition-all cursor-pointer flex flex-col justify-between ${
                         repas.est_cuisine ? 'border-emerald-300 ring-2 ring-emerald-500/20' : 'border-stone-200'
                       }`}
                     >
-                      <div className="relative h-44 w-full bg-stone-200 overflow-hidden">
-                        <img 
-                          src={photoUrl} 
-                          alt={repas.nom} 
-                          className={`w-full h-full object-cover ${repas.est_cuisine ? 'opacity-70 grayscale-[20%]' : ''}`}
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
-                        
-                        <div className="absolute top-3 left-3 flex gap-1.5">
-                          {isPlanningMonth && (
-                            <span className="bg-white/90 backdrop-blur text-stone-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                              Panier {activeBasket}
+                      <div>
+                        <div className="relative h-44 w-full bg-stone-200 overflow-hidden">
+                          <img 
+                            src={photoUrl} 
+                            alt={repas.nom} 
+                            className={`w-full h-full object-cover transition-transform duration-500 hover:scale-105 ${repas.est_cuisine ? 'opacity-75 grayscale-[15%]' : ''}`}
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
+                          
+                          <div className="absolute top-3 left-3 flex gap-1.5">
+                            {isPlanningMonth && (
+                              <span className="bg-white/90 backdrop-blur text-stone-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
+                                Panier {activeBasket}
+                              </span>
+                            )}
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
+                              repas.type === 'Cheat' ? 'bg-amber-400 text-stone-950' : 'bg-emerald-600 text-white'
+                            }`}>
+                              {repas.type === 'Cheat' ? 'Plaisir' : (repas.type || 'Frais')}
                             </span>
-                          )}
-                          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
-                            repas.type === 'Cheat' ? 'bg-amber-400 text-stone-950' : 'bg-emerald-600 text-white'
-                          }`}>
-                            {repas.type === 'Cheat' ? 'Plaisir' : (repas.type || 'Frais')}
-                          </span>
-                          {repas.est_cuisine && (
-                            <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                              ✓ Cuisiné
-                            </span>
-                          )}
+                            {repas.est_cuisine && (
+                              <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
+                                ✓ Cuisiné
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end text-white">
+                            <div className="flex items-center gap-2 text-xs font-bold drop-shadow">
+                              <span>⏱️ {repas.temps || '20 min'}</span>
+                              <span>•</span>
+                              <span className="text-amber-300">🔥 {repas.calories || '480 kcal'}</span>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end text-white">
-                          <div className="flex items-center gap-2 text-xs font-bold drop-shadow">
-                            <span>⏱️ {repas.temps || '20 min'}</span>
-                            <span>•</span>
-                            <span className="text-amber-300">🔥 {repas.calories || '480 kcal'}</span>
+                        <div className="p-4">
+                          <div className="mb-2">
+                            <span className="inline-block bg-amber-50 text-[#C25E3E] text-[11px] font-extrabold px-3 py-1 rounded-full border border-amber-200/50">
+                              {repas.bienfait_sante || "🛡️ Équilibre & Vitalité"}
+                            </span>
                           </div>
+
+                          <h3 className={`text-base font-extrabold leading-snug mb-1 ${repas.est_cuisine ? 'text-emerald-950' : 'text-stone-900'}`}>
+                            {repas.nom}
+                          </h3>
+
+                          {repas.saison_atout && (
+                            <p className="text-xs text-stone-500 font-medium mb-3">
+                              🌱 {repas.saison_atout}
+                            </p>
+                          )}
                         </div>
                       </div>
 
-                      <div className="p-4">
-                        <div className="mb-2">
-                          <span className="inline-block bg-amber-50 text-[#C25E3E] text-[11px] font-extrabold px-3 py-1 rounded-full border border-amber-200/50">
-                            {repas.bienfait_sante || "🛡️ Équilibre & Vitalité"}
+                      {/* PIED DE CARTE AVEC ÉTOILES ET ACTIONS */}
+                      <div className="p-4 pt-2.5 border-t border-stone-100 flex justify-between items-center gap-2 mt-auto">
+                        {canShowStars ? (
+                          <div className="flex items-center gap-1">
+                            <StarRating 
+                              rating={repas.rating || 0} 
+                              onRate={(star, e) => updateRating(repas.id, star, e)} 
+                            />
+                            {hasRating && (
+                              <span className="text-[10px] font-bold text-amber-600">({repas.rating}/5)</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-stone-400 italic">
+                            🍽️ À noter après dégustation
                           </span>
-                        </div>
-
-                        <h3 className={`text-base font-extrabold leading-snug mb-1 ${repas.est_cuisine ? 'text-emerald-950' : 'text-stone-900'}`}>
-                          {repas.nom}
-                        </h3>
-
-                        {repas.saison_atout && (
-                          <p className="text-xs text-stone-500 font-medium mb-3">
-                            🌱 {repas.saison_atout}
-                          </p>
                         )}
 
-                        {/* SECTION ÉTOILES LOGIQUE : MASQUÉE SI PAS ENCORE CUISINÉ ! */}
-                        <div className="pt-2.5 border-t border-stone-100 flex justify-between items-center gap-2">
-                          {canShowStars ? (
-                            <div className="flex items-center gap-1.5">
-                              <StarRating 
-                                rating={repas.rating || 0} 
-                                onRate={(star, e) => updateRating(repas.id, star, e)} 
-                              />
-                              {hasRating && (
-                                <span className="text-[10px] font-bold text-amber-600">({repas.rating}/5)</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-stone-400 italic">
-                              🍽️ À noter après dégustation
-                            </span>
-                          )}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={(e) => toggleRecipeCooked(repas.id, e)}
+                            className={`text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border ${
+                              repas.est_cuisine
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
+                            }`}
+                            title={repas.est_cuisine ? "Cliquer pour annuler et restituer les stocks" : "Marquer comme cuisiné"}
+                          >
+                            <span>{repas.est_cuisine ? '✅' : '👨‍🍳'}</span>
+                            <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : 'Cuisiné'}</span>
+                          </button>
 
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={(e) => toggleRecipeCooked(repas.id, e)}
-                              className={`text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border ${
-                                repas.est_cuisine
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                  : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
-                              }`}
-                              title={repas.est_cuisine ? "Cliquer pour annuler" : "Marquer comme cuisiné"}
-                            >
-                              <span>{repas.est_cuisine ? '✅' : '👨‍🍳'}</span>
-                              <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : 'Cuisiné'}</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              disabled={isSwapping}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                swapRecipe(repas);
-                              }}
-                              className="text-[11px] font-extrabold text-[#C25E3E] hover:text-[#A84E33] bg-amber-50 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-amber-200/60"
-                              title="Remplacer cette recette"
-                            >
-                              <span>{isSwapping ? '⏳' : '🔄'}</span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            disabled={isSwapping}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              swapRecipe(repas);
+                            }}
+                            className="text-[11px] font-extrabold text-[#C25E3E] hover:text-[#A84E33] bg-amber-50 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border border-amber-200/60"
+                            title="Remplacer cette recette"
+                          >
+                            <span>{isSwapping ? '⏳' : '🔄'}</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1385,25 +1479,25 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 2. VUE COURSES & ARBITRE DRIVE */}
+        {/* 2. VUE COURSES & ARBITRE DRIVE (ADAPTATIVE SUR ORDINATEUR) */}
         {view === 'shop' && (
           <div className="space-y-4">
-            <div className="bg-white p-3.5 rounded-3xl border border-stone-200 shadow-sm flex items-center justify-between">
+            <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <span className="text-xl">{isBasketReceived ? '✅' : '📦'}</span>
                 <div>
-                  <h4 className="text-xs font-black text-stone-800">
+                  <h4 className="text-xs md:text-sm font-black text-stone-800">
                     {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} en attente`}
                   </h4>
-                  <p className="text-[10px] text-stone-400">
-                    {isBasketReceived ? 'Suivi fraîcheur actif' : 'Cliquez une fois vos sacs rangés'}
+                  <p className="text-[10px] md:text-xs text-stone-400">
+                    {isBasketReceived ? 'Suivi fraîcheur actif dans votre Planning' : 'Cliquez une fois vos sacs rangés à la maison'}
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => toggleBasketReceivedStatus(currentBasketKey)}
-                className={`text-[10px] font-black px-3 py-2 rounded-xl transition uppercase tracking-wider ${
+                className={`text-[10px] md:text-xs font-black px-3.5 py-2 rounded-xl transition uppercase tracking-wider ${
                   isBasketReceived ? 'bg-stone-100 text-stone-600' : 'bg-emerald-600 text-white'
                 }`}
               >
@@ -1411,63 +1505,65 @@ Format JSON pur :
               </button>
             </div>
 
-            <div className="bg-[#1C1917] rounded-3xl p-4 text-white shadow-xl border border-stone-800">
+            {/* Arbitre Drive */}
+            <div className="bg-[#1C1917] rounded-3xl p-5 text-white shadow-xl border border-stone-800">
               <div className="flex items-center justify-between mb-3 border-b border-stone-800 pb-2">
                 <div className="flex items-center gap-2">
                   <span className="text-base">⚖️</span>
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-400">L'Arbitre Drive IA</span>
+                  <span className="text-xs md:text-sm font-black uppercase tracking-wider text-amber-400">L'Arbitre Drive IA</span>
                 </div>
                 <span className="text-[10px] font-bold text-stone-400">Panier {activeBasket}</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-2">
-                <div className="bg-white/10 p-3 rounded-2xl border border-emerald-500/40 relative">
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="bg-white/10 p-3.5 rounded-2xl border border-emerald-500/40 relative">
                   <span className="absolute -top-2 right-2 bg-emerald-500 text-stone-950 font-black text-[9px] px-2 py-0.5 rounded-full uppercase">
                     Le moins cher
                   </span>
-                  <p className="text-[10px] font-bold text-stone-300 uppercase">Leclerc Lunel</p>
-                  <p className="text-xl font-black text-emerald-400 mt-0.5">{estimationLeclercLunel} €</p>
-                  <p className="text-[9px] text-stone-400 mt-0.5">Marque Repère</p>
+                  <p className="text-[11px] font-bold text-stone-300 uppercase truncate">{driveNom1}</p>
+                  <p className="text-xl md:text-2xl font-black text-emerald-400 mt-0.5">{estimationDrive1} €</p>
                 </div>
 
-                <div className="bg-white/5 p-3 rounded-2xl border border-white/10">
-                  <p className="text-[10px] font-bold text-stone-400 uppercase">Carrefour Alès</p>
-                  <p className="text-xl font-black text-stone-200 mt-0.5">{estimationCarrefourAles} €</p>
+                <div className="bg-white/5 p-3.5 rounded-2xl border border-white/10">
+                  <p className="text-[11px] font-bold text-stone-400 uppercase truncate">{driveNom2}</p>
+                  <p className="text-xl md:text-2xl font-black text-stone-200 mt-0.5">{estimationDrive2} €</p>
                   <p className="text-[9px] text-amber-300 mt-0.5">+{ecartEconomieDrive} € d'écart</p>
                 </div>
               </div>
 
-              <p className="text-[10px] text-stone-300 italic font-medium">
-                💡 <b>Verdict de l'Arbitre :</b> Leclerc Lunel est ~{ecartEconomieDrive} € plus économique sur ce panier.
+              <p className="text-[11px] text-stone-300 italic font-medium">
+                💡 <b>Verdict de l'Arbitre :</b> {driveNom1} est ~{ecartEconomieDrive} € plus économique sur ce panier complet.
               </p>
             </div>
 
-            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-4 rounded-3xl shadow-md">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs font-bold uppercase tracking-wider opacity-90">
+            {/* Suivi Budgétaire */}
+            <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-4 md:p-5 rounded-3xl shadow-md flex justify-between items-center">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider opacity-90 block">
                   Total Panier {activeBasket}
                 </span>
-                <span className="text-2xl font-black">
+                <span className="text-2xl md:text-3xl font-black">
                   {totalPanierEstime.toFixed(2)} €
                 </span>
               </div>
               
               {totalEconomiesRealisees > 0 && (
-                <div className="mt-1 bg-white/20 px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1.5 text-emerald-100">
+                <div className="bg-white/20 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 text-emerald-100">
                   <span>🧊</span>
-                  <span>Vous économisez <b>{totalEconomiesRealisees.toFixed(2)} €</b> grâce à vos choix Congélateur !</span>
+                  <span>Économie : <b>{totalEconomiesRealisees.toFixed(2)} €</b> grâce au congélateur !</span>
                 </div>
               )}
             </div>
 
-            <div className="bg-stone-100 border border-stone-200 p-3 rounded-2xl flex items-center justify-between text-xs text-stone-700">
+            <div className="bg-stone-100 border border-stone-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-stone-700">
               <span>🏠 <b>{inStockCount}</b> ingrédient(s) déjà chez vous</span>
               <span className="text-[10px] font-black uppercase bg-stone-200 text-stone-800 px-2.5 py-1 rounded-full">
                 {activePanierList.length - inStockCount} à commander
               </span>
             </div>
 
-            <div className="space-y-3">
+            {/* 🖥️ GRILLE COURSES : 1 COLONNE SUR MOBILE, 2 COLONNES SUR PC ! */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
                 const canFreeze = item.a_alternative_congelo || 
@@ -1483,128 +1579,124 @@ Format JSON pur :
                 const searchCongelo = item.recherche_congelo || `${cleanDriveTerm(searchFrais)} surgele`;
                 const cleanTerm = cleanDriveTerm(isCongelo ? searchCongelo : searchFrais);
 
-                const leclercUrl = `https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=${encodeURIComponent(cleanTerm)}`;
-                const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(cleanTerm)}`;
+                const linkDrive1 = `${driveUrl1}${encodeURIComponent(cleanTerm)}`;
+                const linkDrive2 = `${driveUrl2}${encodeURIComponent(cleanTerm)}`;
                 const thumbnail = getProductThumbnail(item.nom, item.rayon);
 
                 return (
                   <div
                     key={index}
                     onClick={() => toggleItemStock(currentBasketKey, index)}
-                    className={`p-3.5 rounded-3xl border transition-all cursor-pointer select-none ${
+                    className={`p-4 rounded-3xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
                       item.in_stock 
                         ? 'bg-stone-100 border-stone-200 opacity-50' 
                         : 'bg-white border-stone-200 shadow-sm'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                        item.in_stock 
-                          ? 'bg-emerald-600 border-emerald-600 text-white' 
-                          : 'border-stone-300 bg-white'
-                      }`}>
-                        {item.in_stock && <span className="text-xs font-bold">✓</span>}
-                      </div>
-
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
-                        <img 
-                          src={thumbnail} 
-                          alt={item.nom} 
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] font-black uppercase tracking-wider text-stone-400">
-                              {item.rayon}
-                            </span>
-                            {item.est_condiment && (
-                              <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
-                                🧂 Épice
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs font-black text-stone-800">
-                            ~{activePrice.toFixed(2)} €
-                          </span>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                          item.in_stock 
+                            ? 'bg-emerald-600 border-emerald-600 text-white' 
+                            : 'border-stone-300 bg-white'
+                        }`}>
+                          {item.in_stock && <span className="text-xs font-bold">✓</span>}
                         </div>
 
-                        <span className={`text-sm font-extrabold block truncate ${
-                          item.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
-                        }`}>
-                          {item.nom}
-                        </span>
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
+                          <img 
+                            src={thumbnail} 
+                            alt={item.nom} 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
 
-                        {item.in_stock && (
-                          <span className="text-[10px] font-bold text-emerald-700 uppercase">
-                            Déjà en stock chez vous
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-black uppercase tracking-wider text-stone-400">
+                                {item.rayon}
+                              </span>
+                              {item.est_condiment && (
+                                <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
+                                  🧂 Épice
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs font-black text-stone-800">
+                              ~{activePrice.toFixed(2)} €
+                            </span>
+                          </div>
+
+                          <span className={`text-sm font-extrabold block truncate ${
+                            item.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
+                          }`}>
+                            {item.nom}
                           </span>
-                        )}
+
+                          {item.in_stock && (
+                            <span className="text-[10px] font-bold text-emerald-700 uppercase">
+                              Déjà en stock chez vous
+                            </span>
+                          )}
+                        </div>
                       </div>
+
+                      {!item.in_stock && canFreeze && (
+                        <div className="mt-3 pt-2.5 border-t border-stone-100">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-[10px] font-bold text-stone-500">Option d'achat :</div>
+                            <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
+                              <button
+                                type="button"
+                                onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 ${
+                                  !isCongelo 
+                                    ? 'bg-white text-emerald-800 shadow-sm border border-emerald-200' 
+                                    : 'text-stone-400 hover:text-stone-600'
+                                }`}
+                              >
+                                <span>🌿</span> Frais ({prixFrais.toFixed(2)}€)
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 ${
+                                  isCongelo 
+                                    ? 'bg-sky-700 text-white shadow-sm' 
+                                    : 'text-sky-700 hover:text-sky-900'
+                                }`}
+                              >
+                                <span>🧊</span> Congélo {item.gain_anti_radin && `(${item.gain_anti_radin})`}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {!item.in_stock && canFreeze && (
-                      <div className="mt-2.5 pt-2 border-t border-stone-100">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-[10px] font-bold text-stone-500">Votre choix :</div>
-                          <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
-                            <button
-                              type="button"
-                              onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 ${
-                                !isCongelo 
-                                  ? 'bg-white text-emerald-800 shadow-sm border border-emerald-200' 
-                                  : 'text-stone-400 hover:text-stone-600'
-                              }`}
-                            >
-                              <span>🌿</span> Frais ({prixFrais.toFixed(2)}€)
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 ${
-                                isCongelo 
-                                  ? 'bg-sky-700 text-white shadow-sm' 
-                                  : 'text-sky-700 hover:text-sky-900'
-                              }`}
-                            >
-                              <span>🧊</span> Congélo {item.gain_anti_radin && `(${item.gain_anti_radin})`}
-                            </button>
-                          </div>
-                        </div>
-
-                        {item.conseil_anti_gaspi && (
-                          <p className="text-[10px] text-stone-500 font-medium mt-1.5 italic">
-                            💡 {item.conseil_anti_gaspi}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
                     {!item.in_stock && (
-                      <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
                         <a
-                          href={leclercUrl}
+                          href={linkDrive1}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           className="bg-blue-50 hover:bg-blue-100 text-blue-800 text-[10px] font-black px-2.5 py-1.5 rounded-xl flex items-center gap-1 border border-blue-100 transition"
                         >
-                          <span>🛒</span> Leclerc {isCongelo && '(Surgelé)'}
+                          <span>🛒</span> {driveNom1} {isCongelo && '(Surgelé)'}
                         </a>
 
                         <a
-                          href={carrefourUrl}
+                          href={linkDrive2}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           className="bg-sky-50 hover:bg-sky-100 text-sky-800 text-[10px] font-black px-2.5 py-1.5 rounded-xl flex items-center gap-1 border border-sky-100 transition"
                         >
-                          <span>🛒</span> Carrefour {isCongelo && '(Surgelé)'}
+                          <span>🛒</span> {driveNom2} {isCongelo && '(Surgelé)'}
                         </a>
 
                         <button
@@ -1625,21 +1717,21 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 3. VUE MES STOCKS */}
+        {/* 3. VUE MES STOCKS (ADAPTATIVE SUR ORDINATEUR) */}
         {view === 'stocks' && (
-          <div className="space-y-4">
-            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
+          <div className="space-y-5">
+            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 md:p-6 text-white shadow-xl">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-black uppercase tracking-wider text-amber-200">Inventaire Réel Foyer</span>
                 <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{stockList.length} articles</span>
               </div>
-              <h2 className="text-xl font-black">Réserves de la Maison 🏠</h2>
-              <p className="text-xs text-stone-300 font-medium mt-1">
+              <h2 className="text-xl md:text-2xl font-black">Réserves de la Maison 🏠</h2>
+              <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
                 L'IA utilise ces ingrédients en priorité pour vous faire économiser au Drive !
               </p>
             </div>
 
-            <div className="flex bg-stone-200/70 p-1 rounded-2xl shadow-inner">
+            <div className="flex bg-stone-200/70 p-1 rounded-2xl shadow-inner max-w-lg mx-auto">
               <button
                 onClick={() => setStockTab('congelateur')}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
@@ -1658,16 +1750,16 @@ Format JSON pur :
               </button>
             </div>
 
-            <form onSubmit={handleAddStockItem} className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+            <form onSubmit={handleAddStockItem} className="bg-white p-4 md:p-5 rounded-3xl border border-stone-200 shadow-sm space-y-3 max-w-2xl mx-auto">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wider text-stone-700">
                   + Ajouter un produit existant
                 </span>
-                <div className="flex gap-1 text-[10px]">
+                <div className="flex gap-1.5 text-[10px]">
                   <button
                     type="button"
                     onClick={() => setNewItemLocation('congelateur')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                    className={`px-3 py-1 rounded-lg font-bold transition ${
                       newItemLocation === 'congelateur' ? 'bg-sky-100 text-sky-800 border border-sky-300' : 'bg-stone-100 text-stone-500'
                     }`}
                   >
@@ -1676,7 +1768,7 @@ Format JSON pur :
                   <button
                     type="button"
                     onClick={() => setNewItemLocation('placard')}
-                    className={`px-2.5 py-1 rounded-lg font-bold transition ${
+                    className={`px-3 py-1 rounded-lg font-bold transition ${
                       newItemLocation === 'placard' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-stone-100 text-stone-500'
                     }`}
                   >
@@ -1685,13 +1777,13 @@ Format JSON pur :
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <input
                   type="text"
                   placeholder={newItemLocation === 'congelateur' ? "Ex: Steaks hachés, Saumon..." : "Ex: Huile d'olive, Curry, Pâtes..."}
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
                 />
 
                 <div className="flex items-center bg-stone-100 rounded-xl border border-stone-200 px-1">
@@ -1721,8 +1813,9 @@ Format JSON pur :
               </button>
             </form>
 
+            {/* Grille des stocks 1 ou 2 colonnes sur ordi */}
             {filteredStockList.length > 0 ? (
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {filteredStockList.map((item) => (
                   <div key={item.id} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1783,26 +1876,58 @@ Format JSON pur :
 
         {/* 4. VUE PROFIL */}
         {view === 'profile' && (
-          <div className="space-y-4 animate-in fade-in">
-            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
+          <div className="space-y-5 max-w-2xl mx-auto animate-in fade-in">
+            <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 md:p-6 text-white shadow-xl">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration Foyer</span>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">{config.code_foyer}</span>
               </div>
-              <h2 className="text-xl font-black">Profil & Cadence ⚙️</h2>
-              <p className="text-xs text-stone-300 font-medium mt-1">
-                Vos choix sont enregistrés en direct à chaque tapotement !
+              <h2 className="text-xl md:text-2xl font-black">Profil & Magasins ⚙️</h2>
+              <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
+                Personnalisez vos drives, votre cadence et vos goûts.
               </p>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="bg-white p-5 rounded-3xl border border-stone-200 shadow-sm space-y-5">
-              
-              {/* SÉLECTEUR DE CADENCE */}
+            <form onSubmit={handleSaveProfile} className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-5">
               <div>
-                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
-                  Rythme & Période de Planification
+                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-1">
+                  Vos Magasins Drive Préférés
                 </label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <p className="text-[11px] text-stone-400 mb-3">
+                  Personnalisez les 2 enseignes utilisées pour vos boutons d'achat rapide.
+                </p>
+
+                <div className="space-y-3">
+                  <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
+                    <label className="text-[10px] font-black uppercase text-blue-700 block mb-1">Drive n°1 (ex: Leclerc)</label>
+                    <input
+                      type="text"
+                      placeholder="Lien de recherche Drive 1..."
+                      value={driveUrl1}
+                      onChange={(e) => setDriveUrl1(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                    />
+                  </div>
+
+                  <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
+                    <label className="text-[10px] font-black uppercase text-sky-700 block mb-1">Drive n°2 (ex: Carrefour / Auchan)</label>
+                    <input
+                      type="text"
+                      placeholder="Lien de recherche Drive 2..."
+                      value={driveUrl2}
+                      onChange={(e) => setDriveUrl2(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SÉLECTEUR DE CADENCE */}
+              <div className="pt-2 border-t border-stone-100">
+                <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
+                  Rythme & Période
+                </label>
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois (2 Drives)' },
                     { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine' },
@@ -1812,7 +1937,7 @@ Format JSON pur :
                       key={d.id}
                       type="button"
                       onClick={() => autoSaveDuree(d.id)}
-                      className={`p-2.5 rounded-2xl border text-center transition-all ${
+                      className={`p-3 rounded-2xl border text-center transition-all ${
                         dureePlanning === d.id 
                           ? 'border-[#C25E3E] bg-amber-50 text-[#C25E3E] font-black shadow-sm' 
                           : 'border-stone-200 text-stone-600 hover:border-stone-300 font-medium'
@@ -1842,14 +1967,9 @@ Format JSON pur :
                   onChange={(e) => setNbRecettes(Number(e.target.value))}
                   className="w-full accent-[#C25E3E]"
                 />
-                <div className="flex justify-between text-[10px] text-stone-400 font-bold">
-                  <span>4 repas</span>
-                  <span>10 repas</span>
-                  <span>14 repas</span>
-                </div>
               </div>
 
-              {/* NOMBRE DE PORTIONS PAR PLAT */}
+              {/* PORTIONS */}
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
                   Portions par Recette Cuisinée
@@ -1881,7 +2001,7 @@ Format JSON pur :
               {/* CHOIX DU RÉGIME */}
               <div className="pt-2 border-t border-stone-100">
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
-                  Style Alimentaire (Sauvegardé au clic !)
+                  Style Alimentaire
                 </label>
                 <div className="grid grid-cols-1 gap-2">
                   {[
@@ -1913,7 +2033,7 @@ Format JSON pur :
                 </div>
               </div>
 
-              {/* Aliments Bannis / Exclusions */}
+              {/* Aliments Bannis */}
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-1">
                   Aliments Interdits ou Détestés
@@ -1950,7 +2070,7 @@ Format JSON pur :
                 />
               </div>
 
-              {/* Budget Alimentaire */}
+              {/* Budget */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-xs font-black uppercase tracking-wider text-stone-700">
@@ -1973,138 +2093,139 @@ Format JSON pur :
                 type="submit"
                 className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-black text-xs py-3 rounded-2xl transition shadow-md uppercase tracking-wider active:scale-98"
               >
-                Enregistrer tous mes Réglages Foyer
+                Enregistrer la Configuration du Foyer
               </button>
             </form>
           </div>
         )}
       </main>
 
-      {/* Fiche Recette Détaillée avec Étoiles Débloquées quand Cuisiné */}
+      {/* 🖥️ MODAL RECETTE DÉTAILLÉE : CENTRÉE ET ÉLÉGANTE SUR ORDINATEUR ! */}
       {selectedRecipe && (
-        <div className="fixed inset-0 bg-white z-50 overflow-y-auto pb-12">
-          <div className="relative h-60 w-full bg-stone-900">
-            <img 
-              src={getRecipePhoto(selectedRecipe.nom, selectedRecipe.type)} 
-              alt={selectedRecipe.nom} 
-              className="w-full h-full object-cover opacity-90"
-            />
-            <button
-              onClick={() => setSelectedRecipe(null)}
-              className="absolute top-5 right-5 w-10 h-10 rounded-full bg-stone-900/70 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg"
-            >
-              ✕
-            </button>
-            <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white">
-              <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-                Panier {selectedRecipe.basket || activeBasket} • {selectedRecipe.type || 'Frais'}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-6">
-            <h2 className="text-2xl font-black text-stone-900 leading-tight mb-2">
-              {selectedRecipe.nom}
-            </h2>
-
-            {/* DUO DE BOUTONS D'ACTION */}
-            <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-6 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-none md:rounded-[32px] overflow-hidden shadow-2xl relative min-h-screen md:min-h-0 md:max-h-[90vh] overflow-y-auto pb-8">
+            <div className="relative h-64 w-full bg-stone-900">
+              <img 
+                src={getRecipePhoto(selectedRecipe.nom, selectedRecipe.id)} 
+                alt={selectedRecipe.nom} 
+                className="w-full h-full object-cover opacity-90"
+              />
               <button
-                type="button"
-                onClick={(e) => toggleRecipeCooked(selectedRecipe.id, e)}
-                className={`py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-sm active:scale-98 ${
-                  selectedRecipe.est_cuisine
-                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                }`}
+                onClick={() => setSelectedRecipe(null)}
+                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-stone-900/70 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg"
               >
-                <span>{selectedRecipe.est_cuisine ? '✅' : '👨‍🍳'}</span>
-                <span>{selectedRecipe.est_cuisine ? 'Cuisiné ✓' : 'Marquer Cuisiné'}</span>
+                ✕
               </button>
-
-              <button
-                type="button"
-                disabled={swappingId === selectedRecipe.id}
-                onClick={() => swapRecipe(selectedRecipe)}
-                className="bg-amber-50 hover:bg-amber-100 text-[#C25E3E] font-extrabold text-xs py-3 rounded-2xl border border-amber-200 transition flex items-center justify-center gap-1.5 active:scale-98"
-              >
-                <span>{swappingId === selectedRecipe.id ? '⏳' : '🔄'}</span>
-                <span>{swappingId === selectedRecipe.id ? 'Échange...' : 'Remplacer'}</span>
-              </button>
-            </div>
-
-            <div className="bg-amber-50/70 border border-amber-200/50 p-3.5 rounded-2xl text-[#C25E3E] font-extrabold text-xs mb-4 flex items-center gap-2">
-              <span>{selectedRecipe.bienfait_sante || "🛡️ Idéal pour votre santé"}</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 bg-stone-50 p-3.5 rounded-2xl mb-6 text-center border border-stone-200">
-              <div>
-                <span className="text-[10px] font-bold text-stone-400 uppercase block">Calories</span>
-                <span className="text-sm font-black text-stone-800">{selectedRecipe.calories || '490 kcal'}</span>
-              </div>
-              <div className="border-x border-stone-200">
-                <span className="text-[10px] font-bold text-stone-400 uppercase block">Temps</span>
-                <span className="text-sm font-black text-stone-800">{selectedRecipe.temps || '20 min'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-stone-400 uppercase block">Portions</span>
-                <span className="text-sm font-black text-stone-800">{targetPortions} pers.</span>
-              </div>
-            </div>
-
-            {/* NOTATION DANS LA FICHE RECETTE */}
-            <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
-              <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
-              {selectedRecipe.est_cuisine || (selectedRecipe.rating && selectedRecipe.rating > 0) ? (
-                <div className="flex items-center gap-1.5">
-                  <StarRating 
-                    rating={selectedRecipe.rating || 0} 
-                    onRate={(star) => updateRating(selectedRecipe.id, star)} 
-                  />
-                  {selectedRecipe.rating > 0 && (
-                    <span className="text-xs font-black text-amber-600">({selectedRecipe.rating}/5)</span>
-                  )}
-                </div>
-              ) : (
-                <span className="text-[11px] text-stone-400 italic">
-                  Cuisinez ce plat pour débloquer la note
+              <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white">
+                <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  Panier {selectedRecipe.basket || activeBasket} • {selectedRecipe.type || 'Frais'}
                 </span>
-              )}
+              </div>
             </div>
-            
-            {selectedRecipe.conseil && (
-              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-amber-900 text-sm mb-6">
-                <span className="font-extrabold block text-xs uppercase text-amber-700 mb-1">💡 Le Secret du Chef :</span>
-                {selectedRecipe.conseil}
-              </div>
-            )}
 
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
-                  Ingrédients nécessaires ({targetPortions} portions)
-                </h3>
-                <ul className="space-y-2">
-                  {selectedRecipe.ingredients?.map((ing, i) => (
-                    <li key={i} className="text-sm text-stone-800 flex items-center gap-2.5 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
-                      <span className="w-2 h-2 rounded-full bg-[#C25E3E] flex-shrink-0"></span>
-                      <span className="font-medium">{ing}</span>
-                    </li>
-                  ))}
-                </ul>
+            <div className="p-6 md:p-8">
+              <h2 className="text-2xl md:text-3xl font-black text-stone-900 leading-tight mb-2 font-serif">
+                {selectedRecipe.nom}
+              </h2>
+
+              <div className="grid grid-cols-2 gap-2.5 mb-5">
+                <button
+                  type="button"
+                  onClick={(e) => toggleRecipeCooked(selectedRecipe.id, e)}
+                  className={`py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-sm active:scale-98 ${
+                    selectedRecipe.est_cuisine
+                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  <span>{selectedRecipe.est_cuisine ? '✅' : '👨‍🍳'}</span>
+                  <span>{selectedRecipe.est_cuisine ? 'Cuisiné ✓' : 'Marquer Cuisiné'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={swappingId === selectedRecipe.id}
+                  onClick={() => swapRecipe(selectedRecipe)}
+                  className="bg-amber-50 hover:bg-amber-100 text-[#C25E3E] font-extrabold text-xs py-3 rounded-2xl border border-amber-200 transition flex items-center justify-center gap-1.5 active:scale-98"
+                >
+                  <span>{swappingId === selectedRecipe.id ? '⏳' : '🔄'}</span>
+                  <span>{swappingId === selectedRecipe.id ? 'Échange...' : 'Remplacer'}</span>
+                </button>
               </div>
 
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
-                  Préparation pas à pas
-                </h3>
-                <div className="space-y-3">
-                  {selectedRecipe.etapes?.map((etape, i) => (
-                    <div key={i} className="flex gap-3 text-sm text-stone-800 bg-stone-50 p-3.5 rounded-2xl border border-stone-100">
-                      <span className="font-black text-[#C25E3E] text-base">{i + 1}.</span>
-                      <p className="font-medium leading-relaxed">{etape}</p>
-                    </div>
-                  ))}
+              <div className="bg-amber-50/70 border border-amber-200/50 p-3.5 rounded-2xl text-[#C25E3E] font-extrabold text-xs mb-5 flex items-center gap-2">
+                <span>{selectedRecipe.bienfait_sante || "🛡️ Idéal pour votre santé"}</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 bg-stone-50 p-4 rounded-2xl mb-6 text-center border border-stone-200">
+                <div>
+                  <span className="text-[10px] font-bold text-stone-400 uppercase block">Calories</span>
+                  <span className="text-sm font-black text-stone-800">{selectedRecipe.calories || '490 kcal'}</span>
+                </div>
+                <div className="border-x border-stone-200">
+                  <span className="text-[10px] font-bold text-stone-400 uppercase block">Temps</span>
+                  <span className="text-sm font-black text-stone-800">{selectedRecipe.temps || '20 min'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-stone-400 uppercase block">Portions</span>
+                  <span className="text-sm font-black text-stone-800">{targetPortions} pers.</span>
+                </div>
+              </div>
+
+              {/* NOTATION DANS LA FICHE */}
+              <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
+                <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
+                {selectedRecipe.est_cuisine || (selectedRecipe.rating && selectedRecipe.rating > 0) ? (
+                  <div className="flex items-center gap-1.5">
+                    <StarRating 
+                      rating={selectedRecipe.rating || 0} 
+                      onRate={(star) => updateRating(selectedRecipe.id, star)} 
+                    />
+                    {selectedRecipe.rating > 0 && (
+                      <span className="text-xs font-black text-amber-600">({selectedRecipe.rating}/5)</span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-stone-400 italic">
+                    Cuisinez ce plat pour débloquer la note
+                  </span>
+                )}
+              </div>
+              
+              {selectedRecipe.conseil && (
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-amber-900 text-sm mb-6">
+                  <span className="font-extrabold block text-xs uppercase text-amber-700 mb-1">💡 Le Secret du Chef :</span>
+                  {selectedRecipe.conseil}
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
+                    Ingrédients nécessaires ({targetPortions} portions)
+                  </h3>
+                  <ul className="space-y-2">
+                    {selectedRecipe.ingredients?.map((ing, i) => (
+                      <li key={i} className="text-sm text-stone-800 flex items-center gap-2.5 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+                        <span className="w-2 h-2 rounded-full bg-[#C25E3E] flex-shrink-0"></span>
+                        <span className="font-medium">{ing}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
+                    Préparation pas à pas
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedRecipe.etapes?.map((etape, i) => (
+                      <div key={i} className="flex gap-3 text-sm text-stone-800 bg-stone-50 p-3.5 rounded-2xl border border-stone-100">
+                        <span className="font-black text-[#C25E3E] text-base">{i + 1}.</span>
+                        <p className="font-medium leading-relaxed">{etape}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2112,52 +2233,54 @@ Format JSON pur :
         </div>
       )}
 
-      {/* BARRE DE NAVIGATION BASSE */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 py-2 flex justify-around items-center z-30 shadow-lg">
-        <button
-          onClick={() => setView('menu')}
-          className={`flex flex-col items-center gap-1 ${
-            view === 'menu' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
-          }`}
-        >
-          <span className="text-lg">🍽️</span>
-          <span className="text-[10px] uppercase tracking-wider">Planning</span>
-        </button>
+      {/* BARRE DE NAVIGATION BASSE (DOCK CENTRÉ SUR ORDINATEUR) */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 py-2.5 z-30 shadow-lg flex justify-center">
+        <div className="w-full max-w-md md:max-w-xl flex justify-around items-center px-4">
+          <button
+            onClick={() => setView('menu')}
+            className={`flex flex-col items-center gap-1 ${
+              view === 'menu' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
+            }`}
+          >
+            <span className="text-lg">🍽️</span>
+            <span className="text-[10px] uppercase tracking-wider">Planning</span>
+          </button>
 
-        <button
-          onClick={() => setView('shop')}
-          className={`flex flex-col items-center gap-1 ${
-            view === 'shop' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
-          }`}
-        >
-          <span className="text-lg">🛒</span>
-          <span className="text-[10px] uppercase tracking-wider">Courses</span>
-        </button>
+          <button
+            onClick={() => setView('shop')}
+            className={`flex flex-col items-center gap-1 ${
+              view === 'shop' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
+            }`}
+          >
+            <span className="text-lg">🛒</span>
+            <span className="text-[10px] uppercase tracking-wider">Courses</span>
+          </button>
 
-        <button
-          onClick={() => setView('stocks')}
-          className={`flex flex-col items-center gap-1 relative ${
-            view === 'stocks' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
-          }`}
-        >
-          <span className="text-lg">🏠</span>
-          <span className="text-[10px] uppercase tracking-wider">Réserves</span>
-          {stockList.length > 0 && (
-            <span className="absolute -top-1 right-2 bg-[#C25E3E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-              {stockList.length}
-            </span>
-          )}
-        </button>
+          <button
+            onClick={() => setView('stocks')}
+            className={`flex flex-col items-center gap-1 relative ${
+              view === 'stocks' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
+            }`}
+          >
+            <span className="text-lg">🏠</span>
+            <span className="text-[10px] uppercase tracking-wider">Réserves</span>
+            {stockList.length > 0 && (
+              <span className="absolute -top-1 right-2 bg-[#C25E3E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                {stockList.length}
+              </span>
+            )}
+          </button>
 
-        <button
-          onClick={() => setView('profile')}
-          className={`flex flex-col items-center gap-1 ${
-            view === 'profile' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
-          }`}
-        >
-          <span className="text-lg">⚙️</span>
-          <span className="text-[10px] uppercase tracking-wider">Profil</span>
-        </button>
+          <button
+            onClick={() => setView('profile')}
+            className={`flex flex-col items-center gap-1 ${
+              view === 'profile' ? 'text-[#C25E3E] font-black' : 'text-stone-400'
+            }`}
+          >
+            <span className="text-lg">⚙️</span>
+            <span className="text-[10px] uppercase tracking-wider">Profil</span>
+          </button>
+        </div>
       </nav>
     </div>
   );
