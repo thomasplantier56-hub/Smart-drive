@@ -319,7 +319,7 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // GÉNÉRATION GEMINI AVEC FORMULE B : 14 RECETTES (7 Q1 + 7 Q2)
+  // GÉNÉRATION GEMINI AVEC FORMULE B : 14 RECETTES STRICTES (7 EN Q1 + 7 EN Q2)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -338,12 +338,12 @@ export default function SmartDriveApp() {
       .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour un couple de 40 ans.
-STRUCTURE INTÉGRALE "FORMULE B" (100% DU MOIS COUVERT) :
-Chaque recette est préparée pour 4 portions (couvre 1 dîner pour 2 personnes + 1 déjeuner pour 2 le lendemain).
-Pour couvrir l'intégralité des 14 jours de chaque quinzaine, tu DOIS générer EXACTEMENT 14 RECETTES AU TOTAL :
-- RECETTES 1 À 7 : "basket": 1 (Quinzaine 1 - Panier 1). Couvrent les 14 jours de la 1ère quinzaine (produits ultra-frais de début de quinzaine + stock).
-- RECETTES 8 À 14 : "basket": 2 (Quinzaine 2 - Panier 2). Couvrent les 14 jours de la 2ème quinzaine (réassort ultra-frais + stock).
-TOTAL STRICT : 14 RECETTES UNIQUES DANS "repas".
+CONSIGNE STRICTE FORMULE B : 100% DES 14 JOURS DE CHAQUE QUINZAINE DOIVENT ÊTRE COUVERTS.
+Chaque recette est préparée pour 4 portions (couvre 1 dîner pour 2 + 1 déjeuner pour 2 le lendemain).
+Pour couvrir 14 jours, il faut EXACTEMENT 7 RECETTES PAR QUINZAINE, SOIT 14 RECETTES UNIQUES AU TOTAL DANS "repas" :
+- RECETTES 1 À 7 : "basket": 1 (Correspond au Panier 1 - Quinzaine 1).
+- RECETTES 8 À 14 : "basket": 2 (Correspond au Panier 2 - Quinzaine 2).
+ATTENTION : IL EST FORMELLEMENT INTERDIT DE GÉNÉRER MOINS DE 14 RECETTES. LA LISTE "repas" DOIT CONTENIR EXACTEMENT 14 OBJETS.
 
 RÉSERVES ACTUELLES DANS LA MAISON (À UTILISER EN PRIORITÉ ET NE PAS ACHETER) :
 - Grand Congélateur (Garage) : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun produit'}
@@ -379,7 +379,7 @@ Format impératif en JSON pur :
   "repas": [
     {
       "id": 1,
-      "nom": "Nom recette Q1",
+      "nom": "Nom recette 1",
       "type": "Frais",
       "calories": "510 kcal",
       "temps": "25 min",
@@ -393,7 +393,7 @@ Format impératif en JSON pur :
     },
     {
       "id": 8,
-      "nom": "Nom recette Q2",
+      "nom": "Nom recette 8",
       "type": "Frais",
       "calories": "480 kcal",
       "temps": "20 min",
@@ -612,7 +612,7 @@ Format impératif en JSON pur :
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
     }
-    // Sécurité : 7 recettes en Q1, 7 recettes en Q2
+    // Sécurité stricte : 7 recettes en Q1, 7 recettes en Q2
     return activeBasket === 1 ? index < 7 : index >= 7;
   });
 
@@ -731,8 +731,9 @@ Format impératif en JSON pur :
               <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">
                 Repas de la Quinzaine {activeBasket} (Formule B)
               </h2>
-              <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                {mealsForActiveQuinzaine.length} Recettes (14 Jours Couverts à Deux)
+              {/* Calcul dynamique exact : X recettes x 2 repas = Y jours couverts */}
+              <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                {mealsForActiveQuinzaine.length} Recettes • {mealsForActiveQuinzaine.length * 2} jours couverts à deux
               </span>
             </div>
 
