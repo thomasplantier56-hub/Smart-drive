@@ -11,7 +11,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
 const genAI = new GoogleGenerativeAI(geminiKey);
 
-// Nettoyage automatique des mots-clés superflus pour le Drive
 function cleanDriveTerm(text) {
   if (!text) return "";
   return text
@@ -20,7 +19,7 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE AVEC ROTATION AUTOMATIQUE
+// 📸 BIBLIOTHÈQUE CULINAIRE HAUTE DÉFINITION & VARIÉE
 const PHOTO_LIBRARY = {
   poisson_blanc: [
     "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
@@ -66,13 +65,11 @@ const PHOTO_LIBRARY = {
   ],
   burger: [
     "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80"
   ],
   pizza_tarte: [
     "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=700&q=80"
   ]
 };
 
@@ -94,7 +91,6 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
   return pick(PHOTO_LIBRARY.salade_bowl);
 }
 
-// Miniatures ingrédients Drive
 function getProductThumbnail(productName = "", rayon = "") {
   const p = (productName + " " + rayon).toLowerCase();
   if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) {
@@ -106,10 +102,10 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("poissonnerie") || p.includes("thon")) {
     return "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("cremerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) {
+  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) {
     return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail") || p.includes("betterave") || p.includes("chou")) {
+  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) {
     return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
   }
   if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) {
@@ -148,7 +144,7 @@ export default function App() {
   const [cravingInput, setCravingInput] = useState("");
 
   // Navigation (4 univers)
-  const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks', 'profile'
+  const [view, setView] = useState('menu');
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -156,11 +152,18 @@ export default function App() {
   // Profil Foyer
   const [selectedRegime, setSelectedRegime] = useState("Omnivore (Manger de tout)");
   const [exclusionsInput, setExclusionsInput] = useState("");
-  const [customBannedWord, setCustomBannedWord] = useState(""); // Nouveau : Saisie libre d'aliments interdits
+  const [customBannedWord, setCustomBannedWord] = useState("");
   const [budgetInput, setBudgetInput] = useState(230);
   const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
   const [nbRecettes, setNbRecettes] = useState(14);
-  const [nbPortions, setNbPortions] = useState(4);
+
+  // NOUVEAU : Option Moments de repas (Midi seul, Soir seul, ou Midi + Soir)
+  const [typeRepasPlanifies, setTypeRepasPlanifies] = useState("Dîner + Lunchbox midi");
+
+  // Composition familiale
+  const [nbAdultes, setNbAdultes] = useState(2);
+  const [nbEnfants, setNbEnfants] = useState(0);
+  const [optionEnfants, setOptionEnfants] = useState(false);
 
   // URLs Drive
   const [driveUrl1, setDriveUrl1] = useState("https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=");
@@ -176,6 +179,11 @@ export default function App() {
   const [newItemName, setNewItemName] = useState("");
   const [newItemLocation, setNewItemLocation] = useState("congelateur");
   const [newItemQty, setNewItemQty] = useState(1);
+
+  // Calcul du nombre de portions cuisinées
+  const totalPersonnesFoyer = Number(nbAdultes) + Number(nbEnfants);
+  const isLunchboxMode = typeRepasPlanifies.includes("Lunchbox");
+  const targetPortions = isLunchboxMode ? totalPersonnesFoyer * 2 : totalPersonnesFoyer;
 
   // Chargement Foyer
   useEffect(() => {
@@ -198,7 +206,7 @@ export default function App() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer, error } = await supabase
+      const { data: foyer } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -212,7 +220,12 @@ export default function App() {
         setBudgetInput(foyer.budget_mensuel || 230);
         setDureePlanning(foyer.duree_planning || "1 Mois (2 Paniers)");
         setNbRecettes(foyer.nb_recettes || 14);
-        setNbPortions(foyer.nb_portions || 4);
+        setTypeRepasPlanifies(foyer.type_repas_planifies || "Dîner + Lunchbox midi");
+
+        setNbAdultes(foyer.nb_adultes ?? 2);
+        setNbEnfants(foyer.nb_enfants ?? 0);
+        setOptionEnfants(foyer.option_enfants ?? (foyer.nb_enfants > 0));
+
         if (foyer.drive_leclerc_url) setDriveUrl1(foyer.drive_leclerc_url);
         if (foyer.drive_carrefour_url) setDriveUrl2(foyer.drive_carrefour_url);
 
@@ -259,7 +272,10 @@ export default function App() {
         budget_mensuel: budgetInput,
         duree_planning: dureePlanning,
         nb_recettes: nbRecettes,
-        nb_portions: nbPortions,
+        nb_adultes: nbAdultes,
+        nb_enfants: nbEnfants,
+        option_enfants: optionEnfants,
+        type_repas_planifies: typeRepasPlanifies,
         drive_leclerc_url: driveUrl1,
         drive_carrefour_url: driveUrl2,
         historique_notes: []
@@ -294,40 +310,33 @@ export default function App() {
     setSelectedRegime(newRegime);
     if (!config) return;
     setConfig(prev => ({ ...prev, regime_alimentaire: newRegime }));
-    try {
-      await supabase.from('foyers').update({ regime_alimentaire: newRegime }).eq('id', config.id);
-    } catch (e) {
-      console.error(e);
-    }
+    await supabase.from('foyers').update({ regime_alimentaire: newRegime }).eq('id', config.id);
+  }
+
+  async function autoSaveMealType(newMealType) {
+    setTypeRepasPlanifies(newMealType);
+    if (!config) return;
+    setConfig(prev => ({ ...prev, type_repas_planifies: newMealType }));
+    await supabase.from('foyers').update({ type_repas_planifies: newMealType }).eq('id', config.id);
   }
 
   async function autoSaveExclusions(newExclusions) {
     setExclusionsInput(newExclusions);
     if (!config) return;
     setConfig(prev => ({ ...prev, exclusions: newExclusions }));
-    try {
-      await supabase.from('foyers').update({ exclusions: newExclusions }).eq('id', config.id);
-    } catch (e) {
-      console.error(e);
-    }
+    await supabase.from('foyers').update({ exclusions: newExclusions }).eq('id', config.id);
   }
 
-  // 🚫 GESTIONNAIRE D'ÉTIQUETTES ALIMENTS BANNIS (Ajout et Suppression fluides)
-  const activeExclusionsList = (exclusionsInput || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
+  const activeExclusionsList = (exclusionsInput || '').split(',').map(s => s.trim()).filter(Boolean);
 
   async function handleAddCustomBanned(e) {
     if (e) e.preventDefault();
     const word = customBannedWord.trim();
     if (!word) return;
-
     if (activeExclusionsList.some(item => item.toLowerCase() === word.toLowerCase())) {
       setCustomBannedWord("");
       return;
     }
-
     const updated = [...activeExclusionsList, word].join(', ');
     setCustomBannedWord("");
     await autoSaveExclusions(updated);
@@ -342,22 +351,7 @@ export default function App() {
     setDureePlanning(newDuree);
     if (!config) return;
     setConfig(prev => ({ ...prev, duree_planning: newDuree }));
-    try {
-      await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function autoSavePortions(newPortions) {
-    setNbPortions(newPortions);
-    if (!config) return;
-    setConfig(prev => ({ ...prev, nb_portions: newPortions }));
-    try {
-      await supabase.from('foyers').update({ nb_portions: newPortions }).eq('id', config.id);
-    } catch (e) {
-      console.error(e);
-    }
+    await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
   }
 
   async function handleSaveProfile(e) {
@@ -370,7 +364,10 @@ export default function App() {
         budget_mensuel: Number(budgetInput) || 230,
         duree_planning: dureePlanning,
         nb_recettes: Number(nbRecettes) || 14,
-        nb_portions: Number(nbPortions) || 4,
+        type_repas_planifies: typeRepasPlanifies,
+        nb_adultes: nbAdultes,
+        nb_enfants: nbEnfants,
+        option_enfants: optionEnfants,
         drive_leclerc_url: driveUrl1,
         drive_carrefour_url: driveUrl2
       }).eq('id', config.id);
@@ -382,7 +379,10 @@ export default function App() {
         budget_mensuel: Number(budgetInput) || 230,
         duree_planning: dureePlanning,
         nb_recettes: Number(nbRecettes) || 14,
-        nb_portions: Number(nbPortions) || 4,
+        type_repas_planifies: typeRepasPlanifies,
+        nb_adultes: nbAdultes,
+        nb_enfants: nbEnfants,
+        option_enfants: optionEnfants,
         drive_leclerc_url: driveUrl1,
         drive_carrefour_url: driveUrl2
       }));
@@ -431,7 +431,7 @@ export default function App() {
       setStockList(prev => prev.filter(i => i.id !== item.id));
     } else {
       await supabase.from('inventaire_congelateur').update({ quantite: newQty, est_consomme: false }).eq('id', item.id);
-      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty } : i));
+      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty, est_consomme: false } : i));
     }
   }
 
@@ -458,8 +458,8 @@ export default function App() {
     }
   }
 
-  // 👨‍🍳 VALIDATION ET ANNULATION DU PLAT CUISINÉ (AVEC RESTITUTION IMMÉDIATE DES STOCKS)
-  async function toggleRecipeCooked(recipeId, e) {
+  // 👨‍🍳 VALIDATION DU PLAT CUISINÉ (avec mention Midi ou Soir)
+  async function toggleRecipeCooked(recipeId, moment = null, e) {
     if (e) e.stopPropagation();
     if (!config) return;
 
@@ -474,13 +474,13 @@ export default function App() {
         return {
           ...r,
           est_cuisine: newCookedStatus,
+          moment_cuisine: newCookedStatus ? (moment || r.moment || 'Soir') : null,
           date_cuisine: newCookedStatus ? `${jourDuMois} ${moisActuel}` : null
         };
       }
       return r;
     });
 
-    // CAS 1 : VALIDATION (Décompte des réserves)
     if (newCookedStatus && targetRecipe && targetRecipe.ingredients) {
       const ingredientsText = targetRecipe.ingredients.join(" ").toLowerCase();
 
@@ -501,10 +501,9 @@ export default function App() {
       await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
 
       if (deductedItems.length > 0) {
-        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" est validé. ${deductedItems.length} ingrédient(s) ont été décomptés de vos réserves.`);
+        alert(`👨‍🍳 Bon appétit ! "${targetRecipe.nom}" validé (${moment || 'Repas'}). ${deductedItems.length} ingrédient(s) décomptés de vos réserves.`);
       }
     } 
-    // CAS 2 : ANNULATION (Fausse manip / Restitution immédiate)
     else if (!newCookedStatus && targetRecipe) {
       const previouslyDeducted = targetRecipe.stocks_deduits || [];
       for (const d of previouslyDeducted) {
@@ -532,11 +531,10 @@ export default function App() {
       setConfig(prev => ({ ...prev, menu_json: finalMenu }));
       await supabase.from('foyers').update({ menu_json: finalMenu }).eq('id', config.id);
 
-      alert(`↩️ Annulation prise en compte : "${targetRecipe.nom}" repasse en attente et vos ingrédients ont été réintégrés dans vos réserves !`);
+      alert(`↩️ Annulation : "${targetRecipe.nom}" repasse en attente et vos ingrédients ont été réintégrés !`);
     }
   }
 
-  // ⭐ NOTATION PERMANENTE
   async function updateRating(recipeId, rating, e) {
     if (e) e.stopPropagation();
     if (!config) return;
@@ -625,7 +623,7 @@ export default function App() {
     }
   }
 
-  // ✨ INTÉGRER UNE ENVIE
+  // ✨ INTÉGRER UNE ENVIE (avec distinction Midi ou Soir)
   async function handleApplyCraving(e) {
     if (e) e.preventDefault();
     const envie = cravingInput.trim();
@@ -635,7 +633,7 @@ export default function App() {
     const basketKey = activeBasket === 1 ? 'p1' : 'p2';
     const mealsCurrentQ = (config.menu_json || []).filter(r => (r.basket || 1) === activeBasket);
     const targetRecipe = mealsCurrentQ[mealsCurrentQ.length - 1] || { id: Date.now(), basket: activeBasket };
-    const portions = Number(nbPortions || config.nb_portions || 4);
+    const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour l'application "À Table !".
@@ -644,6 +642,7 @@ Génère UNE RECETTE correspondant à cette envie pour ${moisActuel.toUpperCase(
 Contraintes :
 - Quinzaine : ${activeBasket} (Panier ${activeBasket})
 - Portions : ${portions} personnes
+- Moment : Midi ou Soir (repas adapté)
 - Régime respecté : ${regimeActuel}
 - Aliments interdits : ${exclusionsInput || config.exclusions || 'Aucun'}
 - Inclus tous les condiments nécessaires (oignons, ail, huile, épices).
@@ -654,6 +653,7 @@ Format JSON pur impératif :
     "id": ${targetRecipe.id},
     "nom": "Titre appétissant",
     "type": "Plaisir",
+    "moment": "Soir",
     "calories": "520 kcal",
     "temps": "25 min",
     "bienfait_sante": "✨ Recette adaptée à votre profil",
@@ -729,10 +729,10 @@ Format JSON pur impératif :
         panier_json: updatedPanierJson
       }));
 
-      alert(`🎉 Votre envie "${envie}" (${portions} pers. • ${regimeActuel}) a été ajoutée à la Quinzaine ${activeBasket} !`);
+      alert(`🎉 Votre envie "${envie}" a été ajoutée à la Quinzaine ${activeBasket} !`);
     } catch (err) {
       console.error(err);
-      alert("Erreur lors de l'intégration : " + err.message);
+      alert("Erreur intégration : " + err.message);
     } finally {
       setIsInjectingCraving(false);
     }
@@ -745,7 +745,7 @@ Format JSON pur impératif :
 
     const targetBasket = recipeToSwap.basket || activeBasket;
     const basketKey = targetBasket === 1 ? 'p1' : 'p2';
-    const portions = Number(nbPortions || config.nb_portions || 4);
+    const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour l'application "À Table !".
@@ -757,6 +757,7 @@ Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) pour 
 Contraintes :
 - Quinzaine : ${targetBasket} (Panier ${targetBasket})
 - Portions : ${portions} pers.
+- Moment : ${recipeToSwap.moment || 'Midi ou Soir'}
 - Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
 - Inclus les condiments indispensables dans "nouveaux_ingredients_drive".
 
@@ -766,9 +767,10 @@ Format JSON pur :
     "id": ${recipeToSwap.id},
     "nom": "Nom recette",
     "type": "${recipeToSwap.type || 'Frais'}",
+    "moment": "${recipeToSwap.moment || 'Soir'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Conforme à votre régime ${regimeActuel}",
+    "bienfait_sante": "🛡️ Bienfait santé",
     "saison_atout": "Légumes de saison",
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
@@ -806,7 +808,6 @@ Format JSON pur :
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
-        console.warn("Modèle 3.6 saturé, bascule sur Gemini 3.5 Flash...", err);
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -860,7 +861,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION MENSUELLE
+  // 🎯 GÉNÉRATION MENSUELLE (avec distinction Midi & Soir)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -882,7 +883,8 @@ Format JSON pur :
     const budgetActuel = Number(budgetInput || config.budget_mensuel || 230);
     const duree = dureePlanning || config.duree_planning || "1 Mois (2 Paniers)";
     const totalRecettes = Number(nbRecettes || config.nb_recettes || 14);
-    const portions = Number(nbPortions || config.nb_portions || 4);
+    const portions = targetPortions;
+    const modeRepas = typeRepasPlanifies || config.type_repas_planifies || "Dîner + Lunchbox midi";
 
     const isMonth = duree.includes('Mois');
     const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
@@ -890,17 +892,13 @@ Format JSON pur :
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour l'application "À Table !".
 PROFIL ALIMENTAIRE PRIORITAIRE :
 - Régime choisi : ${regimeActuel}
-  * Si "Omnivore (Manger de tout)" : Aucune restriction, cuisine familiale, gourmande, variée (viandes, volailles, poissons, œufs, féculents).
-  * Si "Crétois / Méditerranéen" : Huile d'olive, poissons, légumes du soleil, légumineuses, céréales complètes, très peu de viande rouge.
-  * Si "Index Glycémique Bas" : Céréales complètes, zéro sucre raffiné, légumes verts, protéines maigres.
-  * Si "Végétarien" : Zéro viande ni poisson.
 - ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle d'en mettre !)
 
-HISTORIQUE DES GOÛTS DU FOYER :
-- PLATS ADORÉS PRÉCÉDEMMENT (4 ou 5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun pour le moment'}.
-  -> CONSIGNE : Réinvite ces recettes adorées régulièrement ou inspire-t'en en priorité !
-- PLATS DÉTESTÉS (1 ou 2 étoiles) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
-  -> CONSIGNE STRICTE : INTERDICTION FORMELLE de reproposer ces recettes ou leurs variantes !
+GESTION DU MIDI ET DU SOIR :
+- Mode sélectionné : "${modeRepas}"
+  * Si "Midi & Soir (Deux repas par jour)" : Alterne des recettes adaptées au midi (fraîches, digestes, salades, bowls, omelettes) et des recettes pour le soir (plats chauds réconfortants, gratins, mijotés). Dans chaque recette, indique impérativement "moment": "Midi" ou "moment": "Soir".
+  * Si "Dîner + Lunchbox midi" : Plats chauds complets du soir qui se réchauffent idéalement le midi. "moment": "Soir + Lunchbox".
+  * Si "Dîner uniquement" : Plats du soir. "moment": "Soir".
 
 CADENCE ET STRUCTURE :
 - Période : ${duree}
@@ -926,6 +924,7 @@ Format JSON pur :
       "id": 1,
       "nom": "Nom recette 1",
       "type": "Frais",
+      "moment": "Midi",
       "calories": "510 kcal",
       "temps": "25 min",
       "bienfait_sante": "🛡️ Bienfait santé",
@@ -1009,12 +1008,12 @@ Format JSON pur :
         budget_mensuel: budgetActuel,
         duree_planning: duree,
         nb_recettes: totalRecettes,
-        nb_portions: portions,
+        type_repas_planifies: modeRepas,
         current_month: moisActuel
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu généré pour "À Table !" : ${totalRecettes} recettes en mode ${regimeActuel} !`);
+      alert(`Menu "À Table !" généré avec succès en mode ${regimeActuel} (${modeRepas}) !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -1158,7 +1157,6 @@ Format JSON pur :
   const currentDuree = dureePlanning || config?.duree_planning || "1 Mois (2 Paniers)";
   const isPlanningMonth = currentDuree.includes('Mois');
   const targetNbRecettes = Number(nbRecettes || config?.nb_recettes || 14);
-  const targetPortions = Number(nbPortions || config?.nb_portions || 4);
   const q1Threshold = isPlanningMonth ? Math.ceil(targetNbRecettes / 2) : targetNbRecettes;
 
   const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
@@ -1181,10 +1179,9 @@ Format JSON pur :
   });
 
   return (
-    // 🖥️ RESPONSIVE GRAND ÉCRAN : Utilise toute la largeur disponible avec max-w-7xl
     <div className="w-full min-h-screen bg-[#FAF8F5] pb-28 font-sans text-stone-900 transition-all flex flex-col justify-between">
       
-      {/* HEADER BISTROT GOURMAND "À TABLE !" AVEC NAVIGATION ORDINATEUR DIRECTE */}
+      {/* HEADER BISTROT GOURMAND "À TABLE !" */}
       <header className="bg-gradient-to-r from-[#C25E3E] to-[#A84E33] text-white sticky top-0 z-40 shadow-md">
         <div className="max-w-7xl mx-auto w-full p-4 md:px-8 flex justify-between items-center">
           <div className="flex items-center gap-6">
@@ -1212,13 +1209,13 @@ Format JSON pur :
               </div>
             </div>
 
-            {/* NAVIGATION VISIBLE EN HAUT SUR ORDINATEUR ! */}
+            {/* Navigation ordinateur */}
             <nav className="hidden md:flex items-center gap-2 ml-4">
               {[
                 { id: 'menu', label: '🍽️ Planning' },
                 { id: 'shop', label: '🛒 Courses Drive' },
                 { id: 'stocks', label: '🏠 Réserves' },
-                { id: 'profile', label: '⚙️ Profil & Drives' }
+                { id: 'profile', label: '⚙️ Profil' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -1251,9 +1248,9 @@ Format JSON pur :
         </div>
       </header>
 
-      {/* CONTENEUR PRINCIPAL PLEIN FORMAT */}
+      {/* CONTENEUR PRINCIPAL */}
       <main className="max-w-7xl mx-auto w-full p-4 md:p-8 flex-1">
-        {/* Sélecteur de Quinzaine universel */}
+        {/* Sélecteur Quinzaine */}
         {view !== 'stocks' && view !== 'profile' && isPlanningMonth && (
           <div className="flex bg-stone-200/70 p-1.5 rounded-2xl mb-6 shadow-inner max-w-md mx-auto">
             <button
@@ -1275,11 +1272,11 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING (GRILLE DE 1 À 4 COLONNES SUR ORDINATEUR !) */}
+        {/* 1. VUE PLANNING AVEC DISTINCTION MIDI & SOIR */}
         {view === 'menu' && (
           <div className="space-y-6">
             
-            {/* Barre supérieure : Jauge & Cadence */}
+            {/* Progression & Paramètres actifs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-center">
                 <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-2">
@@ -1300,9 +1297,9 @@ Format JSON pur :
               <div className="bg-amber-50 border border-amber-200/60 rounded-3xl px-5 py-4 flex items-center justify-between text-xs text-stone-700 shadow-sm">
                 <div>
                   <span className="font-extrabold text-sm block text-stone-800">
-                    🎯 {targetNbRecettes} repas • {currentDuree}
+                    🎯 {targetNbRecettes} repas • {typeRepasPlanifies}
                   </span>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Portions : {targetPortions} personnes par plat</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">Portions : {targetPortions} pers. ({currentDuree})</p>
                 </div>
                 <button
                   onClick={() => setView('profile')}
@@ -1323,19 +1320,19 @@ Format JSON pur :
                       <span className="text-xs md:text-sm font-black uppercase tracking-wider">Fraîcheur Frigo (Courses du {basketStatus.date_reception})</span>
                     </div>
                     <p className="text-xs md:text-sm font-medium leading-snug">
-                      À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> (produit ultra-frais). Pas le temps ce soir ?
+                      À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> ({premierPlatFrais.moment || 'Repas'}). Pas le temps ?
                     </p>
                   </div>
                   <div className="flex gap-2.5 flex-shrink-0">
                     <button
                       onClick={() => setSelectedRecipe(premierPlatFrais)}
-                      className="bg-white text-stone-900 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow active:scale-95 transition"
+                      className="flex-1 bg-white text-stone-900 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow active:scale-95 transition"
                     >
-                      👨‍🍳 Cuisiner ce soir
+                      👨‍🍳 Cuisiner
                     </button>
                     <button
                       onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
-                      className="bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl border border-white/20 active:scale-95 transition"
+                      className="flex-1 bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl border border-white/20 active:scale-95 transition"
                     >
                       🧊 Sauver au Congélo
                     </button>
@@ -1373,7 +1370,7 @@ Format JSON pur :
               <div className="flex gap-2.5">
                 <input
                   type="text"
-                  placeholder="Ex: Lasagnes, Poké bowl, Tajine..."
+                  placeholder="Ex: Lasagnes, Poké bowl du midi, Tajine du soir..."
                   value={cravingInput}
                   onChange={(e) => setCravingInput(e.target.value)}
                   className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-4 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
@@ -1399,7 +1396,7 @@ Format JSON pur :
               </span>
             </div>
 
-            {/* GRILLE MULTI-COLONNES SUR ORDINATEUR */}
+            {/* GRILLE DES PLATS AVEC DISTINCTION MIDI ET SOIR */}
             {mealsForActiveQuinzaine.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {mealsForActiveQuinzaine.map((repas) => {
@@ -1407,6 +1404,7 @@ Format JSON pur :
                   const isSwapping = swappingId === repas.id;
                   const hasRating = repas.rating && repas.rating > 0;
                   const canShowStars = repas.est_cuisine || hasRating;
+                  const isMidi = repas.moment === 'Midi';
 
                   return (
                     <div
@@ -1426,17 +1424,20 @@ Format JSON pur :
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
                           
-                          <div className="absolute top-3 left-3 flex gap-1.5">
+                          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                            {/* NOUVEAU BADGE CLAIR : MIDI OU SOIR */}
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
+                              isMidi ? 'bg-amber-400 text-stone-950' : 'bg-indigo-900 text-white'
+                            }`}>
+                              {isMidi ? '☀️ Midi' : '🌙 Soir'}
+                            </span>
+
                             {isPlanningMonth && (
                               <span className="bg-white/90 backdrop-blur text-stone-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                                 Panier {activeBasket}
                               </span>
                             )}
-                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
-                              repas.type === 'Cheat' ? 'bg-amber-400 text-stone-950' : 'bg-emerald-600 text-white'
-                            }`}>
-                              {repas.type === 'Cheat' ? 'Plaisir' : (repas.type || 'Frais')}
-                            </span>
+
                             {repas.est_cuisine && (
                               <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                                 ✓ Cuisiné
@@ -1490,18 +1491,19 @@ Format JSON pur :
                         )}
 
                         <div className="flex items-center gap-1.5">
+                          {/* BOUTON CUISINÉ CONTEXTUEL MIDI OU SOIR */}
                           <button
                             type="button"
-                            onClick={(e) => toggleRecipeCooked(repas.id, e)}
+                            onClick={(e) => toggleRecipeCooked(repas.id, repas.moment || 'Repas', e)}
                             className={`text-[11px] font-extrabold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 active:scale-95 border ${
                               repas.est_cuisine
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                 : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
                             }`}
-                            title={repas.est_cuisine ? "Cliquer pour annuler et restituer les stocks" : "Marquer comme cuisiné"}
+                            title={repas.est_cuisine ? "Cliquer pour annuler et restituer les stocks" : `Marquer cuisiné pour le ${repas.moment || 'repas'}`}
                           >
-                            <span>{repas.est_cuisine ? '✅' : '👨‍🍳'}</span>
-                            <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : 'Cuisiné'}</span>
+                            <span>{repas.est_cuisine ? '✅' : isMidi ? '☀️' : '🌙'}</span>
+                            <span>{repas.est_cuisine ? `${repas.date_cuisine || 'Fait'}` : isMidi ? 'Cuisiné ce midi' : 'Cuisiné ce soir'}</span>
                           </button>
 
                           <button
@@ -1536,7 +1538,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 2. VUE COURSES (PLEIN FORMAT SUR ORDINATEUR) */}
+        {/* 2. VUE COURSES & ARBITRE DRIVE */}
         {view === 'shop' && (
           <div className="space-y-5">
             <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex items-center justify-between">
@@ -1547,7 +1549,7 @@ Format JSON pur :
                     {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} en attente`}
                   </h4>
                   <p className="text-xs text-stone-400">
-                    {isBasketReceived ? 'Suivi fraîcheur actif dans votre Planning' : 'Cliquez une fois vos sacs rangés à la maison'}
+                    {isBasketReceived ? 'Suivi fraîcheur actif' : 'Cliquez une fois vos sacs rangés'}
                   </p>
                 </div>
               </div>
@@ -1589,7 +1591,7 @@ Format JSON pur :
               </div>
 
               <p className="text-xs text-stone-300 italic font-medium">
-                💡 <b>Verdict de l'Arbitre :</b> {driveNom1} est ~{ecartEconomieDrive} € plus économique sur ce panier complet.
+                💡 <b>Verdict de l'Arbitre :</b> {driveNom1} est ~{ecartEconomieDrive} € plus économique sur ce panier.
               </p>
             </div>
 
@@ -1619,7 +1621,7 @@ Format JSON pur :
               </span>
             </div>
 
-            {/* GRILLE DES ARTICLES : 1 COLONNE SUR SMARTPHONE, 2 SUR ORDINATEUR */}
+            {/* Grille des articles */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
@@ -1703,7 +1705,7 @@ Format JSON pur :
                       {!item.in_stock && canFreeze && (
                         <div className="mt-3 pt-2.5 border-t border-stone-100">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-[10px] font-bold text-stone-500">Votre choix :</div>
+                            <div className="text-[10px] font-bold text-stone-500">Option d'achat :</div>
                             <div className="flex bg-stone-100 p-0.5 rounded-xl border border-stone-200">
                               <button
                                 type="button"
@@ -1774,7 +1776,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 3. VUE MES STOCKS (GRILLE 2 COLONNES SUR PC) */}
+        {/* 3. VUE MES STOCKS */}
         {view === 'stocks' && (
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 md:p-6 text-white shadow-xl">
@@ -1930,15 +1932,15 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 4. VUE PROFIL : TABLEAU DE BORD PLEIN FORMAT 2 COLONNES SUR ORDINATEUR ! */}
+        {/* 4. VUE PROFIL (AVEC OPTION MIDI & SOIR !) */}
         {view === 'profile' && (
-          <div className="space-y-6 animate-in fade-in">
+          <div className="space-y-6 max-w-2xl mx-auto animate-in fade-in">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-6 text-white shadow-xl flex justify-between items-center">
               <div>
                 <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration du Foyer</span>
-                <h2 className="text-2xl font-black mt-0.5">Profil & Préférences Culinaires ⚙️</h2>
+                <h2 className="text-2xl font-black mt-0.5 font-serif">Profil & Préférences ⚙️</h2>
                 <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
-                  Les modifications sont enregistrées en direct à chaque clic !
+                  Enregistré en direct à chaque modification !
                 </p>
               </div>
               <span className="bg-white/20 px-3.5 py-1 rounded-full text-xs font-bold text-amber-100">{config.code_foyer}</span>
@@ -1947,18 +1949,48 @@ Format JSON pur :
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                {/* COLONNE GAUCHE : CADENCE, BUDGET & DRIVES */}
+                {/* COLONNE GAUCHE : RYTHME, MIDI/SOIR, ENFANTS & BUDGET */}
                 <div className="space-y-6">
                   
+                  {/* NOUVEAU : CHOIX DES MOMENTS DE REPAS (MIDI VS SOIR) */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      1. Quels repas planifier ?
+                    </h3>
+                    <div className="grid grid-cols-1 gap-2">
+                      {[
+                        { id: 'Dîner + Lunchbox midi', icon: '🥡', desc: 'Dîner le soir + Lunchbox le lendemain (La formule éco)' },
+                        { id: 'Midi & Soir (Deux repas par jour)', icon: '☀️🌙', desc: 'Des recettes différentes pour le midi et pour le soir' },
+                        { id: 'Dîner uniquement (Soir)', icon: '🌙', desc: 'Uniquement les repas du soir (déjeuners libres le midi)' }
+                      ].map(m => (
+                        <div
+                          key={m.id}
+                          onClick={() => autoSaveMealType(m.id)}
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                            typeRepasPlanifies === m.id
+                              ? 'border-[#C25E3E] bg-amber-50 text-[#C25E3E] font-black shadow-sm'
+                              : 'border-stone-200 text-stone-700 hover:border-stone-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span>{m.icon}</span>
+                            <span className="text-xs font-bold">{m.id}</span>
+                          </div>
+                          <p className="text-[10px] text-stone-400 mt-0.5">{m.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Cadence & Durée */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      1. Rythme & Cadence de Planification
+                      2. Rythme & Nombre de Recettes
                     </h3>
                     
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois (2 Drives)' },
+                        { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois' },
                         { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine' },
                         { id: '1 Semaine Express', icon: '⚡', label: '1 Semaine' }
                       ].map(d => (
@@ -1993,39 +2025,73 @@ Format JSON pur :
                         className="w-full accent-[#C25E3E]"
                       />
                     </div>
+                  </div>
 
-                    <div>
-                      <label className="text-xs font-bold text-stone-600 block mb-2">Portions cuisinées par recette</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { val: 2, label: '2 Portions', desc: 'Dîner du soir seul' },
-                          { val: 4, label: '4 Portions', desc: 'Dîner + Lunchbox midi' }
-                        ].map(p => (
+                  {/* Composition Foyer (Adultes & Enfants) */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      3. Composition du Foyer
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200 text-center">
+                        <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">Adultes</label>
+                        <div className="flex items-center justify-center gap-3">
                           <button
-                            key={p.val}
                             type="button"
-                            onClick={() => autoSavePortions(p.val)}
-                            className={`p-3 rounded-2xl border text-left transition-all ${
-                              nbPortions === p.val 
-                                ? 'border-[#C25E3E] bg-amber-50 shadow-sm' 
-                                : 'border-stone-200 hover:border-stone-300'
-                            }`}
-                          >
-                            <p className={`text-xs font-black ${nbPortions === p.val ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
-                              {p.label}
-                            </p>
-                            <p className="text-[10px] text-stone-500 mt-0.5">{p.desc}</p>
-                          </button>
-                        ))}
+                            onClick={() => setNbAdultes(Math.max(1, nbAdultes - 1))}
+                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
+                          >-</button>
+                          <span className="text-base font-black text-stone-800">{nbAdultes}</span>
+                          <button
+                            type="button"
+                            onClick={() => setNbAdultes(nbAdultes + 1)}
+                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
+                          >+</button>
+                        </div>
                       </div>
+
+                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200 text-center">
+                        <label className="text-[10px] font-bold text-stone-500 uppercase block mb-1">Enfants (&lt;12 ans)</label>
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setNbEnfants(Math.max(0, nbEnfants - 1))}
+                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
+                          >-</button>
+                          <span className="text-base font-black text-stone-800">{nbEnfants}</span>
+                          <button
+                            type="button"
+                            onClick={() => setNbEnfants(nbEnfants + 1)}
+                            className="w-7 h-7 bg-white rounded-lg border border-stone-200 font-black text-sm"
+                          >+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <label 
+                        onClick={() => setOptionEnfants(!optionEnfants)}
+                        className="flex items-center gap-2.5 cursor-pointer select-none bg-amber-50/70 p-3 rounded-2xl border border-amber-200/50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={optionEnfants}
+                          onChange={() => {}}
+                          className="w-4 h-4 accent-[#C25E3E] rounded"
+                        />
+                        <span className="text-xs font-bold text-stone-800">
+                          🧸 Option Recettes adaptées aux enfants (zéro piment, légumes habiles)
+                        </span>
+                      </label>
                     </div>
                   </div>
 
-                  {/* Budget Alimentaire */}
+                  {/* Budget */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                        2. Budget Alimentaire Mensuel
+                        4. Budget Alimentaire Mensuel
                       </h3>
                       <span className="text-base font-black text-[#C25E3E]">{budgetInput} €</span>
                     </div>
@@ -2038,49 +2104,16 @@ Format JSON pur :
                       onChange={(e) => setBudgetInput(Number(e.target.value))}
                       className="w-full accent-[#C25E3E]"
                     />
-                    <div className="flex justify-between text-[10px] text-stone-400 font-bold">
-                      <span>150 €</span>
-                      <span>230 € (Standard)</span>
-                      <span>350 €</span>
-                    </div>
-                  </div>
-
-                  {/* Drives Préférés */}
-                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      3. Vos Magasins Drive Préférés
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
-                        <label className="text-[10px] font-black uppercase text-blue-700 block mb-1">Drive n°1 (ex: Leclerc)</label>
-                        <input
-                          type="text"
-                          value={driveUrl1}
-                          onChange={(e) => setDriveUrl1(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
-                        />
-                      </div>
-
-                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
-                        <label className="text-[10px] font-black uppercase text-sky-700 block mb-1">Drive n°2 (ex: Carrefour)</label>
-                        <input
-                          type="text"
-                          value={driveUrl2}
-                          onChange={(e) => setDriveUrl2(e.target.value)}
-                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
-                        />
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                {/* COLONNE DROITE : STYLE ALIMENTAIRE & ÉTIQUETTES ALIMENTS BANNIS */}
+                {/* COLONNE DROITE : STYLE, EXCLUSIONS & DRIVES */}
                 <div className="space-y-6">
                   
-                  {/* Régimes */}
+                  {/* Style Alimentaire */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      4. Style Alimentaire
+                      5. Style Alimentaire
                     </h3>
                     <div className="grid grid-cols-1 gap-2.5">
                       {[
@@ -2112,16 +2145,11 @@ Format JSON pur :
                     </div>
                   </div>
 
-                  {/* GESTIONNAIRE COMPLET D'ALIMENTS BANNIS AVEC ÉTIQUETTES & SAISIE LIBRE */}
+                  {/* Aliments Bannis */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      5. Aliments Bannis du Foyer
+                      6. Aliments Bannis du Foyer
                     </h3>
-                    <p className="text-[11px] text-stone-500 leading-snug">
-                      L'IA refusera catégoriquement toute recette contenant ces ingrédients.
-                    </p>
-
-                    {/* Champ d'ajout libre au clavier */}
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -2140,69 +2168,55 @@ Format JSON pur :
                       </button>
                     </div>
 
-                    {/* Liste des étiquettes actives avec bouton croix (✕) */}
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-2">
-                        Aliments actuellement interdits ({activeExclusionsList.length}) :
-                      </p>
-                      {activeExclusionsList.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {activeExclusionsList.map((item, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center gap-1.5 bg-red-50 text-red-800 border border-red-200 px-3 py-1 rounded-xl text-xs font-bold animate-in fade-in"
-                            >
-                              <span>🚫 {item}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveBanned(item)}
-                                className="text-red-500 hover:text-red-700 font-black text-sm ml-0.5"
-                                title="Supprimer cette interdiction"
-                              >
-                                ✕
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-stone-400 italic">Aucun aliment interdit. L'IA a quartier libre !</p>
-                      )}
-                    </div>
-
-                    {/* Suggestions d'exclusions rapides en 1 clic */}
-                    <div className="pt-2 border-t border-stone-100">
-                      <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">Suggestions rapides :</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {['Porc', 'Poisson', 'Coriandre', 'Abats', 'Gluten', 'Lactose', 'Poivrons', 'Champignons'].map(sug => {
-                          const isAlreadyBanned = activeExclusionsList.some(item => item.toLowerCase() === sug.toLowerCase());
-                          return (
+                        {activeExclusionsList.map((item, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 bg-red-50 text-red-800 border border-red-200 px-3 py-1 rounded-xl text-xs font-bold animate-in fade-in"
+                          >
+                            <span>🚫 {item}</span>
                             <button
-                              key={sug}
                               type="button"
-                              onClick={() => {
-                                if (isAlreadyBanned) handleRemoveBanned(sug);
-                                else {
-                                  const updated = [...activeExclusionsList, sug].join(', ');
-                                  autoSaveExclusions(updated);
-                                }
-                              }}
-                              className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition ${
-                                isAlreadyBanned 
-                                  ? 'bg-red-50 text-red-700 border-red-300' 
-                                  : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
-                              }`}
-                            >
-                              {isAlreadyBanned ? `✓ ${sug}` : `+ ${sug}`}
-                            </button>
-                          );
-                        })}
+                              onClick={() => handleRemoveBanned(item)}
+                              className="text-red-500 hover:text-red-700 font-black text-sm ml-0.5"
+                            >✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Drives */}
+                  <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
+                      7. Vos Magasins Drive
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
+                        <label className="text-[10px] font-black uppercase text-blue-700 block mb-1">Drive n°1 (ex: Leclerc)</label>
+                        <input
+                          type="text"
+                          value={driveUrl1}
+                          onChange={(e) => setDriveUrl1(e.target.value)}
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                        />
+                      </div>
+
+                      <div className="bg-stone-50 p-3 rounded-2xl border border-stone-200">
+                        <label className="text-[10px] font-black uppercase text-sky-700 block mb-1">Drive n°2 (ex: Carrefour)</label>
+                        <input
+                          type="text"
+                          value={driveUrl2}
+                          onChange={(e) => setDriveUrl2(e.target.value)}
+                          className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                        />
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Bouton de confirmation en bas */}
               <div className="pt-4 text-center">
                 <button
                   type="submit"
@@ -2216,7 +2230,7 @@ Format JSON pur :
         )}
       </main>
 
-      {/* MODAL RECETTE DÉTAILLÉE PLEIN FORMAT & CENTRÉE SUR PC */}
+      {/* MODAL RECETTE DÉTAILLÉE */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-6 overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-none md:rounded-[32px] overflow-hidden shadow-2xl relative min-h-screen md:min-h-0 md:max-h-[90vh] overflow-y-auto pb-8">
@@ -2233,9 +2247,16 @@ Format JSON pur :
                 ✕
               </button>
               <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white">
-                <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  Panier {selectedRecipe.basket || activeBasket} • {selectedRecipe.type || 'Frais'}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    {selectedRecipe.moment || 'Soir'} • Panier {selectedRecipe.basket || activeBasket}
+                  </span>
+                  {selectedRecipe.kid_friendly && (
+                    <span className="bg-amber-400 text-stone-950 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      🧸 Kid-Friendly
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2247,7 +2268,7 @@ Format JSON pur :
               <div className="grid grid-cols-2 gap-2.5 mb-5">
                 <button
                   type="button"
-                  onClick={(e) => toggleRecipeCooked(selectedRecipe.id, e)}
+                  onClick={(e) => toggleRecipeCooked(selectedRecipe.id, selectedRecipe.moment || 'Repas', e)}
                   className={`py-3 rounded-2xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow-sm active:scale-98 ${
                     selectedRecipe.est_cuisine
                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
@@ -2288,6 +2309,7 @@ Format JSON pur :
                 </div>
               </div>
 
+              {/* NOTATION */}
               <div className="bg-stone-50 p-3.5 rounded-2xl flex justify-between items-center mb-6 border border-stone-200">
                 <span className="text-xs font-bold text-stone-700">Votre évaluation :</span>
                 {selectedRecipe.est_cuisine || (selectedRecipe.rating && selectedRecipe.rating > 0) ? (
@@ -2348,7 +2370,7 @@ Format JSON pur :
         </div>
       )}
 
-      {/* BARRE DE NAVIGATION BASSE (DOCK MOBILE & ORDINATEUR) */}
+      {/* BARRE DE NAVIGATION BASSE */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 py-2.5 z-30 shadow-lg flex justify-center">
         <div className="w-full max-w-md md:max-w-xl flex justify-around items-center px-4">
           <button
