@@ -65,7 +65,7 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("cremerie") || p.includes("lait") || p.includes("creme")) {
     return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon")) {
+  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau")) {
     return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
   }
   if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) {
@@ -88,6 +88,7 @@ export default function SmartDriveApp() {
 
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('menu');
+  // L'état activeBasket pilote à la fois le Planning et les Courses
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -141,14 +142,14 @@ export default function SmartDriveApp() {
     await supabase.from('smart_config').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // BASCULE ENTRE MODE FRAIS (PREMIUM) ET MODE CONGÉLO (ANTI-RADIN / GARAGE)
   async function toggleItemMode(basketKey, index, e) {
     e.stopPropagation();
     const list = config.panier_json?.[basketKey] || [];
     const updatedList = list.map((item, i) => {
-      if (i === index && item.a_alternative_congelo) {
-        const newMode = item.mode_choisi === 'congelo' ? 'frais' : 'congelo';
-        return { ...item, mode_choisi: newMode };
+      if (i === index) {
+        const currentMode = item.mode_choisi || 'frais';
+        const newMode = currentMode === 'congelo' ? 'frais' : 'congelo';
+        return { ...item, mode_choisi: newMode, a_alternative_congelo: true };
       }
       return item;
     });
@@ -174,14 +175,13 @@ export default function SmartDriveApp() {
       .map(r => r.nom);
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour un couple de 40 ans.
-STRUCTURE DU MOIS :
-- Panier 1 (Jour 1) : 1ère quinzaine (Semaines 1 & 2). Contient des produits ultra-frais pour démarrer la quinzaine + des produits de stock.
-- Panier 2 (Jour 15) : 2ème quinzaine (Semaines 3 & 4). Réassort ULTRA-FRAIS pour démarrer la seconde quinzaine (poisson frais, viande du jour, légumes fragiles) + réassort stock.
+RÉPARTITION STRICTE DU MOIS EN 2 QUINZAINES :
+- Les recettes 1, 2, 3, 4, 5 DOIVENT AVOIR "basket": 1 (Quinzaine 1 - Panier 1). Produits ultra-frais pour démarrer la 1ère quinzaine + stock.
+- Les recettes 6, 7, 8, 9 DOIVENT AVOIR "basket": 2 (Quinzaine 2 - Panier 2). Réassort ULTRA-FRAIS pour démarrer la 2ème quinzaine (poisson/viande fraîche, légumes fragiles) + réassort stock.
+Total exact : 9 recettes (5 pour la quinzaine 1, 4 pour la quinzaine 2).
 
-LE GRAND CONGÉLATEUR COMME ALTERNATIVE ANTI-GASPI / ANTI-RADIN AU CHOIX DU CLIENT :
-Le couple a un grand congélateur au garage. L'utilisateur doit POUVOIR CHOISIR lui-même pour chaque produit s'il veut :
-1. L'option FRAIS (Recette Premium / Qualité boucherie-poissonnerie-primeur).
-2. L'option CONGÉLÉ (Recette Anti-Radin / Économique / Grand format garage sans gaspillage).
+LE GRAND CONGÉLATEUR COMME ALTERNATIVE ANTI-GASPI / ANTI-RADIN :
+Pour chaque produit qui s'y prête (viande, poisson, légumes bruts), propose l'option FRAIS (boucherie/poissonnerie) ET l'option CONGÉLO (surgelé brut économique -30% pour remplir le grand congélateur du garage).
 
 CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour l'alimentation des 36 repas (sans alcool ni ménager).
 Marques distributeurs prioritaires (Marque Repère Leclerc, Carrefour Classic).
@@ -195,32 +195,46 @@ HISTORIQUE DES GOÛTS :
 - Plats détestés (1 ou 2 étoiles, BANNIS) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
 
 Pour chaque ingrédient dans panier_1 et panier_2 :
-- "nom": Nom générique (ex: "Pavés de Saumon", "Filets de Poulet", "Brocolis", "Reblochon", "Avocats")
-- "rayon": Rayon Drive (Poissonnerie, Boucherie, Fruits & Légumes, Crémerie, Épicerie, Surgelés)
-- "a_alternative_congelo": true si une version surgelée existe (viande, poisson, légumes bruts, fruits), false sinon (ex: salade verte, avocat, œufs, crème fraîche)
-- "mode_choisi": "frais" par défaut (l'utilisateur pourra basculer sur congelo)
-- "prix_frais": prix réaliste en euros (ex: 9.80)
-- "recherche_frais": 1 ou 2 mots simples pour le frais (ex: "saumon", "poulet", "brocolis")
-- "prix_congelo": prix de l'alternative surgelée économique (ex: 6.50), ou null si non applicable
-- "recherche_congelo": mot simple pour le surgelé (ex: "saumon surgele", "poulet surgele", "brocolis surgele"), ou null
-- "gain_anti_radin": économie réalisée (ex: "-34%"), ou null
-- "conseil_anti_gaspi": astuce courte (ex: "🧊 Version congelo : -3,30€ et se garde 6 mois au garage", "🌿 À consommer ultra-frais sous 3 jours")
+- "nom": Nom produit
+- "rayon": Rayon Drive
+- "a_alternative_congelo": true si une version surgelée existe, false sinon
+- "mode_choisi": "frais"
+- "prix_frais": prix en euros
+- "recherche_frais": 1 ou 2 mots simples (ex: "saumon", "poulet", "brocolis")
+- "prix_congelo": prix surgelé économique, ou null
+- "recherche_congelo": mot simple (ex: "saumon surgele"), ou null
+- "gain_anti_radin": économie (ex: "-30%"), ou null
+- "conseil_anti_gaspi": astuce courte
 
 Format impératif en JSON pur :
 {
   "repas": [
     {
       "id": 1,
-      "nom": "Nom de la recette",
+      "nom": "Nom recette Q1",
       "type": "Frais",
       "calories": "510 kcal",
       "temps": "25 min",
-      "bienfait_sante": "🛡️ Bouclier immunitaire (Zinc & Vitamine C)",
+      "bienfait_sante": "🛡️ Bouclier immunitaire",
       "saison_atout": "Légumes d'automne",
-      "ingredients": ["Ingrédient 1 (quantité)", "Ingrédient 2 (quantité)"],
-      "etapes": ["Étape 1", "Étape 2", "Étape 3"],
-      "conseil": "Astuce du chef",
+      "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+      "etapes": ["Étape 1", "Étape 2"],
+      "conseil": "Astuce chef",
       "basket": 1,
+      "rating": 0
+    },
+    {
+      "id": 6,
+      "nom": "Nom recette Q2",
+      "type": "Frais",
+      "calories": "480 kcal",
+      "temps": "20 min",
+      "bienfait_sante": "🧠 Riche en Oméga-3",
+      "saison_atout": "Produit de saison",
+      "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+      "etapes": ["Étape 1", "Étape 2"],
+      "conseil": "Astuce chef",
+      "basket": 2,
       "rating": 0
     }
   ],
@@ -235,7 +249,7 @@ Format impératif en JSON pur :
       "prix_congelo": 6.90,
       "recherche_congelo": "saumon surgele",
       "gain_anti_radin": "-34%",
-      "conseil_anti_gaspi": "🧊 Version anti-radin : 3,60€ d'économie pour votre grand congélateur",
+      "conseil_anti_gaspi": "🧊 Idéal en surgelé pour votre grand congélateur",
       "in_stock": false
     }
   ],
@@ -250,12 +264,11 @@ Format impératif en JSON pur :
       "prix_congelo": 8.10,
       "recherche_congelo": "steak hache surgele",
       "gain_anti_radin": "-28%",
-      "conseil_anti_gaspi": "🌿 Ultra-frais pour démarrer la 2ème quinzaine, ou congelo pour économiser",
+      "conseil_anti_gaspi": "🌿 Ultra-frais pour démarrer la 2ème quinzaine",
       "in_stock": false
     }
   ]
-}
-Total exact : 9 recettes dans "repas".`;
+}`;
 
     try {
       let responseText;
@@ -267,7 +280,7 @@ Total exact : 9 recettes dans "repas".`;
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
-        console.warn("Bascule sur modèle 2.5-flash...", err);
+        console.warn("Bascule sur 2.5-flash...", err);
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-2.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -285,7 +298,7 @@ Total exact : 9 recettes dans "repas".`;
       }).eq('id', config.id);
 
       await fetchConfig();
-      alert(`Menu généré avec double option : Frais Premium ou Congélo Anti-Radin !`);
+      alert(`Menu complet de ${moisActuel} généré sur les 2 quinzaines !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -332,7 +345,7 @@ Total exact : 9 recettes dans "repas".`;
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-slate-50 gap-3">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p className="font-bold text-slate-700 text-sm">Calcul des options Frais & Congélateur...</p>
+        <p className="font-bold text-slate-700 text-sm">Chargement de SmartDrive...</p>
       </div>
     );
   }
@@ -349,23 +362,33 @@ Total exact : 9 recettes dans "repas".`;
   const activePanierList = config.panier_json?.[currentBasketKey] || [];
   const inStockCount = activePanierList.filter(i => i.in_stock).length;
 
-  // Calcul dynamique selon les modes choisis (Frais vs Congelo) en excluant ce qui est déjà en stock
+  // Calcul dynamique selon les modes choisis (Frais vs Congelo) en excluant le stock
   const totalPanierEstime = activePanierList
     .filter(i => !i.in_stock)
     .reduce((sum, i) => {
-      const isCongelo = i.mode_choisi === 'congelo' && i.prix_congelo;
-      const prix = isCongelo ? Number(i.prix_congelo) : Number(i.prix_frais || 2.5);
+      const isCongelo = i.mode_choisi === 'congelo';
+      const prix = isCongelo && i.prix_congelo ? Number(i.prix_congelo) : Number(i.prix_frais || 2.5);
       return sum + prix;
     }, 0);
 
-  // Calcul du montant total économisé grâce aux choix Anti-Radin / Congélo
+  // Total économisé grâce aux choix Anti-Radin
   const totalEconomiesRealisees = activePanierList
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
+  // Filtrage intelligent des repas du planning selon la Quinzaine active (avec sécurité par index)
+  const mealsForActiveQuinzaine = (config.menu_json || []).filter((repas, index) => {
+    // Si Gemini a bien mis basket 1 ou 2
+    if (repas.basket === 1 || repas.basket === 2) {
+      return repas.basket === activeBasket;
+    }
+    // Sécurité de secours : les 5 premières recettes vont en Q1, les 4 suivantes en Q2
+    return activeBasket === 1 ? index < 5 : index >= 5;
+  });
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-100 pb-28 shadow-2xl">
-      {/* Header Premium */}
+      {/* Header Premium - Dynamique selon la quinzaine consultée ! */}
       <header className="bg-gradient-to-r from-blue-700 to-indigo-800 p-5 text-white sticky top-0 z-40 shadow-lg">
         <div className="flex justify-between items-center mb-1">
           <div>
@@ -383,15 +406,37 @@ Total exact : 9 recettes dans "repas".`;
             ⚡ Générer
           </button>
         </div>
+
+        {/* Le badge ici s'adapte en direct à ce que vous regardez ! */}
         <div className="flex items-center justify-between text-[11px] text-blue-100 font-medium mt-2 pt-2 border-t border-white/10">
           <span>📅 {jourDuMois} {moisActuel}</span>
-          <span className="bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
-            {jourDuMois <= 15 ? 'Quinzaine 1 (Panier 1)' : 'Quinzaine 2 (Panier 2)'}
+          <span className="bg-white/20 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+            Consultation : Quinzaine {activeBasket} (Panier {activeBasket})
           </span>
         </div>
       </header>
 
       <main className="p-4">
+        {/* Sélecteur Universel de Quinzaine (présent dans Planning ET dans Courses !) */}
+        <div className="flex bg-slate-200 p-1 rounded-2xl mb-4 shadow-inner">
+          <button
+            onClick={() => setActiveBasket(1)}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              activeBasket === 1 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Quinzaine 1 (Sem. 1 & 2)
+          </button>
+          <button
+            onClick={() => setActiveBasket(2)}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              activeBasket === 2 ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Quinzaine 2 (Sem. 3 & 4)
+          </button>
+        </div>
+
         {view === 'menu' ? (
           <div className="space-y-4">
             {/* Boîte des envies */}
@@ -410,17 +455,17 @@ Total exact : 9 recettes dans "repas".`;
 
             <div className="flex justify-between items-center pl-1 pr-1">
               <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                Menu du Mois ({moisActuel})
+                Repas de la Quinzaine {activeBasket}
               </h2>
               <span className="text-[10px] text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                4 Portions / Plat
+                {mealsForActiveQuinzaine.length} Recettes ({mealsForActiveQuinzaine.length * 4} Portions)
               </span>
             </div>
 
-            {/* Cartes Recettes */}
-            {config.menu_json && config.menu_json.length > 0 ? (
+            {/* Cartes Recettes de la Quinzaine sélectionnée */}
+            {mealsForActiveQuinzaine.length > 0 ? (
               <div className="space-y-4">
-                {config.menu_json.map((repas) => {
+                {mealsForActiveQuinzaine.map((repas) => {
                   const photoUrl = getRecipePhoto(repas.nom, repas.type);
 
                   return (
@@ -440,12 +485,12 @@ Total exact : 9 recettes dans "repas".`;
                         
                         <div className="absolute top-3 left-3 flex gap-1.5">
                           <span className="bg-white/90 backdrop-blur text-blue-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                            Panier {repas.basket}
+                            Panier {activeBasket}
                           </span>
                           <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
                             repas.type === 'Cheat' ? 'bg-amber-400 text-slate-950' : 'bg-emerald-500 text-white'
                           }`}>
-                            {repas.type === 'Cheat' ? 'Plaisir' : repas.type}
+                            {repas.type === 'Cheat' ? 'Plaisir' : (repas.type || 'Frais')}
                           </span>
                         </div>
 
@@ -491,7 +536,7 @@ Total exact : 9 recettes dans "repas".`;
               </div>
             ) : (
               <div className="bg-white p-8 rounded-3xl text-center border border-dashed border-slate-300">
-                <p className="text-slate-500 text-sm mb-3">Aucun menu généré pour l'instant.</p>
+                <p className="text-slate-500 text-sm mb-3">Aucune recette trouvée pour cette quinzaine.</p>
                 <button
                   onClick={generateWithGemini}
                   className="bg-blue-700 text-white px-5 py-2.5 rounded-2xl text-xs font-bold shadow"
@@ -503,31 +548,11 @@ Total exact : 9 recettes dans "repas".`;
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Sélecteur de Panier */}
-            <div className="flex bg-slate-200 p-1 rounded-2xl">
-              <button
-                onClick={() => setActiveBasket(1)}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                  activeBasket === 1 ? 'bg-white text-blue-700 shadow' : 'text-slate-500'
-                }`}
-              >
-                Panier 1 (1ère Quinzaine)
-              </button>
-              <button
-                onClick={() => setActiveBasket(2)}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition ${
-                  activeBasket === 2 ? 'bg-white text-blue-700 shadow' : 'text-slate-500'
-                }`}
-              >
-                Panier 2 (2ème Quinzaine)
-              </button>
-            </div>
-
             {/* Suivi Budgétaire Dynamique */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-3xl shadow-md">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90">
-                  Total estimé du panier
+                  Total Panier {activeBasket}
                 </span>
                 <span className="text-2xl font-black">
                   {totalPanierEstime.toFixed(2)} €
@@ -554,15 +579,24 @@ Total exact : 9 recettes dans "repas".`;
               </span>
             </div>
 
-            {/* Liste des ingrédients du Drive avec interrupteur FRAIS vs CONGÉLO */}
+            {/* Liste des ingrédients du Drive */}
             <div className="space-y-3">
               {activePanierList.map((item, index) => {
-                const isCongelo = item.mode_choisi === 'congelo' && item.a_alternative_congelo;
-                const activePrice = isCongelo ? item.prix_congelo : item.prix_frais;
-                const activeSearchRaw = isCongelo ? item.recherche_congelo : item.recherche_frais;
-                const cleanTerm = cleanDriveTerm(activeSearchRaw || item.nom);
+                const nomLower = item.nom.toLowerCase();
+                const canFreeze = item.a_alternative_congelo || 
+                  ['saumon', 'cabillaud', 'poisson', 'poulet', 'boeuf', 'bœuf', 'steak', 'porc', 'brocoli', 'haricot', 'legume', 'frite', 'figue']
+                  .some(kw => nomLower.includes(kw));
 
-                // Liens Drives configurés : Lunel (Leclerc) et Alès (Carrefour)
+                const isCongelo = item.mode_choisi === 'congelo' && canFreeze;
+                const prixFrais = Number(item.prix_frais || 4.5);
+                const prixCongelo = Number(item.prix_congelo || (prixFrais * 0.7).toFixed(2));
+                const activePrice = isCongelo ? prixCongelo : prixFrais;
+
+                const searchFrais = item.recherche_frais || item.nom;
+                const searchCongelo = item.recherche_congelo || `${cleanDriveTerm(searchFrais)} surgele`;
+                const cleanTerm = cleanDriveTerm(isCongelo ? searchCongelo : searchFrais);
+
+                // Liens Drives : Lunel (Leclerc) et Alès (Carrefour)
                 const leclercUrl = `https://fd14-courses.leclercdrive.fr/magasin-053401-053401-lunel/recherche.aspx?TexteRecherche=${encodeURIComponent(cleanTerm)}`;
                 const carrefourUrl = `https://www.carrefour.fr/s?q=${encodeURIComponent(cleanTerm)}`;
                 const thumbnail = getProductThumbnail(item.nom, item.rayon);
@@ -578,7 +612,6 @@ Total exact : 9 recettes dans "repas".`;
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {/* Checkbox */}
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                         item.in_stock 
                           ? 'bg-emerald-500 border-emerald-500 text-white' 
@@ -587,7 +620,6 @@ Total exact : 9 recettes dans "repas".`;
                         {item.in_stock && <span className="text-xs font-bold">✓</span>}
                       </div>
 
-                      {/* Vignette Photo */}
                       <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
                         <img 
                           src={thumbnail} 
@@ -603,7 +635,7 @@ Total exact : 9 recettes dans "repas".`;
                             {item.rayon}
                           </span>
                           <span className="text-xs font-black text-slate-800">
-                            ~{Number(activePrice || 2.5).toFixed(2)} €
+                            ~{activePrice.toFixed(2)} €
                           </span>
                         </div>
 
@@ -621,13 +653,12 @@ Total exact : 9 recettes dans "repas".`;
                       </div>
                     </div>
 
-                    {/* INTERRUPTEUR FRAIS VS CONGÉLATEUR ANTI-RADIN */}
-                    {!item.in_stock && item.a_alternative_congelo && (
+                    {/* Interrupteur Frais vs Congélo */}
+                    {!item.in_stock && canFreeze && (
                       <div className="mt-2.5 pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between gap-2">
                           <div className="text-[10px] font-bold text-slate-500">Votre choix :</div>
                           <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-                            {/* Bouton Frais */}
                             <button
                               type="button"
                               onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
@@ -637,10 +668,9 @@ Total exact : 9 recettes dans "repas".`;
                                   : 'text-slate-400 hover:text-slate-600'
                               }`}
                             >
-                              <span>🌿</span> Frais ({item.prix_frais}€)
+                              <span>🌿</span> Frais ({prixFrais.toFixed(2)}€)
                             </button>
 
-                            {/* Bouton Congélo Anti-Radin */}
                             <button
                               type="button"
                               onClick={(e) => toggleItemMode(currentBasketKey, index, e)}
@@ -663,10 +693,9 @@ Total exact : 9 recettes dans "repas".`;
                       </div>
                     )}
 
-                    {/* Actions Drive 1-Tap */}
+                    {/* Actions Drive */}
                     {!item.in_stock && (
                       <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-slate-100">
-                        {/* Leclerc Lunel */}
                         <a
                           href={leclercUrl}
                           target="_blank"
@@ -677,7 +706,6 @@ Total exact : 9 recettes dans "repas".`;
                           <span>🛒</span> Leclerc {isCongelo && '(Surgelé)'}
                         </a>
 
-                        {/* Carrefour Alès */}
                         <a
                           href={carrefourUrl}
                           target="_blank"
@@ -724,7 +752,7 @@ Total exact : 9 recettes dans "repas".`;
             </button>
             <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white">
               <span className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
-                Panier {selectedRecipe.basket} • {selectedRecipe.type}
+                Panier {selectedRecipe.basket || activeBasket} • {selectedRecipe.type || 'Frais'}
               </span>
             </div>
           </div>
