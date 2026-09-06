@@ -23,13 +23,13 @@ function cleanDriveTerm(text) {
 // Photos culinaires HD pour les recettes (Planning)
 function getRecipePhoto(dishName = "", type = "") {
   const name = dishName.toLowerCase();
-  if (name.includes("saumon") || name.includes("cabillaud") || name.includes("poisson")) {
+  if (name.includes("saumon") || name.includes("cabillaud") || name.includes("poisson") || name.includes("poke") || name.includes("poké")) {
     return "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80";
   }
   if (name.includes("burger")) {
     return "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80";
   }
-  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde")) {
+  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine")) {
     return "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80";
   }
   if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle")) {
@@ -59,19 +59,25 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) {
     return "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("poissonnerie")) {
+  if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("poissonnerie") || p.includes("thon")) {
     return "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("cremerie") || p.includes("lait") || p.includes("creme")) {
+  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("cremerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) {
     return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau")) {
+  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) {
     return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
   }
   if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) {
     return "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=160&q=80";
   }
-  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("huile") || p.includes("sauce") || p.includes("thon") || p.includes("conserve")) {
+  if (p.includes("curry") || p.includes("coriandre") || p.includes("épice") || p.includes("herbe") || p.includes("sel") || p.includes("poivre")) {
+    return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=160&q=80";
+  }
+  if (p.includes("huile") || p.includes("vinaigre") || p.includes("sauce") || p.includes("moutarde")) {
+    return "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80";
+  }
+  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve")) {
     return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
   }
   return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80";
@@ -93,7 +99,10 @@ export default function SmartDriveApp() {
   const [newFoyerName, setNewFoyerName] = useState("");
 
   const [loading, setLoading] = useState(true);
-  const [swappingId, setSwappingId] = useState(null); // ID de la recette en cours d'échange
+  const [swappingId, setSwappingId] = useState(null);
+  const [isInjectingCraving, setIsInjectingCraving] = useState(false);
+  const [cravingInput, setCravingInput] = useState("");
+
   const [view, setView] = useState('menu'); // 'menu', 'shop', 'stocks'
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
@@ -101,7 +110,7 @@ export default function SmartDriveApp() {
 
   // État des stocks réels (Congélateur & Placard)
   const [stockList, setStockList] = useState([]);
-  const [stockTab, setStockTab] = useState('congelateur'); // 'congelateur' ou 'placard'
+  const [stockTab, setStockTab] = useState('congelateur');
 
   // Formulaire d'ajout rapide de stock
   const [newItemName, setNewItemName] = useState("");
@@ -137,6 +146,7 @@ export default function SmartDriveApp() {
 
       if (foyer) {
         setConfig(foyer);
+        setCravingInput(foyer.cravings || "");
         const { data: stocks } = await supabase
           .from('inventaire_congelateur')
           .select('*')
@@ -320,7 +330,138 @@ export default function SmartDriveApp() {
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
   }
 
-  // 🔄 REMPLACER UNE RECETTE (PRINCIPAL : GEMINI 3.6 FLASH | SECOURS : GEMINI 3.5 FLASH)
+  // 📦 GESTION DU STATUT DU PANIER DRIVE (Marquer comme rangé au frigo)
+  async function toggleBasketReceivedStatus(basketKey) {
+    const currentStatus = config.panier_json?.[`statut_${basketKey}`] || { recu: false };
+    const newStatus = {
+      recu: !currentStatus.recu,
+      date_reception: !currentStatus.recu ? `${jourDuMois} ${moisActuel}` : null
+    };
+
+    const updatedPanierJson = {
+      ...config.panier_json,
+      [`statut_${basketKey}`]: newStatus
+    };
+
+    setConfig(prev => ({ ...prev, panier_json: updatedPanierJson }));
+    await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
+
+    if (newStatus.recu) {
+      alert(`✅ Courses du Panier ${activeBasket} marquées comme rangées au frigo ! Le suivi de fraîcheur est maintenant actif.`);
+    }
+  }
+
+  // ✨ VALIDATION ET INTÉGRATION IMMÉDIATE D'UNE ENVIE DANS LE MENU
+  async function handleApplyCraving(e) {
+    if (e) e.preventDefault();
+    const envie = cravingInput.trim();
+    if (!config || !envie) return;
+
+    setIsInjectingCraving(true);
+    const basketKey = activeBasket === 1 ? 'p1' : 'p2';
+    const mealsCurrentQ = (config.menu_json || []).filter(r => (r.basket || 1) === activeBasket);
+    const targetRecipe = mealsCurrentQ[mealsCurrentQ.length - 1] || { id: Date.now(), basket: activeBasket };
+
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
+Le couple a formulé une ENVIE TRÈS PRÉCISE : "${envie}".
+Génère UNE RECETTE GOURMANDE ET ÉQUILIBRÉE correspondant exactement à cette envie pour ${moisActuel.toUpperCase()} en France (4 portions).
+Contraintes :
+- Quinzaine : ${activeBasket} (Panier ${activeBasket})
+- Profil santé : 40 ans, sain, équilibré, IG bas, adapté à la saison.
+- Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
+- OBLIGATION ABSOLUE : inclus TOUS les condiments nécessaires (oignons, ail, huile d'olive, épices, sauces).
+
+Format JSON pur impératif :
+{
+  "nouvelle_recette": {
+    "id": ${targetRecipe.id},
+    "nom": "Titre appétissant correspondant à l'envie",
+    "type": "Plaisir",
+    "calories": "520 kcal",
+    "temps": "25 min",
+    "bienfait_sante": "✨ Recette plaisir & vitalité",
+    "saison_atout": "Ingrédients de saison",
+    "ingredients": ["Ingrédient 1 (quantité)", "Ingrédient 2 (quantité)"],
+    "etapes": ["Étape 1", "Étape 2", "Étape 3"],
+    "conseil": "Astuce gourmande du chef",
+    "basket": ${activeBasket},
+    "rating": 0
+  },
+  "nouveaux_ingredients_drive": [
+    {
+      "nom": "Nom produit",
+      "rayon": "Rayon Drive",
+      "a_alternative_congelo": true,
+      "mode_choisi": "frais",
+      "prix_frais": 5.50,
+      "recherche_frais": "mot simple",
+      "prix_congelo": 3.80,
+      "recherche_congelo": "mot surgele",
+      "gain_anti_radin": "-30%",
+      "conseil_anti_gaspi": "astuce",
+      "est_condiment": false,
+      "recette_id": ${targetRecipe.id},
+      "in_stock": false
+    }
+  ]
+}`;
+
+    try {
+      let responseText;
+      try {
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-3.6-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await model.generateContent(prompt);
+        responseText = result.response.text();
+      } catch (err) {
+        const fallback = genAI.getGenerativeModel({ 
+          model: "gemini-3.5-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await fallback.generateContent(prompt);
+        responseText = result.response.text();
+      }
+
+      const response = JSON.parse(responseText);
+
+      let updatedMenu = (config.menu_json || []).map(r => 
+        r.id === targetRecipe.id ? response.nouvelle_recette : r
+      );
+      if (!updatedMenu.some(r => r.id === response.nouvelle_recette.id)) {
+        updatedMenu.push(response.nouvelle_recette);
+      }
+
+      const currentBasketList = config.panier_json?.[basketKey] || [];
+      const updatedPanierJson = {
+        ...config.panier_json,
+        [basketKey]: [...currentBasketList, ...(response.nouveaux_ingredients_drive || [])]
+      };
+
+      await supabase.from('foyers').update({
+        cravings: envie,
+        menu_json: updatedMenu,
+        panier_json: updatedPanierJson
+      }).eq('id', config.id);
+
+      setConfig(prev => ({
+        ...prev,
+        cravings: envie,
+        menu_json: updatedMenu,
+        panier_json: updatedPanierJson
+      }));
+
+      alert(`🎉 Votre envie "${envie}" a été cuisinée par le Chef et ajoutée à la Quinzaine ${activeBasket} ! Vos listes Drive sont à jour.`);
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'intégration de votre envie : " + err.message);
+    } finally {
+      setIsInjectingCraving(false);
+    }
+  }
+
+  // 🔄 REMPLACER UNE RECETTE (AVEC GESTION COMPLÈTE DES INGRÉDIENTS & CONDIMENTS)
   async function swapRecipe(recipeToSwap) {
     if (!config || !recipeToSwap) return;
     setSwappingId(recipeToSwap.id);
@@ -335,7 +476,7 @@ Contraintes :
 - Quinzaine : ${targetBasket} (Panier ${targetBasket}).
 - Profil santé : 40 ans, sain, équilibré, IG bas.
 - Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
-- Propose un plat TOTALEMENT DIFFÉRENT et très appétissant.
+- OBLIGATION : inclus tous les condiments indispensables (oignons, ail, épices, huiles) dans "nouveaux_ingredients_drive".
 
 Format JSON pur impératif :
 {
@@ -354,7 +495,7 @@ Format JSON pur impératif :
     "rating": 0
   },
   "anciens_mots_cles_a_retirer": [
-    // Liste des noms ou mots-clés des ingrédients de l'ancienne recette "${recipeToSwap.nom}" à retirer du panier Drive
+    // Mots-clés des ingrédients de "${recipeToSwap.nom}" à retirer du panier Drive
   ],
   "nouveaux_ingredients_drive": [
     {
@@ -368,6 +509,7 @@ Format JSON pur impératif :
       "recherche_congelo": "mot surgele",
       "gain_anti_radin": "-30%",
       "conseil_anti_gaspi": "astuce",
+      "est_condiment": false,
       "recette_id": ${recipeToSwap.id},
       "in_stock": false
     }
@@ -377,7 +519,6 @@ Format JSON pur impératif :
     try {
       let responseText;
       try {
-        // MOTEUR PRINCIPAL : GEMINI 3.6 FLASH
         const model = genAI.getGenerativeModel({ 
           model: "gemini-3.6-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -385,8 +526,6 @@ Format JSON pur impératif :
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
-        console.warn("Modèle 3.6 saturé, bascule automatique sur GEMINI 3.5 FLASH...", err);
-        // SERVEUR DE SECOURS : GEMINI 3.5 FLASH
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -397,12 +536,10 @@ Format JSON pur impératif :
 
       const response = JSON.parse(responseText);
 
-      // 1. Mise à jour de la recette dans menu_json
       const updatedMenu = (config.menu_json || []).map(r => 
         r.id === recipeToSwap.id ? response.nouvelle_recette : r
       );
 
-      // 2. Nettoyage du Panier Drive : retrait des anciens ingrédients + ajout des nouveaux
       const currentBasketList = config.panier_json?.[basketKey] || [];
       const keywordsToRemove = (response.anciens_mots_cles_a_retirer || []).map(k => k.toLowerCase());
 
@@ -433,7 +570,7 @@ Format JSON pur impératif :
         setSelectedRecipe(response.nouvelle_recette);
       }
 
-      alert(`🎉 Plat remplacé par : "${response.nouvelle_recette.nom}" ! Vos listes de courses Drive ont été mises à jour.`);
+      alert(`🎉 Plat remplacé par : "${response.nouvelle_recette.nom}" ! Vos listes Drive ont été mises à jour.`);
     } catch (e) {
       console.error(e);
       alert("Erreur lors de l'échange : " + e.message);
@@ -442,7 +579,7 @@ Format JSON pur impératif :
     }
   }
 
-  // GÉNÉRATION MENSUELLE (PRINCIPAL : GEMINI 3.6 FLASH | SECOURS : GEMINI 3.5 FLASH)
+  // GÉNÉRATION MENSUELLE 14 RECETTES (AVEC OIGNONS, CONDIMENTS ET ÉPICES OBLIGATOIRES)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -466,27 +603,38 @@ Chaque recette est préparée pour 4 portions (couvre 1 dîner pour 2 + 1 déjeu
 Pour couvrir 14 jours, il faut EXACTEMENT 7 RECETTES PAR QUINZAINE, SOIT 14 RECETTES UNIQUES AU TOTAL DANS "repas" :
 - RECETTES 1 À 7 : "basket": 1 (Correspond au Panier 1 - Quinzaine 1).
 - RECETTES 8 À 14 : "basket": 2 (Correspond au Panier 2 - Quinzaine 2).
-ATTENTION : IL EST FORMELLEMENT INTERDIT DE GÉNÉRER MOINS DE 14 RECETTES. LA LISTE "repas" DOIT CONTENIR EXACTEMENT 14 OBJETS.
+TOTAL STRICT : 14 RECETTES DANS "repas".
+
+RÈGLE DES CONDIMENTS, ÉPICES ET OIGNONS (TRÈS IMPORTANT) :
+Tu ne dois JAMAIS omettre les oignons, l'ail, les huiles spécifiques (huile d'olive, sésame), les herbes (coriandre, persil, thym) ou les épices (curry, cumin, paprika) nécessaires aux recettes.
+Tous les condiments et aromates nécessaires doivent figurer dans panier_1 ou panier_2 avec "est_condiment": true.
+EXCEPTION : Si un ingrédient est DÉJÀ présent dans les "RÉSERVES ACTUELLES DANS LA MAISON (Placard)", ne l'inclus pas au panier.
 
 RÉSERVES ACTUELLES DANS LA MAISON (À UTILISER EN PRIORITÉ ET NE PAS ACHETER) :
 - Grand Congélateur (Garage) : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun produit'}
-- Placard & Épicerie (Conserves, féculents) : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun produit'}
+- Placard & Épicerie : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun produit'}
 
-CONSIGNE ÉCONOMIE "ZÉRO GASPI" :
-1. Utilise en priorité les stocks existants pour composer tes recettes.
-2. NE METS PAS ces ingrédients dans panier_1 ou panier_2 s'ils sont déjà disponibles dans le placard ou le congélateur !
-3. CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour l'ensemble des 14 recettes. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
+CONTRAINTE BUDGÉTAIRE : ~220€ à 240€ mensuel strict pour l'ensemble des 14 recettes. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
 
 Génère 14 recettes de saison pour ${moisActuel.toUpperCase()} en France.
 Profil santé : 40 ans, IG bas, vitalité, immunité de saison, 1 cheat meal par quinzaine.
-Envies du couple : "${config.cravings || 'Cuisine savoureuse, saine et équilibrée'}".
+Envies formulées par le couple : "${config.cravings || 'Cuisine savoureuse, saine et équilibrée'}".
 
-HISTORIQUE DES GOÛTS :
-- Plats adorés (4 ou 5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun'}.
-- Plats détestés (1 ou 2 étoiles, BANNIS) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'}.
+Pour chaque ingrédient dans panier_1 et panier_2 :
+- "nom": Nom produit
+- "rayon": Rayon Drive
+- "a_alternative_congelo": true si une version surgelée existe, false sinon
+- "mode_choisi": "frais"
+- "prix_frais": prix réaliste en euros
+- "recherche_frais": 1 ou 2 mots simples (ex: "saumon", "poulet", "oignons", "curry")
+- "prix_congelo": prix surgelé économique, ou null
+- "recherche_congelo": mot simple (ex: "saumon surgele"), ou null
+- "gain_anti_radin": économie, ou null
+- "conseil_anti_gaspi": astuce courte
+- "est_condiment": true pour huiles, épices, oignons, ail, herbes, sauces; false pour protéines et féculents
+- "recette_id": numéro id de la recette liée (1 à 14)
 
-Pour chaque ingrédient dans panier_1 et panier_2, INCLUS "recette_id" correspondant au numéro id de la recette liée (1 à 14).
-Format impératif en JSON pur :
+Format JSON pur impératif :
 {
   "repas": [
     {
@@ -529,23 +677,40 @@ Format impératif en JSON pur :
       "prix_congelo": 6.90,
       "recherche_congelo": "saumon surgele",
       "gain_anti_radin": "-34%",
-      "conseil_anti_gaspi": "🧊 Idéal en surgelé pour votre grand congélateur",
+      "conseil_anti_gaspi": "🧊 Format congélateur",
+      "est_condiment": false,
+      "recette_id": 1,
+      "in_stock": false
+    },
+    {
+      "nom": "Curry doux en poudre",
+      "rayon": "Épicerie",
+      "a_alternative_congelo": false,
+      "mode_choisi": "frais",
+      "prix_frais": 1.45,
+      "recherche_frais": "curry poudre",
+      "prix_congelo": null,
+      "recherche_congelo": null,
+      "gain_anti_radin": null,
+      "conseil_anti_gaspi": "🧂 Épice de base",
+      "est_condiment": true,
       "recette_id": 1,
       "in_stock": false
     }
   ],
   "panier_2": [
     {
-      "nom": "Pavé de Bœuf Rumsteck",
+      "nom": "Filet de Poulet",
       "rayon": "Boucherie",
       "a_alternative_congelo": true,
       "mode_choisi": "frais",
-      "prix_frais": 11.20,
-      "recherche_frais": "pave boeuf",
-      "prix_congelo": 8.10,
-      "recherche_congelo": "steak hache surgele",
-      "gain_anti_radin": "-28%",
-      "conseil_anti_gaspi": "🌿 Ultra-frais pour démarrer la 2ème quinzaine",
+      "prix_frais": 8.50,
+      "recherche_frais": "filet poulet",
+      "prix_congelo": 6.20,
+      "recherche_congelo": "poulet surgele",
+      "gain_anti_radin": "-27%",
+      "conseil_anti_gaspi": "🌿 Frais de quinzaine",
+      "est_condiment": false,
       "recette_id": 8,
       "in_stock": false
     }
@@ -555,7 +720,6 @@ Format impératif en JSON pur :
     try {
       let responseText;
       try {
-        // MOTEUR PRINCIPAL : GEMINI 3.6 FLASH
         const model = genAI.getGenerativeModel({ 
           model: "gemini-3.6-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -563,8 +727,7 @@ Format impératif en JSON pur :
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
-        console.warn("Modèle 3.6 saturé, bascule automatique sur GEMINI 3.5 FLASH...", err);
-        // SERVEUR DE SECOURS : GEMINI 3.5 FLASH
+        console.warn("Modèle 3.6 saturé, bascule sur Gemini 3.5 Flash...", err);
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -575,25 +738,28 @@ Format impératif en JSON pur :
 
       const response = JSON.parse(responseText);
 
+      // Réinitialisation du statut de réception pour ce nouveau mois
+      const initialPanierJson = {
+        p1: response.panier_1,
+        p2: response.panier_2,
+        statut_p1: { recu: false, date_reception: null },
+        statut_p2: { recu: false, date_reception: null }
+      };
+
       await supabase.from('foyers').update({
         menu_json: response.repas,
-        panier_json: { p1: response.panier_1, p2: response.panier_2 },
+        panier_json: initialPanierJson,
         current_month: moisActuel
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu Formule B généré : 14 recettes pour couvrir 100% du mois de ${moisActuel} !`);
+      alert(`Menu Formule B généré : 14 recettes complètes avec épices et condiments !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
     } finally {
       setLoading(false);
     }
-  }
-
-  async function updateCravings(text) {
-    setConfig(prev => ({ ...prev, cravings: text }));
-    await supabase.from('foyers').update({ cravings: text }).eq('id', config.id);
   }
 
   const copyToClipboard = (text, e) => {
@@ -707,6 +873,10 @@ Format impératif en JSON pur :
   const activePanierList = config?.panier_json?.[currentBasketKey] || [];
   const inStockCount = activePanierList.filter(i => i.in_stock).length;
 
+  // Statut réel de réception du panier (Courses faites ou pas)
+  const basketStatus = config?.panier_json?.[`statut_${currentBasketKey}`] || { recu: false };
+  const isBasketReceived = basketStatus.recu;
+
   const totalPanierEstime = activePanierList
     .filter(i => !i.in_stock)
     .reduce((sum, i) => {
@@ -723,7 +893,7 @@ Format impératif en JSON pur :
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
-  // Formule B : 7 recettes par quinzaine (14 recettes au total)
+  // Formule B : 7 recettes par quinzaine
   const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
@@ -758,7 +928,7 @@ Format impératif en JSON pur :
               </button>
             </div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-blue-200 mt-0.5">
-              {moisActuel} • 14 Recettes (100% Couvert) • {config.nom_famille}
+              {moisActuel} • 14 Recettes • {config.nom_famille}
             </p>
           </div>
           <button
@@ -800,47 +970,89 @@ Format impératif en JSON pur :
           </div>
         )}
 
-        {/* 1. VUE PLANNING AVEC BOUTON REMPLACER */}
+        {/* 1. VUE PLANNING AVEC ALERTE FRAÎCHEUR LOGIQUE */}
         {view === 'menu' && (
           <div className="space-y-4">
-            {premierPlatFrais && (
-              <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl p-4 text-white shadow-lg">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xl">🚨</span>
-                  <span className="text-xs font-black uppercase tracking-wider">Alerte Fraîcheur Frigo ce soir</span>
+            {/* L'ALERTE S'AFFICHE UNIQUEMENT SI LES COURSES ONT ÉTÉ RANGÉES AU FRIGO ! */}
+            {isBasketReceived ? (
+              premierPlatFrais && (
+                <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl p-4 text-white shadow-lg animate-in fade-in">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">🚨</span>
+                      <span className="text-xs font-black uppercase tracking-wider">Alerte Fraîcheur Frigo (Courses rangées le {basketStatus.date_reception})</span>
+                    </div>
+                  </div>
+                  <p className="text-xs font-medium leading-snug mb-3">
+                    À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> (produit ultra-frais). Pas le temps ce soir ?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedRecipe(premierPlatFrais)}
+                      className="flex-1 bg-white text-slate-900 font-extrabold text-[11px] py-2 rounded-xl shadow active:scale-95 transition"
+                    >
+                      👨‍🍳 Cuisiner ce soir
+                    </button>
+                    <button
+                      onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
+                      className="flex-1 bg-slate-900/40 hover:bg-slate-900 text-white font-extrabold text-[11px] py-2 rounded-xl border border-white/20 active:scale-95 transition"
+                    >
+                      🧊 Sauver au Congélo
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs font-medium leading-snug mb-3">
-                  À cuisiner en priorité : <b>{premierPlatFrais.nom}</b> (produit ultra-frais). Pas le temps ce soir ?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setSelectedRecipe(premierPlatFrais)}
-                    className="flex-1 bg-white text-slate-900 font-extrabold text-[11px] py-2 rounded-xl shadow active:scale-95 transition"
-                  >
-                    👨‍🍳 Cuisiner ce soir
-                  </button>
-                  <button
-                    onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
-                    className="flex-1 bg-slate-900/40 hover:bg-slate-900 text-white font-extrabold text-[11px] py-2 rounded-xl border border-white/20 active:scale-95 transition"
-                  >
-                    🧊 Sauver au Congélo
-                  </button>
-                </div>
+              )
+            ) : (
+              /* Message logique avant les courses : pas de fausse alerte ! */
+              <div className="bg-blue-50 border border-blue-200 rounded-3xl p-3.5 flex items-center justify-between text-xs text-blue-900">
+                <span className="flex items-center gap-2">
+                  <span>🛒</span>
+                  <span>Panier {activeBasket} à commander au Drive</span>
+                </span>
+                <button
+                  onClick={() => setView('shop')}
+                  className="bg-blue-600 text-white font-bold text-[10px] px-3 py-1.5 rounded-xl uppercase tracking-wider hover:bg-blue-700 transition"
+                >
+                  Voir ma liste Drive
+                </button>
               </div>
             )}
 
-            <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
-              <label className="block text-[11px] font-black uppercase tracking-wider text-blue-700 mb-1 flex items-center gap-1.5">
-                <span>✨</span> Vos envies gustatives pour {moisActuel}
+            {/* FORMULAIRE D'ENVIE GUSTATIVE AVEC BOUTON D'ACTION IMMÉDIAT */}
+            <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 space-y-2">
+              <label className="block text-[11px] font-black uppercase tracking-wider text-blue-700 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span>✨</span> Une envie précise ce mois-ci ?
+                </span>
+                {config?.cravings && (
+                  <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
+                    Actuel : {config.cravings}
+                  </span>
+                )}
               </label>
-              <input
-                type="text"
-                placeholder="Ex: Lasagnes légères, poisson au four, curry doux..."
-                value={config.cravings || ''}
-                onChange={(e) => updateCravings(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
-              />
-            </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ex: Lasagnes, Poké bowl, Curry..."
+                  value={cravingInput}
+                  onChange={(e) => setCravingInput(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
+                />
+
+                <button
+                  type="submit"
+                  disabled={isInjectingCraving || !cravingInput.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow transition flex items-center gap-1.5 active:scale-95 flex-shrink-0"
+                >
+                  <span>{isInjectingCraving ? '⏳' : '✨'}</span>
+                  <span>{isInjectingCraving ? 'Cuisine...' : 'Intégrer'}</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 italic">
+                Tapez votre plat et cliquez sur "Intégrer" (ou Entrée) pour l'ajouter immédiatement au planning et aux courses Drive !
+              </p>
+            </form>
 
             <div className="flex justify-between items-center pl-1 pr-1">
               <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">
@@ -915,7 +1127,6 @@ Format impératif en JSON pur :
                             onRate={(star, e) => updateRating(repas.id, star, e)} 
                           />
 
-                          {/* BOUTON RAPIDE DE REMPLACEMENT */}
                           <button
                             type="button"
                             disabled={isSwapping}
@@ -948,9 +1159,36 @@ Format impératif en JSON pur :
           </div>
         )}
 
-        {/* 2. VUE COURSES & ARBITRE DRIVE */}
+        {/* 2. VUE COURSES AVEC BOUTON "RANGÉ AU FRIGO" ET CONDIMENTS COMPLETS */}
         {view === 'shop' && (
           <div className="space-y-4">
+            {/* BOUTON D'ACTION DE RÉCEPTION DU PANIER DRIVE */}
+            <div className="bg-white p-3.5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">{isBasketReceived ? '✅' : '📦'}</span>
+                <div>
+                  <h4 className="text-xs font-black text-slate-800">
+                    {isBasketReceived ? `Courses rangées au frigo le ${basketStatus.date_reception}` : `Panier ${activeBasket} pas encore récupéré`}
+                  </h4>
+                  <p className="text-[10px] text-slate-400">
+                    {isBasketReceived ? 'Le suivi fraîcheur est actif dans votre Planning' : 'Cliquez une fois vos courses rangées à la maison'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => toggleBasketReceivedStatus(currentBasketKey)}
+                className={`text-[10px] font-black px-3 py-2 rounded-xl transition uppercase tracking-wider shadow-sm ${
+                  isBasketReceived 
+                    ? 'bg-slate-100 hover:bg-slate-200 text-slate-600' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {isBasketReceived ? 'Modifier' : 'J\'ai rangé mes courses'}
+              </button>
+            </div>
+
+            {/* Arbitre Drive */}
             <div className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl p-4 text-white shadow-xl border border-slate-800">
               <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2">
@@ -982,6 +1220,7 @@ Format impératif en JSON pur :
               </p>
             </div>
 
+            {/* Suivi Budgétaire */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-4 rounded-3xl shadow-md">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90">
@@ -1004,6 +1243,7 @@ Format impératif en JSON pur :
               </p>
             </div>
 
+            {/* Compteur de Stock */}
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs text-slate-700">
               <span>🏠 <b>{inStockCount}</b> ingrédient(s) déjà chez vous</span>
               <span className="text-[10px] font-black uppercase bg-slate-200 text-slate-800 px-2.5 py-1 rounded-full">
@@ -1011,6 +1251,7 @@ Format impératif en JSON pur :
               </span>
             </div>
 
+            {/* Liste des ingrédients Drive avec mention CONDIMENTS / ÉPICES */}
             <div className="space-y-3">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
@@ -1061,9 +1302,16 @@ Format impératif en JSON pur :
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                            {item.rayon}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                              {item.rayon}
+                            </span>
+                            {item.est_condiment && (
+                              <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
+                                🧂 Épice / Condiment
+                              </span>
+                            )}
+                          </div>
                           <span className="text-xs font-black text-slate-800">
                             ~{activePrice.toFixed(2)} €
                           </span>
@@ -1225,7 +1473,7 @@ Format impératif en JSON pur :
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder={newItemLocation === 'congelateur' ? "Ex: 4 Steaks hachés, Pavés de saumon..." : "Ex: Pâtes Penne, Coulis de tomate, Thon..."}
+                  placeholder={newItemLocation === 'congelateur' ? "Ex: 4 Steaks hachés, Pavés de saumon..." : "Ex: Pâtes Penne, Huile d'olive, Curry..."}
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
@@ -1253,7 +1501,7 @@ Format impératif en JSON pur :
               <div className="flex gap-1.5 overflow-x-auto pb-1 text-[10px] text-slate-500">
                 {(newItemLocation === 'congelateur' 
                   ? ['Steaks hachés', 'Poulet 1kg', 'Saumon', 'Haricots verts', 'Frites']
-                  : ['Pâtes', 'Riz basmati', 'Coulis de tomate', 'Thon en boîte', 'Pois chiches']
+                  : ['Huile d\'olive', 'Curry', 'Oignons', 'Ail', 'Coulis tomate', 'Pâtes', 'Riz']
                 ).map(sug => (
                   <button
                     key={sug}
@@ -1344,7 +1592,7 @@ Format impératif en JSON pur :
         )}
       </main>
 
-      {/* Fiche Recette Détaillée avec Bouton Échange / Alternative */}
+      {/* Fiche Recette Détaillée */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-white z-50 overflow-y-auto pb-12">
           <div className="relative h-60 w-full bg-slate-900">
@@ -1371,7 +1619,6 @@ Format impératif en JSON pur :
               {selectedRecipe.nom}
             </h2>
 
-            {/* GRAND BOUTON ÉCHANGE DANS LA FICHE RECETTE */}
             <div className="mb-4">
               <button
                 type="button"
