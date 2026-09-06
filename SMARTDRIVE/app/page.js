@@ -11,16 +11,16 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const geminiKey = process.env.NEXT_PUBLIC_GEMINI_KEY || 'dummy_key';
 const genAI = new GoogleGenerativeAI(geminiKey);
 
-// Nettoyage automatique des mots-clés superflus pour le Drive
+// Nettoyage sécurisé des termes de recherche
 function cleanDriveTerm(text) {
-  if (!text) return "";
+  if (!text || typeof text !== 'string') return "";
   return text
     .replace(/\b(aop|igp|bio|frais|sauvage|fruitier|fermier|extra|entier|nature)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE RICHE & HAUTE DÉFINITION
+// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE AVEC ROTATION
 const PHOTO_LIBRARY = {
   poisson_blanc: [
     "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
@@ -50,19 +50,16 @@ const PHOTO_LIBRARY = {
   pates_lasagnes: [
     "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=700&q=80"
   ],
   salade_bowl: [
     "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80"
   ],
   dahl_soupe: [
     "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1584278860047-22db9ff82bed?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1574484284002-952d92456975?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1584278860047-22db9ff82bed?auto=format&fit=crop&w=700&q=80"
   ],
   burger: [
     "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
@@ -75,8 +72,8 @@ const PHOTO_LIBRARY = {
 };
 
 function getRecipePhoto(dishName = "", recipeId = 1) {
-  const name = dishName.toLowerCase();
-  const pick = (list) => list[Math.abs(Number(recipeId) || 0) % list.length];
+  const name = String(dishName || "").toLowerCase();
+  const pick = (list) => (Array.isArray(list) && list.length > 0) ? list[Math.abs(Number(recipeId) || 0) % list.length] : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
 
   if (name.includes("saumon")) return pick(PHOTO_LIBRARY.saumon);
   if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin")) return pick(PHOTO_LIBRARY.poisson_blanc);
@@ -93,7 +90,7 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
 }
 
 function getProductThumbnail(productName = "", rayon = "") {
-  const p = (productName + " " + rayon).toLowerCase();
+  const p = (String(productName || "") + " " + String(rayon || "")).toLowerCase();
   if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) return "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=160&q=80";
   if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) return "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=160&q=80";
   if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("thon")) return "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=160&q=80";
@@ -115,7 +112,7 @@ export default function App() {
   const moisActuel = moisFrancais[dateDuJour.getMonth()];
   const jourDuMois = dateDuJour.getDate();
 
-  // Session Foyer
+  // Multi-foyer
   const [foyerCode, setFoyerCode] = useState("");
   const [inputCode, setInputCode] = useState("");
   const [isCreatingFoyer, setIsCreatingFoyer] = useState(false);
@@ -126,6 +123,7 @@ export default function App() {
   const [isInjectingCraving, setIsInjectingCraving] = useState(false);
   const [cravingInput, setCravingInput] = useState("");
 
+  // Navigation (4 univers)
   const [view, setView] = useState('menu');
   const [activeBasket, setActiveBasket] = useState(jourDuMois > 15 ? 2 : 1);
   const [config, setConfig] = useState(null);
@@ -140,7 +138,7 @@ export default function App() {
   const [nbRecettes, setNbRecettes] = useState(14);
   const [typeRepasPlanifies, setTypeRepasPlanifies] = useState("Dîner + Lunchbox midi");
 
-  // 👪 COMPOSITION FAMILIALE
+  // 👪 Composition familiale
   const [nbAdultes, setNbAdultes] = useState(2);
   const [nbEnfants, setNbEnfants] = useState(1);
   const [optionEnfants, setOptionEnfants] = useState(true);
@@ -161,19 +159,23 @@ export default function App() {
   const [newItemQty, setNewItemQty] = useState(1);
 
   // Calcul du nombre de portions cuisinées
-  const totalPersonnesFoyer = Number(nbAdultes) + Number(nbEnfants);
-  const isLunchboxMode = typeRepasPlanifies.includes("Lunchbox");
+  const totalPersonnesFoyer = Number(nbAdultes || 2) + Number(nbEnfants || 0);
+  const isLunchboxMode = Boolean(typeRepasPlanifies && String(typeRepasPlanifies).includes("Lunchbox"));
   const targetPortions = isLunchboxMode ? totalPersonnesFoyer * 2 : totalPersonnesFoyer;
 
-  // Chargement Foyer
+  // Chargement Foyer avec repli automatique sur FOYER-PA
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlFoyer = urlParams.get('foyer');
-    const savedCode = urlFoyer || localStorage.getItem('smartdrive_foyer_code');
+    let savedCode = "";
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      savedCode = urlParams.get('foyer') || localStorage.getItem('smartdrive_foyer_code') || 'FOYER-PA';
+    } catch (e) {
+      savedCode = 'FOYER-PA';
+    }
 
     if (savedCode) {
       const cleanCode = savedCode.trim().toUpperCase();
-      localStorage.setItem('smartdrive_foyer_code', cleanCode);
+      try { localStorage.setItem('smartdrive_foyer_code', cleanCode); } catch (e) {}
       setFoyerCode(cleanCode);
       setInputCode(cleanCode);
       loadFoyerData(cleanCode);
@@ -202,7 +204,6 @@ export default function App() {
         setNbRecettes(foyer.nb_recettes || 14);
         setTypeRepasPlanifies(foyer.type_repas_planifies || "Dîner + Lunchbox midi");
 
-        // Chargement fidèle de la famille
         setNbAdultes(foyer.nb_adultes !== undefined && foyer.nb_adultes !== null ? foyer.nb_adultes : 2);
         setNbEnfants(foyer.nb_enfants !== undefined && foyer.nb_enfants !== null ? foyer.nb_enfants : 1);
         setOptionEnfants(foyer.option_enfants !== undefined && foyer.option_enfants !== null ? foyer.option_enfants : true);
@@ -217,12 +218,13 @@ export default function App() {
           .eq('est_consomme', false)
           .order('created_at', { ascending: false });
 
-        setStockList(stocks || []);
+        setStockList(Array.isArray(stocks) ? stocks : []);
       } else {
         setConfig(null);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Erreur chargement foyer :", e);
+      setConfig(null);
     } finally {
       setLoading(false);
     }
@@ -232,7 +234,7 @@ export default function App() {
     e.preventDefault();
     const code = inputCode.trim().toUpperCase();
     if (!code) return;
-    localStorage.setItem('smartdrive_foyer_code', code);
+    try { localStorage.setItem('smartdrive_foyer_code', code); } catch (err) {}
     setFoyerCode(code);
     loadFoyerData(code);
   }
@@ -265,7 +267,7 @@ export default function App() {
       if (error) {
         alert("Ce code foyer existe déjà, choisissez-en un autre !");
       } else {
-        localStorage.setItem('smartdrive_foyer_code', code);
+        try { localStorage.setItem('smartdrive_foyer_code', code); } catch (err) {}
         setFoyerCode(code);
         setIsCreatingFoyer(false);
         loadFoyerData(code);
@@ -279,14 +281,13 @@ export default function App() {
 
   function handleLogoutFoyer() {
     if (confirm("Voulez-vous changer de foyer ou vous déconnecter ?")) {
-      localStorage.removeItem('smartdrive_foyer_code');
+      try { localStorage.removeItem('smartdrive_foyer_code'); } catch (err) {}
       setConfig(null);
       setFoyerCode("");
       setInputCode("");
     }
   }
 
-  // 🚀 SAUVEGARDE AUTOMATIQUE INSTANTANÉE DE LA FAMILLE DANS SUPABASE
   async function saveFamilyImmediate(adults, kids, optKids) {
     setNbAdultes(adults);
     setNbEnfants(kids);
@@ -344,7 +345,10 @@ export default function App() {
     }
   }
 
-  const activeExclusionsList = (exclusionsInput || '').split(',').map(s => s.trim()).filter(Boolean);
+  const activeExclusionsList = (typeof exclusionsInput === 'string' ? exclusionsInput : '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
   async function handleAddCustomBanned(e) {
     if (e) e.preventDefault();
@@ -408,7 +412,7 @@ export default function App() {
         drive_carrefour_url: driveUrl2
       }));
 
-      alert("✅ Profil complet du foyer enregistré !");
+      alert("✅ Configuration du foyer enregistrée !");
     } catch (err) {
       console.error(err);
       alert("Erreur sauvegarde : " + err.message);
@@ -452,7 +456,7 @@ export default function App() {
       setStockList(prev => prev.filter(i => i.id !== item.id));
     } else {
       await supabase.from('inventaire_congelateur').update({ quantite: newQty, est_consomme: false }).eq('id', item.id);
-      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty, est_consomme: false } : i));
+      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty } : i));
     }
   }
 
@@ -479,6 +483,7 @@ export default function App() {
     }
   }
 
+  // 👨‍🍳 VALIDATION & ANNULATION DU PLAT CUISINÉ (AVEC RESTITUTION)
   async function toggleRecipeCooked(recipeId, moment = null, e) {
     if (e) e.stopPropagation();
     if (!config) return;
@@ -487,7 +492,8 @@ export default function App() {
     let newCookedStatus = false;
     let deductedItems = [];
 
-    const updatedMenu = (config.menu_json || []).map(r => {
+    const menuArr = Array.isArray(config.menu_json) ? config.menu_json : [];
+    const updatedMenu = menuArr.map(r => {
       if (r.id === recipeId) {
         newCookedStatus = !r.est_cuisine;
         targetRecipe = r;
@@ -501,13 +507,13 @@ export default function App() {
       return r;
     });
 
-    if (newCookedStatus && targetRecipe && targetRecipe.ingredients) {
+    if (newCookedStatus && targetRecipe && Array.isArray(targetRecipe.ingredients)) {
       const ingredientsText = targetRecipe.ingredients.join(" ").toLowerCase();
 
       for (const stockItem of stockList) {
         if (!stockItem.est_consomme && stockItem.quantite > 0) {
-          const stockNameLower = stockItem.nom_produit.toLowerCase();
-          if (ingredientsText.includes(stockNameLower) || stockNameLower.includes(cleanDriveTerm(stockNameLower))) {
+          const stockNameLower = String(stockItem.nom_produit || "").toLowerCase();
+          if (stockNameLower && (ingredientsText.includes(stockNameLower) || stockNameLower.includes(cleanDriveTerm(stockNameLower)))) {
             await adjustStockQty(stockItem, -1);
             deductedItems.push({ id: stockItem.id, nom: stockItem.nom_produit, emplacement: stockItem.emplacement });
           }
@@ -525,7 +531,7 @@ export default function App() {
       }
     } 
     else if (!newCookedStatus && targetRecipe) {
-      const previouslyDeducted = targetRecipe.stocks_deduits || [];
+      const previouslyDeducted = Array.isArray(targetRecipe.stocks_deduits) ? targetRecipe.stocks_deduits : [];
       for (const d of previouslyDeducted) {
         const itemInList = stockList.find(s => s.id === d.id);
         if (itemInList) {
@@ -560,7 +566,8 @@ export default function App() {
     if (!config) return;
 
     let ratedRecipeName = "";
-    const updatedMenu = (config.menu_json || []).map(r => {
+    const menuArr = Array.isArray(config.menu_json) ? config.menu_json : [];
+    const updatedMenu = menuArr.map(r => {
       if (r.id === recipeId) {
         const newRating = r.rating === rating ? 0 : rating;
         ratedRecipeName = r.nom;
@@ -587,14 +594,14 @@ export default function App() {
   }
 
   async function toggleItemStock(basketKey, index) {
-    const list = config.panier_json?.[basketKey] || [];
+    const list = Array.isArray(config?.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
     const updatedList = list.map((item, i) => {
       if (i === index) return { ...item, in_stock: !item.in_stock };
       return item;
     });
 
     const updatedPanierJson = {
-      ...config.panier_json,
+      ...(config.panier_json || {}),
       [basketKey]: updatedList
     };
 
@@ -604,7 +611,7 @@ export default function App() {
 
   async function toggleItemMode(basketKey, index, e) {
     e.stopPropagation();
-    const list = config.panier_json?.[basketKey] || [];
+    const list = Array.isArray(config?.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
     const updatedList = list.map((item, i) => {
       if (i === index) {
         const currentMode = item.mode_choisi || 'frais';
@@ -615,7 +622,7 @@ export default function App() {
     });
 
     const updatedPanierJson = {
-      ...config.panier_json,
+      ...(config.panier_json || {}),
       [basketKey]: updatedList
     };
 
@@ -624,14 +631,14 @@ export default function App() {
   }
 
   async function toggleBasketReceivedStatus(basketKey) {
-    const currentStatus = config.panier_json?.[`statut_${basketKey}`] || { recu: false };
+    const currentStatus = config?.panier_json?.[`statut_${basketKey}`] || { recu: false };
     const newStatus = {
       recu: !currentStatus.recu,
       date_reception: !currentStatus.recu ? `${jourDuMois} ${moisActuel}` : null
     };
 
     const updatedPanierJson = {
-      ...config.panier_json,
+      ...(config.panier_json || {}),
       [`statut_${basketKey}`]: newStatus
     };
 
@@ -650,23 +657,23 @@ export default function App() {
 
     setIsInjectingCraving(true);
     const basketKey = activeBasket === 1 ? 'p1' : 'p2';
-    const mealsCurrentQ = (config.menu_json || []).filter(r => (r.basket || 1) === activeBasket);
+    const menuArr = Array.isArray(config.menu_json) ? config.menu_json : [];
+    const mealsCurrentQ = menuArr.filter(r => (r.basket || 1) === activeBasket);
     const targetRecipe = mealsCurrentQ[mealsCurrentQ.length - 1] || { id: Date.now(), basket: activeBasket };
     const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour "À Table !".
-ENVIE PRÉCISE DU FOYER : "${envie}".
-COMPOSITION FAMILIALE OBLIGATOIRE :
+    const prompt = `Tu es un chef cuisinier étoilé pour l'application "À Table !".
+ENVIE DU FOYER : "${envie}".
+COMPOSITION FAMILIALE :
 - Adultes : ${nbAdultes}
 - Enfants (<12 ans) : ${nbEnfants}
-- Option Kid-Friendly : ${optionEnfants ? "OUI (textures douces, légumes habilement intégrés, zéro piment, adoré des enfants)" : "NON"}
-- Portions totales par plat : ${portions} personnes.
-- Régime respecté : ${regimeActuel}.
+- Kid-Friendly : ${optionEnfants ? "OUI" : "NON"}
+- Portions : ${portions} personnes.
+- Régime : ${regimeActuel}.
 - Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
-Inclus tous les condiments nécessaires (oignons, ail, huile, épices).
 
-Format JSON pur impératif :
+Format JSON pur :
 {
   "nouvelle_recette": {
     "id": ${targetRecipe.id},
@@ -675,7 +682,7 @@ Format JSON pur impératif :
     "moment": "Soir",
     "calories": "520 kcal",
     "temps": "25 min",
-    "bienfait_sante": "✨ Recette adaptée à toute la famille",
+    "bienfait_sante": "✨ Recette adaptée au foyer",
     "saison_atout": "Ingrédients de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
@@ -723,16 +730,16 @@ Format JSON pur impératif :
 
       const response = JSON.parse(responseText);
 
-      let updatedMenu = (config.menu_json || []).map(r => 
+      let updatedMenu = menuArr.map(r => 
         r.id === targetRecipe.id ? response.nouvelle_recette : r
       );
       if (!updatedMenu.some(r => r.id === response.nouvelle_recette.id)) {
         updatedMenu.push(response.nouvelle_recette);
       }
 
-      const currentBasketList = config.panier_json?.[basketKey] || [];
+      const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
       const updatedPanierJson = {
-        ...config.panier_json,
+        ...(config.panier_json || {}),
         [basketKey]: [...currentBasketList, ...(response.nouveaux_ingredients_drive || [])]
       };
 
@@ -767,12 +774,12 @@ Format JSON pur impératif :
     const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive pour "À Table !".
+    const prompt = `Tu es un chef cuisinier pour "À Table !".
 Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
-COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants (<12 ans). Total ${portions} portions.
-Option Enfants : ${optionEnfants ? 'OUI (recette kid-friendly qui régale les enfants)' : 'NON'}.
-Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
-Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
+COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants. Total ${portions} portions.
+Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}.
+Régime : ${regimeActuel}. Bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
+Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
 
 Format JSON pur :
 {
@@ -783,7 +790,7 @@ Format JSON pur :
     "moment": "${recipeToSwap.moment || 'Soir'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Adapté aux petits et grands",
+    "bienfait_sante": "🛡️ Bienfait santé",
     "saison_atout": "Légumes de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
@@ -832,22 +839,23 @@ Format JSON pur :
 
       const response = JSON.parse(responseText);
 
-      const updatedMenu = (config.menu_json || []).map(r => 
+      const menuArr = Array.isArray(config.menu_json) ? config.menu_json : [];
+      const updatedMenu = menuArr.map(r => 
         r.id === recipeToSwap.id ? response.nouvelle_recette : r
       );
 
-      const currentBasketList = config.panier_json?.[basketKey] || [];
-      const keywordsToRemove = (response.anciens_mots_cles_a_retirer || []).map(k => k.toLowerCase());
+      const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
+      const keywordsToRemove = (response.anciens_mots_cles_a_retirer || []).map(k => String(k).toLowerCase());
 
       const cleanedBasket = currentBasketList.filter(item => {
         if (item.recette_id && item.recette_id === recipeToSwap.id) return false;
-        const itemName = item.nom.toLowerCase();
+        const itemName = String(item.nom || "").toLowerCase();
         if (keywordsToRemove.some(k => itemName.includes(k))) return false;
         return true;
       });
 
       const updatedPanierJson = {
-        ...config.panier_json,
+        ...(config.panier_json || {}),
         [basketKey]: [...cleanedBasket, ...(response.nouveaux_ingredients_drive || [])]
       };
 
@@ -875,7 +883,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION MENSUELLE RESPECTANT LES ENFANTS ET LE NOMBRE EXACT DE PERSONNES
+  // 🎯 GÉNÉRATION MENSUELLE SÉCURISÉE
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -884,23 +892,17 @@ Format JSON pur :
     const lovedRecipes = permanentHistory.filter(h => h.rating >= 4).map(h => h.nom);
     const dislikedRecipes = permanentHistory.filter(h => h.rating <= 2).map(h => h.nom);
 
-    const stocksActifs = stockList.filter(s => !s.est_consomme && s.quantite > 0);
-    const stocksCongelo = stocksActifs
-      .filter(s => s.emplacement === 'congelateur')
-      .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
-    const stocksPlacard = stocksActifs
-      .filter(s => s.emplacement === 'placard')
-      .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
+    const stocksActifs = (Array.isArray(stockList) ? stockList : []).filter(s => !s.est_consomme && s.quantite > 0);
+    const stocksCongelo = stocksActifs.filter(s => s.emplacement === 'congelateur').map(s => `${s.nom_produit} (qté: ${s.quantite})`);
+    const stocksPlacard = stocksActifs.filter(s => s.emplacement === 'placard').map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
-    // Priorité absolue aux réglages actifs à l'écran
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
     const exclusionsActuelles = exclusionsInput || config.exclusions || 'Aucune';
     const budgetActuel = Number(budgetInput || config.budget_mensuel || 230);
-    const duree = dureePlanning || config.duree_planning || "1 Mois (2 Paniers)";
+    const duree = String(dureePlanning || config.duree_planning || "1 Mois (2 Paniers)");
     const totalRecettes = Number(nbRecettes || config.nb_recettes || 14);
-    const modeRepas = typeRepasPlanifies || config.type_repas_planifies || "Dîner + Lunchbox midi";
+    const modeRepas = String(typeRepasPlanifies || config.type_repas_planifies || "Dîner + Lunchbox midi");
 
-    // COMPOSITION DU FOYER VERROUILLÉE
     const adults = Number(nbAdultes !== undefined ? nbAdultes : (config.nb_adultes ?? 2));
     const kids = Number(nbEnfants !== undefined ? nbEnfants : (config.nb_enfants ?? 1));
     const isKidFriendly = optionEnfants !== undefined ? optionEnfants : Boolean(config.option_enfants);
@@ -910,34 +912,26 @@ Format JSON pur :
     const isMonth = duree.includes('Mois');
     const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive pour "À Table !".
-COMPOSITION FAMILIALE DU FOYER (CRITIQUE ET OBLIGATOIRE) :
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier pour "À Table !".
+COMPOSITION FAMILIALE OBLIGATOIRE :
 - Adultes : ${adults}
 - Enfants (<12 ans) : ${kids}
-- Option Enfants (Kid-Friendly) : ${isKidFriendly ? "OUI STRICTEMENT (Recettes qui plaisent aux enfants : légumes habilement intégrés en gratins/purées/sauces douces, zéro piment fort, textures gourmandes et saines)" : "NON"}
-- Nombre de portions par plat : ${portions} portions (pour nourrir ${totalPersons} personnes).
+- Option Kid-Friendly : ${isKidFriendly ? "OUI STRICTEMENT (Recettes qui plaisent aux enfants : légumes habilement intégrés en gratins/purées douces, zéro piment fort, saveurs réconfortantes)" : "NON"}
+- Portions par plat : ${portions} portions (pour nourrir ${totalPersons} personnes).
 
 PROFIL ALIMENTAIRE :
-- Régime choisi : ${regimeActuel}
+- Régime : ${regimeActuel}
 - ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle d'en mettre !)
 
-MOMENTS DE REPAS : "${modeRepas}" (Alterne "Midi" et "Soir" si deux repas par jour sont demandés).
-
-HISTORIQUE DU FOYER :
-- PLATS ADORÉS (4-5 étoiles) : ${lovedRecipes.length ? lovedRecipes.join(', ') : 'Aucun'}.
-- PLATS DÉTESTÉS (1-2 étoiles) : ${dislikedRecipes.length ? dislikedRecipes.join(', ') : 'Aucun'} (BANNIS).
-
-CADENCE ET STRUCTURE :
+CADENCE :
 - Période : ${duree}
-- Nombre STRICT DE RECETTES À GÉNÉRER : EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
+- EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
 ${isMonth ? `- Répartition : Recettes 1 à ${q1Count} en Panier 1, Recettes ${q1Count + 1} à ${totalRecettes} en Panier 2.` : `- Toutes les recettes ont "basket": 1.`}
 
-RÉSERVES DU FOYER (À UTILISER EN PRIORITÉ ET NE PAS ACHETER AU DRIVE) :
-- Grand Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
+RÉSERVES DU FOYER :
+- Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
 - Placard : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
-
-CONDIMENTS ET AROMATES : Inclus systématiquement oignons, ail, herbes et épices dans les paniers avec "est_condiment": true.
-CONTRAINTE BUDGÉTAIRE : ~${budgetActuel}€ max. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
+Utilise ces réserves en priorité et NE LES COMMANDE PAS au Drive !
 
 Génère ${totalRecettes} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions).
 Format JSON pur :
@@ -955,7 +949,7 @@ Format JSON pur :
       "kid_friendly": ${isKidFriendly},
       "ingredients": ["Ingrédient 1", "Ingrédient 2"],
       "etapes": ["Étape 1", "Étape 2"],
-      "conseil": "Astuce chef pour petits et grands",
+      "conseil": "Astuce chef",
       "basket": 1,
       "rating": 0
     }
@@ -1006,7 +1000,7 @@ Format JSON pur :
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
       } catch (err) {
-        console.warn("Modèle 3.6 saturé, bascule sur Gemini 3.5 Flash...", err);
+        console.warn("Modèle 3.6 saturé, bascule sur 3.5...", err);
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
           generationConfig: { responseMimeType: "application/json" }
@@ -1018,15 +1012,14 @@ Format JSON pur :
       const response = JSON.parse(responseText);
 
       const initialPanierJson = {
-        p1: response.panier_1 || [],
-        p2: response.panier_2 || [],
+        p1: Array.isArray(response.panier_1) ? response.panier_1 : [],
+        p2: Array.isArray(response.panier_2) ? response.panier_2 : [],
         statut_p1: { recu: false, date_reception: null },
         statut_p2: { recu: false, date_reception: null }
       };
 
-      // VERROUILLAGE DÉFINITIF DANS SUPABASE (NE POURRA PLUS DISPARAÎTRE !)
       await supabase.from('foyers').update({
-        menu_json: response.repas,
+        menu_json: Array.isArray(response.repas) ? response.repas : [],
         panier_json: initialPanierJson,
         regime_alimentaire: regimeActuel,
         exclusions: exclusionsActuelles,
@@ -1041,7 +1034,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu "À Table !" généré pour ${adults} adulte(s) et ${kids} enfant(s) (${isKidFriendly ? 'Mode Enfants Actif 🧸' : ''}) !`);
+      alert(`Menu généré pour ${adults} adulte(s) et ${kids} enfant(s) (${isKidFriendly ? '🧸 Kid-Friendly' : ''}) !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -1160,14 +1153,14 @@ Format JSON pur :
   }
 
   const currentBasketKey = activeBasket === 1 ? 'p1' : 'p2';
-  const activePanierList = config?.panier_json?.[currentBasketKey] || [];
-  const inStockCount = activePanierList.filter(i => i.in_stock).length;
+  const activePanierList = Array.isArray(config?.panier_json?.[currentBasketKey]) ? config.panier_json[currentBasketKey] : [];
+  const inStockCount = activePanierList.filter(i => i && i.in_stock).length;
 
   const basketStatus = config?.panier_json?.[`statut_${currentBasketKey}`] || { recu: false };
   const isBasketReceived = basketStatus.recu;
 
   const totalPanierEstime = activePanierList
-    .filter(i => !i.in_stock)
+    .filter(i => i && !i.in_stock)
     .reduce((sum, i) => {
       const isCongelo = i.mode_choisi === 'congelo';
       const prix = isCongelo && i.prix_congelo ? Number(i.prix_congelo) : Number(i.prix_frais || 2.5);
@@ -1179,15 +1172,16 @@ Format JSON pur :
   const ecartEconomieDrive = (Number(estimationDrive2) - Number(estimationDrive1)).toFixed(2);
 
   const totalEconomiesRealisees = activePanierList
-    .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
+    .filter(i => i && !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
-  const currentDuree = dureePlanning || config?.duree_planning || "1 Mois (2 Paniers)";
+  const currentDuree = String(dureePlanning || config?.duree_planning || "1 Mois (2 Paniers)");
   const isPlanningMonth = currentDuree.includes('Mois');
   const targetNbRecettes = Number(nbRecettes || config?.nb_recettes || 14);
   const q1Threshold = isPlanningMonth ? Math.ceil(targetNbRecettes / 2) : targetNbRecettes;
 
-  const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
+  const menuList = Array.isArray(config?.menu_json) ? config.menu_json : [];
+  const mealsForActiveQuinzaine = menuList.filter((repas, index) => {
     if (!isPlanningMonth) return true;
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
@@ -1195,14 +1189,15 @@ Format JSON pur :
     return activeBasket === 1 ? index < q1Threshold : index >= q1Threshold;
   });
 
-  const premierPlatFrais = mealsForActiveQuinzaine.find(r => r.type === 'Frais' && !r.est_cuisine) || mealsForActiveQuinzaine.find(r => !r.est_cuisine);
+  const premierPlatFrais = mealsForActiveQuinzaine.find(r => r && r.type === 'Frais' && !r.est_cuisine) || mealsForActiveQuinzaine.find(r => r && !r.est_cuisine);
 
-  const cookedCount = mealsForActiveQuinzaine.filter(r => r.est_cuisine).length;
+  const cookedCount = mealsForActiveQuinzaine.filter(r => r && r.est_cuisine).length;
   const totalCount = mealsForActiveQuinzaine.length;
   const progressPercent = totalCount > 0 ? (cookedCount / totalCount) * 100 : 0;
 
-  const filteredStockList = stockList.filter(item => {
-    const emp = item.emplacement || 'congelateur';
+  const safeStockList = Array.isArray(stockList) ? stockList : [];
+  const filteredStockList = safeStockList.filter(item => {
+    const emp = item?.emplacement || 'congelateur';
     return emp === stockTab;
   });
 
@@ -1221,7 +1216,7 @@ Format JSON pur :
                 <div className="flex items-center gap-2">
                   <h1 className="font-black italic text-2xl md:text-3xl tracking-tight font-serif">À Table !</h1>
                   <span className="text-[10px] bg-white/20 text-amber-100 font-extrabold px-2.5 py-0.5 rounded-full">
-                    {config.code_foyer}
+                    {config?.code_foyer || foyerCode}
                   </span>
                   <button 
                     onClick={handleLogoutFoyer}
@@ -1303,8 +1298,6 @@ Format JSON pur :
         {/* 1. VUE PLANNING */}
         {view === 'menu' && (
           <div className="space-y-6">
-            
-            {/* Progression & Cadence active */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-3xl border border-stone-200 shadow-sm flex flex-col justify-center">
                 <div className="flex justify-between items-center text-xs font-bold text-stone-700 mb-2">
@@ -1328,7 +1321,7 @@ Format JSON pur :
                     🎯 {targetNbRecettes} repas • {nbAdultes} Adulte(s) {nbEnfants > 0 && `• ${nbEnfants} Enfant(s)`}
                   </span>
                   <p className="text-[11px] text-stone-500 mt-0.5">
-                    {portions} pers. cuisinées par plat {optionEnfants && '• Mode Kid-Friendly 🧸'}
+                    {targetPortions} pers. par plat {optionEnfants && '• Mode Kid-Friendly 🧸'}
                   </p>
                 </div>
                 <button
@@ -1340,7 +1333,6 @@ Format JSON pur :
               </div>
             </div>
 
-            {/* ALERTE FRAÎCHEUR FRIGO */}
             {isBasketReceived ? (
               premierPlatFrais && (
                 <div className="bg-gradient-to-r from-amber-600 to-orange-600 rounded-3xl p-5 text-white shadow-lg animate-in fade-in flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1403,7 +1395,7 @@ Format JSON pur :
                   placeholder="Ex: Lasagnes maison, nuggets sains, gratin doux..."
                   value={cravingInput}
                   onChange={(e) => setCravingInput(e.target.value)}
-                  className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-4 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
+                  className="flex-1 bg-stone-50 border border-stone-200 rounded-2xl px-3.5 py-2.5 text-stone-800 placeholder-stone-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#C25E3E] transition"
                 />
 
                 <button
@@ -1422,19 +1414,19 @@ Format JSON pur :
                 {isPlanningMonth ? `Repas de la Quinzaine ${activeBasket}` : `Repas du cycle (${currentDuree})`}
               </h2>
               <span className="text-xs text-emerald-700 font-black bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                {mealsForActiveQuinzaine.length} Recettes • {portions} pers. {optionEnfants && '🧸'}
+                {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers. {optionEnfants && '🧸'}
               </span>
             </div>
 
-            {/* GRILLE DES PLATS AVEC BADGE ENFANT */}
+            {/* GRILLE DES RECETTES */}
             {mealsForActiveQuinzaine.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {mealsForActiveQuinzaine.map((repas) => {
-                  const photoUrl = getRecipePhoto(repas.nom, repas.id);
-                  const isSwapping = swappingId === repas.id;
-                  const hasRating = repas.rating && repas.rating > 0;
-                  const canShowStars = repas.est_cuisine || hasRating;
-                  const isMidi = repas.moment === 'Midi';
+                  const photoUrl = getRecipePhoto(repas?.nom, repas?.id);
+                  const isSwapping = swappingId === repas?.id;
+                  const hasRating = repas?.rating && repas.rating > 0;
+                  const canShowStars = repas?.est_cuisine || hasRating;
+                  const isMidi = repas?.moment === 'Midi';
 
                   return (
                     <div
@@ -1625,7 +1617,7 @@ Format JSON pur :
             <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-5 rounded-3xl shadow-md flex justify-between items-center">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90 block">
-                  Total Panier {activeBasket} ({portions} pers.)
+                  Total Panier {activeBasket} ({targetPortions} pers.)
                 </span>
                 <span className="text-2xl md:text-3xl font-black">
                   {totalPanierEstime.toFixed(2)} €
@@ -1649,30 +1641,30 @@ Format JSON pur :
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activePanierList.map((item, index) => {
-                const nomLower = item.nom.toLowerCase();
-                const canFreeze = item.a_alternative_congelo || 
+                const nomLower = String(item?.nom || "").toLowerCase();
+                const canFreeze = item?.a_alternative_congelo || 
                   ['saumon', 'cabillaud', 'poisson', 'poulet', 'boeuf', 'bœuf', 'steak', 'porc', 'brocoli', 'haricot', 'legume', 'frite', 'figue']
                   .some(kw => nomLower.includes(kw));
 
-                const isCongelo = item.mode_choisi === 'congelo' && canFreeze;
-                const prixFrais = Number(item.prix_frais || 4.5);
-                const prixCongelo = Number(item.prix_congelo || (prixFrais * 0.7).toFixed(2));
+                const isCongelo = item?.mode_choisi === 'congelo' && canFreeze;
+                const prixFrais = Number(item?.prix_frais || 4.5);
+                const prixCongelo = Number(item?.prix_congelo || (prixFrais * 0.7).toFixed(2));
                 const activePrice = isCongelo ? prixCongelo : prixFrais;
 
-                const searchFrais = item.recherche_frais || item.nom;
-                const searchCongelo = item.recherche_congelo || `${cleanDriveTerm(searchFrais)} surgele`;
+                const searchFrais = item?.recherche_frais || item?.nom || "";
+                const searchCongelo = item?.recherche_congelo || `${cleanDriveTerm(searchFrais)} surgele`;
                 const cleanTerm = cleanDriveTerm(isCongelo ? searchCongelo : searchFrais);
 
                 const linkDrive1 = `${driveUrl1}${encodeURIComponent(cleanTerm)}`;
                 const linkDrive2 = `${driveUrl2}${encodeURIComponent(cleanTerm)}`;
-                const thumbnail = getProductThumbnail(item.nom, item.rayon);
+                const thumbnail = getProductThumbnail(item?.nom, item?.rayon);
 
                 return (
                   <div
                     key={index}
                     onClick={() => toggleItemStock(currentBasketKey, index)}
                     className={`p-4 rounded-3xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
-                      item.in_stock 
+                      item?.in_stock 
                         ? 'bg-stone-100 border-stone-200 opacity-50' 
                         : 'bg-white border-stone-200 shadow-sm'
                     }`}
@@ -1680,17 +1672,17 @@ Format JSON pur :
                     <div>
                       <div className="flex items-center gap-3">
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                          item.in_stock 
+                          item?.in_stock 
                             ? 'bg-emerald-600 border-emerald-600 text-white' 
                             : 'border-stone-300 bg-white'
                         }`}>
-                          {item.in_stock && <span className="text-xs font-bold">✓</span>}
+                          {item?.in_stock && <span className="text-xs font-bold">✓</span>}
                         </div>
 
                         <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
                           <img 
                             src={thumbnail} 
-                            alt={item.nom} 
+                            alt={item?.nom || "Produit"} 
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />
@@ -1700,9 +1692,9 @@ Format JSON pur :
                           <div className="flex items-center justify-between mb-0.5">
                             <div className="flex items-center gap-1.5">
                               <span className="text-[9px] font-black uppercase tracking-wider text-stone-400">
-                                {item.rayon}
+                                {item?.rayon || "Épicerie"}
                               </span>
-                              {item.est_condiment && (
+                              {item?.est_condiment && (
                                 <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded">
                                   🧂 Épice
                                 </span>
@@ -1714,12 +1706,12 @@ Format JSON pur :
                           </div>
 
                           <span className={`text-sm font-extrabold block truncate ${
-                            item.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
+                            item?.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
                           }`}>
-                            {item.nom}
+                            {item?.nom}
                           </span>
 
-                          {item.in_stock && (
+                          {item?.in_stock && (
                             <span className="text-[10px] font-bold text-emerald-700 uppercase">
                               Déjà en stock chez vous
                             </span>
@@ -1727,7 +1719,7 @@ Format JSON pur :
                         </div>
                       </div>
 
-                      {!item.in_stock && canFreeze && (
+                      {!item?.in_stock && canFreeze && (
                         <div className="mt-3 pt-2.5 border-t border-stone-100">
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-[10px] font-bold text-stone-500">Option d'achat :</div>
@@ -1753,7 +1745,7 @@ Format JSON pur :
                                     : 'text-sky-700 hover:text-sky-900'
                                 }`}
                               >
-                                <span>🧊</span> Congélo {item.gain_anti_radin && `(${item.gain_anti_radin})`}
+                                <span>🧊</span> Congélo {item?.gain_anti_radin && `(${item.gain_anti_radin})`}
                               </button>
                             </div>
                           </div>
@@ -1761,7 +1753,7 @@ Format JSON pur :
                       )}
                     </div>
 
-                    {!item.in_stock && (
+                    {!item?.in_stock && (
                       <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
                         <a
                           href={linkDrive1}
@@ -1807,7 +1799,7 @@ Format JSON pur :
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 md:p-6 text-white shadow-xl">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-black uppercase tracking-wider text-amber-200">Inventaire Réel Foyer</span>
-                <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{stockList.length} articles</span>
+                <span className="bg-white/20 px-2.5 py-1 rounded-full text-xs font-black">{safeStockList.length} articles</span>
               </div>
               <h2 className="text-xl md:text-2xl font-black">Réserves de la Maison 🏠</h2>
               <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
@@ -1822,7 +1814,7 @@ Format JSON pur :
                   stockTab === 'congelateur' ? 'bg-white text-sky-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
-                <span>🧊</span> Grand Congélateur ({stockList.filter(i => (i.emplacement || 'congelateur') === 'congelateur').length})
+                <span>🧊</span> Grand Congélateur ({safeStockList.filter(i => (i.emplacement || 'congelateur') === 'congelateur').length})
               </button>
               <button
                 onClick={() => setStockTab('placard')}
@@ -1830,7 +1822,7 @@ Format JSON pur :
                   stockTab === 'placard' ? 'bg-white text-amber-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
-                <span>🥫</span> Placard & Épicerie ({stockList.filter(i => i.emplacement === 'placard').length})
+                <span>🥫</span> Placard & Épicerie ({safeStockList.filter(i => i.emplacement === 'placard').length})
               </button>
             </div>
 
@@ -1957,7 +1949,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 4. VUE PROFIL : TABLEAU DE BORD PLEIN FORMAT AVEC SAUVEGARDE ENFANTS INSTANTANÉE */}
+        {/* 4. VUE PROFIL (CONFIGURATION COMPLÈTE DU FOYER) */}
         {view === 'profile' && (
           <div className="space-y-6 max-w-2xl mx-auto animate-in fade-in">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-6 text-white shadow-xl flex justify-between items-center">
@@ -1965,19 +1957,19 @@ Format JSON pur :
                 <span className="text-xs font-black uppercase tracking-wider text-amber-300">Configuration du Foyer</span>
                 <h2 className="text-2xl font-black mt-0.5 font-serif">Profil & Préférences ⚙️</h2>
                 <p className="text-xs md:text-sm text-stone-300 font-medium mt-1">
-                  Tous les réglages sont sauvegardés en direct !
+                  Enregistré en direct à chaque clic !
                 </p>
               </div>
-              <span className="bg-white/20 px-3.5 py-1 rounded-full text-xs font-bold text-amber-100">{config.code_foyer}</span>
+              <span className="bg-white/20 px-3.5 py-1 rounded-full text-xs font-bold text-amber-100">{config?.code_foyer || foyerCode}</span>
             </div>
 
             <form onSubmit={handleSaveProfile} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                {/* COLONNE GAUCHE */}
+                {/* COLONNE GAUCHE : COMPOSITION, CADENCE, BUDGET */}
                 <div className="space-y-6">
                   
-                  {/* COMPOSITION FAMILIALE (SAUVEGARDÉE IMMÉDIATEMENT AU CLIC !) */}
+                  {/* COMPOSITION FAMILIALE */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700 flex items-center justify-between">
                       <span>1. Composition du Foyer</span>
@@ -2022,7 +2014,6 @@ Format JSON pur :
                       </div>
                     </div>
 
-                    {/* Option Menus Kid-Friendly */}
                     <div className="pt-2">
                       <div 
                         onClick={() => saveFamilyImmediate(nbAdultes, nbEnfants, !optionEnfants)}
@@ -2040,7 +2031,7 @@ Format JSON pur :
                             <span>🧸</span> Option Recettes Kid-Friendly
                           </p>
                           <p className="text-[10px] text-stone-500 mt-0.5 leading-snug">
-                            Légumes habilement cuisinés, zéro piment, saveurs et textures adaptées aux enfants de moins de 12 ans.
+                            Textures douces, légumes habiles, zéro piment pour les enfants de moins de 12 ans.
                           </p>
                         </div>
                       </div>
@@ -2107,7 +2098,7 @@ Format JSON pur :
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
-                        <label className="text-xs font-bold text-stone-600">Nombre de Recettes Souhaité</label>
+                        <label className="text-xs font-bold text-stone-600">Nombre de Recettes</label>
                         <span className="text-sm font-black text-[#C25E3E]">{nbRecettes} recettes</span>
                       </div>
                       <input
@@ -2123,7 +2114,7 @@ Format JSON pur :
                   </div>
                 </div>
 
-                {/* COLONNE DROITE */}
+                {/* COLONNE DROITE : STYLE, BANNIS, BUDGET & DRIVES */}
                 <div className="space-y-6">
                   
                   {/* Style Alimentaire */}
@@ -2173,7 +2164,7 @@ Format JSON pur :
                         value={customBannedWord}
                         onChange={(e) => setCustomBannedWord(e.target.value)}
                         onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddCustomBanned(); }}}
-                        className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs text-stone-800 focus:outline-none focus:ring-1 focus:ring-[#C25E3E]"
+                        className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-xs text-stone-800 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
                       />
                       <button
                         type="button"
@@ -2377,7 +2368,7 @@ Format JSON pur :
                     Ingrédients nécessaires ({targetPortions} portions)
                   </h3>
                   <ul className="space-y-2">
-                    {selectedRecipe.ingredients?.map((ing, i) => (
+                    {Array.isArray(selectedRecipe.ingredients) && selectedRecipe.ingredients.map((ing, i) => (
                       <li key={i} className="text-sm text-stone-800 flex items-center gap-2.5 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
                         <span className="w-2 h-2 rounded-full bg-[#C25E3E] flex-shrink-0"></span>
                         <span className="font-medium">{ing}</span>
@@ -2391,7 +2382,7 @@ Format JSON pur :
                     Préparation pas à pas
                   </h3>
                   <div className="space-y-3">
-                    {selectedRecipe.etapes?.map((etape, i) => (
+                    {Array.isArray(selectedRecipe.etapes) && selectedRecipe.etapes.map((etape, i) => (
                       <div key={i} className="flex gap-3 text-sm text-stone-800 bg-stone-50 p-3.5 rounded-2xl border border-stone-100">
                         <span className="font-black text-[#C25E3E] text-base">{i + 1}.</span>
                         <p className="font-medium leading-relaxed">{etape}</p>
@@ -2436,9 +2427,9 @@ Format JSON pur :
           >
             <span className="text-lg">🏠</span>
             <span className="text-[10px] uppercase tracking-wider">Réserves</span>
-            {stockList.length > 0 && (
+            {safeStockList.length > 0 && (
               <span className="absolute -top-1 right-2 bg-[#C25E3E] text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                {stockList.length}
+                {safeStockList.length}
               </span>
             )}
           </button>
