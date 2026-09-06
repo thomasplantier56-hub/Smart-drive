@@ -109,12 +109,12 @@ export default function SmartDriveApp() {
   const [config, setConfig] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
-  // Profil Foyer : Régime & Exclusions
-  const [selectedRegime, setSelectedRegime] = useState("Crétois / Méditerranéen");
+  // Profil Foyer : Valeur par défaut 'Omnivore' ou 'Crétois'
+  const [selectedRegime, setSelectedRegime] = useState("Omnivore (Manger de tout)");
   const [exclusionsInput, setExclusionsInput] = useState("");
   const [budgetInput, setBudgetInput] = useState(230);
 
-  // NOUVEAU : Cadence & Format Modulable
+  // Cadence & Format Modulable
   const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
   const [nbRecettes, setNbRecettes] = useState(14);
   const [nbPortions, setNbPortions] = useState(4);
@@ -149,7 +149,7 @@ export default function SmartDriveApp() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer } = await supabase
+      const { data: foyer, error } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -158,13 +158,14 @@ export default function SmartDriveApp() {
       if (foyer) {
         setConfig(foyer);
         setCravingInput(foyer.cravings || "");
-        setSelectedRegime(foyer.regime_alimentaire || "Crétois / Méditerranéen");
+        setSelectedRegime(foyer.regime_alimentaire || "Omnivore (Manger de tout)");
         setExclusionsInput(foyer.exclusions || "");
         setBudgetInput(foyer.budget_mensuel || 230);
         setDureePlanning(foyer.duree_planning || "1 Mois (2 Paniers)");
         setNbRecettes(foyer.nb_recettes || 14);
         setNbPortions(foyer.nb_portions || 4);
 
+        // Chargement propre des stocks (table indépendante)
         const { data: stocks } = await supabase
           .from('inventaire_congelateur')
           .select('*')
@@ -235,7 +236,59 @@ export default function SmartDriveApp() {
     }
   }
 
-  // Sauvegarde des préférences du profil foyer (Régime, Durée, Nb Recettes, Portions)
+  // 🚀 SAUVEGARDE AUTOMATIQUE INSTANTANÉE DU RÉGIME AU CLIC !
+  async function autoSaveRegime(newRegime) {
+    setSelectedRegime(newRegime);
+    if (!config) return;
+
+    setConfig(prev => ({ ...prev, regime_alimentaire: newRegime }));
+    try {
+      await supabase.from('foyers').update({ regime_alimentaire: newRegime }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Sauvegarde instantanée des exclusions
+  async function autoSaveExclusions(newExclusions) {
+    setExclusionsInput(newExclusions);
+    if (!config) return;
+
+    setConfig(prev => ({ ...prev, exclusions: newExclusions }));
+    try {
+      await supabase.from('foyers').update({ exclusions: newExclusions }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Sauvegarde instantanée de la durée
+  async function autoSaveDuree(newDuree) {
+    setDureePlanning(newDuree);
+    if (!config) return;
+
+    setConfig(prev => ({ ...prev, duree_planning: newDuree }));
+    try {
+      await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Sauvegarde instantanée des portions
+  async function autoSavePortions(newPortions) {
+    setNbPortions(newPortions);
+    if (!config) return;
+
+    setConfig(prev => ({ ...prev, nb_portions: newPortions }));
+    try {
+      await supabase.from('foyers').update({ nb_portions: newPortions }).eq('id', config.id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Sauvegarde globale manuelle (au besoin)
   async function handleSaveProfile(e) {
     if (e) e.preventDefault();
     if (!config) return;
@@ -260,7 +313,7 @@ export default function SmartDriveApp() {
         nb_portions: Number(nbPortions) || 4
       }));
 
-      alert("✅ Préférences et cadence enregistrées pour votre foyer !");
+      alert("✅ Profil et cadence enregistrés avec succès !");
     } catch (err) {
       console.error(err);
       alert("Erreur sauvegarde profil : " + err.message);
@@ -406,7 +459,7 @@ export default function SmartDriveApp() {
     }
   }
 
-  // ✨ INTÉGRER UNE ENVIE (adapte les portions)
+  // ✨ INTÉGRER UNE ENVIE (utilise la sélection active du régime !)
   async function handleApplyCraving(e) {
     if (e) e.preventDefault();
     const envie = cravingInput.trim();
@@ -416,7 +469,8 @@ export default function SmartDriveApp() {
     const basketKey = activeBasket === 1 ? 'p1' : 'p2';
     const mealsCurrentQ = (config.menu_json || []).filter(r => (r.basket || 1) === activeBasket);
     const targetRecipe = mealsCurrentQ[mealsCurrentQ.length - 1] || { id: Date.now(), basket: activeBasket };
-    const portions = config.nb_portions || nbPortions;
+    const portions = Number(nbPortions || config.nb_portions || 4);
+    const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
 Le couple a formulé une ENVIE TRÈS PRÉCISE : "${envie}".
@@ -424,8 +478,8 @@ Génère UNE RECETTE correspondant à cette envie pour ${moisActuel.toUpperCase(
 Contraintes :
 - Quinzaine : ${activeBasket} (Panier ${activeBasket})
 - Portions : ${portions} personnes
-- Régime : ${config.regime_alimentaire || selectedRegime}
-- Aliments interdits : ${config.exclusions || exclusionsInput || 'Aucun'}
+- Régime respecté : ${regimeActuel}
+- Aliments interdits : ${exclusionsInput || config.exclusions || 'Aucun'}
 - Inclus tous les condiments nécessaires (oignons, ail, huile, épices).
 
 Format JSON pur impératif :
@@ -436,7 +490,7 @@ Format JSON pur impératif :
     "type": "Plaisir",
     "calories": "520 kcal",
     "temps": "25 min",
-    "bienfait_sante": "✨ Recette plaisir adaptée au profil",
+    "bienfait_sante": "✨ Recette adaptée à votre profil",
     "saison_atout": "Ingrédients de saison",
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
@@ -509,7 +563,7 @@ Format JSON pur impératif :
         panier_json: updatedPanierJson
       }));
 
-      alert(`🎉 Votre envie "${envie}" (${portions} pers.) a été intégrée à la Quinzaine ${activeBasket} !`);
+      alert(`🎉 Votre envie "${envie}" (${portions} pers. • ${regimeActuel}) a été ajoutée à la Quinzaine ${activeBasket} !`);
     } catch (err) {
       console.error(err);
       alert("Erreur lors de l'intégration : " + err.message);
@@ -525,16 +579,19 @@ Format JSON pur impératif :
 
     const targetBasket = recipeToSwap.basket || activeBasket;
     const basketKey = targetBasket === 1 ? 'p1' : 'p2';
-    const portions = config.nb_portions || nbPortions;
+    const portions = Number(nbPortions || config.nb_portions || 4);
+    const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien Drive.
 Le couple ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
+PROFIL DU FOYER :
+- Régime respecté : ${regimeActuel}
+- Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}
 Génère UNE SEULE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) pour ${moisActuel.toUpperCase()} en France.
 Contraintes :
 - Quinzaine : ${targetBasket} (Panier ${targetBasket})
 - Portions : ${portions} pers.
-- Régime : ${config.regime_alimentaire || selectedRegime}
-- Aliments bannis : ${config.exclusions || exclusionsInput || 'Aucun'}
+- Budget : ~3€/portion, marques distributeurs (Leclerc Marque Repère, Carrefour Classic).
 - Inclus les condiments indispensables dans "nouveaux_ingredients_drive".
 
 Format JSON pur :
@@ -545,7 +602,7 @@ Format JSON pur :
     "type": "${recipeToSwap.type || 'Frais'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Bienfait santé",
+    "bienfait_sante": "🛡️ Conforme à votre régime ${regimeActuel}",
     "saison_atout": "Légumes de saison",
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
     "etapes": ["Étape 1", "Étape 2"],
@@ -636,7 +693,7 @@ Format JSON pur :
     }
   }
 
-  // GÉNÉRATION MENSUELLE DYNAMIQUE (CADENCE, RECETTES & PORTIONS MODULABLES)
+  // 🎯 GÉNÉRATION DYNAMIQUE : SOURCE DE VÉRITÉ IMMÉDIATE SUR LE RÉGIME CHOISI
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -646,6 +703,7 @@ Format JSON pur :
       .filter(r => r.rating && r.rating <= 2)
       .map(r => r.nom);
 
+    // Lecture des vrais stocks de la maison (ne sont jamais écrasés !)
     const stocksActifs = stockList.filter(s => !s.est_consomme && s.quantite > 0);
     const stocksCongelo = stocksActifs
       .filter(s => s.emplacement === 'congelateur')
@@ -654,34 +712,35 @@ Format JSON pur :
       .filter(s => s.emplacement === 'placard')
       .map(s => `${s.nom_produit} (qté: ${s.quantite})`);
 
-    const regimeActuel = config.regime_alimentaire || selectedRegime;
-    const exclusionsActuelles = config.exclusions || exclusionsInput || 'Aucune';
-    const budgetActuel = config.budget_mensuel || budgetInput || 230;
-
-    // Paramètres de cadence dynamiques
-    const duree = config.duree_planning || dureePlanning;
-    const totalRecettes = Number(config.nb_recettes || nbRecettes);
-    const portions = Number(config.nb_portions || nbPortions);
+    // Priorité absolue au choix sélectionné à l'écran !
+    const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
+    const exclusionsActuelles = exclusionsInput || config.exclusions || 'Aucune';
+    const budgetActuel = Number(budgetInput || config.budget_mensuel || 230);
+    const duree = dureePlanning || config.duree_planning || "1 Mois (2 Paniers)";
+    const totalRecettes = Number(nbRecettes || config.nb_recettes || 14);
+    const portions = Number(nbPortions || config.nb_portions || 4);
 
     const isMonth = duree.includes('Mois');
     const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
-    const q2Count = isMonth ? Math.floor(totalRecettes / 2) : 0;
 
     const prompt = `Tu es un chef cuisinier étoilé et logisticien financier expert en optimisation de Drive.
-CADENCE ET RYTHME PERSONNALISÉS POUR CE FOYER :
-- Période de planification : ${duree}
-- Nombre de personnes par repas : ${portions} portions par recette
-- Nombre STRICT DE RECETTES À GÉNÉRER : EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
-${isMonth ? `- Répartition : Les recettes 1 à ${q1Count} ont "basket": 1 (Panier 1 - Quinzaine 1). Les recettes ${q1Count + 1} à ${totalRecettes} ont "basket": 2 (Panier 2 - Quinzaine 2).` : `- Toutes les recettes sont associées au Panier 1 ("basket": 1).`}
-
-PROFIL ALIMENTAIRE :
+PROFIL ALIMENTAIRE PRIORITAIRE :
 - Régime choisi : ${regimeActuel}
-- ALIMENTS BANNIS : ${exclusionsActuelles} (Interdiction formelle de les utiliser !)
+  * Si "Omnivore (Manger de tout)" : Aucune restriction, cuisine familiale, gourmande, variée (viandes, volailles, poissons, œufs, féculents).
+  * Si "Crétois / Méditerranéen" : Huile d'olive, poissons, légumes du soleil, légumineuses, céréales complètes, très peu de viande rouge.
+  * Si "Index Glycémique Bas" : Céréales complètes, zéro sucre raffiné, légumes verts, protéines maigres.
+  * Si "Végétarien" : Zéro viande ni poisson.
+- ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle d'en mettre !)
 
-RÉSERVES DU FOYER :
+CADENCE ET STRUCTURE :
+- Période : ${duree}
+- Portions : ${portions} portions par recette
+- Nombre STRICT DE RECETTES À GÉNÉRER : EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
+${isMonth ? `- Répartition : Les recettes 1 à ${q1Count} ont "basket": 1 (Panier 1). Les recettes ${q1Count + 1} à ${totalRecettes} ont "basket": 2 (Panier 2).` : `- Toutes les recettes ont "basket": 1.`}
+
+RÉSERVES DU FOYER (À UTILISER EN PRIORITÉ ET NE PAS ACHETER AU DRIVE) :
 - Grand Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
-- Placard : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
-Utilise ces réserves en priorité et NE LES COMMANDE PAS au Drive !
+- Placard & Épicerie : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
 
 CONDIMENTS ET AROMATES : Inclus systématiquement oignons, ail, herbes et épices dans les paniers avec "est_condiment": true.
 CONTRAINTE BUDGÉTAIRE : ~${budgetActuel}€ max. Privilégie les marques distributeurs (Marque Repère Leclerc, Carrefour Classic).
@@ -771,14 +830,21 @@ Format JSON pur :
         statut_p2: { recu: false, date_reception: null }
       };
 
+      // Sauvegarde complète et verrouillage du régime actif dans Supabase
       await supabase.from('foyers').update({
         menu_json: response.repas,
         panier_json: initialPanierJson,
+        regime_alimentaire: regimeActuel,
+        exclusions: exclusionsActuelles,
+        budget_mensuel: budgetActuel,
+        duree_planning: duree,
+        nb_recettes: totalRecettes,
+        nb_portions: portions,
         current_month: moisActuel
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu calibré généré : ${totalRecettes} recettes (${duree}, ${portions} pers.) pour ${moisActuel} !`);
+      alert(`Menu généré avec succès en mode "${regimeActuel}" (${totalRecettes} recettes, ${portions} pers.) !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -917,15 +983,14 @@ Format JSON pur :
     .filter(i => !i.in_stock && i.mode_choisi === 'congelo' && i.prix_congelo && i.prix_frais)
     .reduce((sum, i) => sum + (Number(i.prix_frais) - Number(i.prix_congelo)), 0);
 
-  const currentDuree = config?.duree_planning || dureePlanning;
+  const currentDuree = dureePlanning || config?.duree_planning || "1 Mois (2 Paniers)";
   const isPlanningMonth = currentDuree.includes('Mois');
-  const targetNbRecettes = Number(config?.nb_recettes || nbRecettes);
-  const targetPortions = Number(config?.nb_portions || nbPortions);
+  const targetNbRecettes = Number(nbRecettes || config?.nb_recettes || 14);
+  const targetPortions = Number(nbPortions || config?.nb_portions || 4);
   const q1Threshold = isPlanningMonth ? Math.ceil(targetNbRecettes / 2) : targetNbRecettes;
 
-  // Filtrage intelligent selon la Quinzaine active et la durée
   const mealsForActiveQuinzaine = (config?.menu_json || []).filter((repas, index) => {
-    if (!isPlanningMonth) return true; // Si 1 semaine ou 1 quinzaine, on affiche tout
+    if (!isPlanningMonth) return true;
     if (repas.basket === 1 || repas.basket === 2) {
       return repas.basket === activeBasket;
     }
@@ -959,8 +1024,9 @@ Format JSON pur :
                 ✕
               </button>
             </div>
+            {/* L'en-tête reflète directement le choix en direct ! */}
             <p className="text-[11px] font-bold uppercase tracking-widest text-amber-100 mt-0.5">
-              {moisActuel} • {config.regime_alimentaire || selectedRegime}
+              {moisActuel} • {selectedRegime}
             </p>
           </div>
           <button
@@ -980,7 +1046,7 @@ Format JSON pur :
       </header>
 
       <main className="p-4">
-        {/* Sélecteur de Quinzaine universel (affiché seulement si durée = 1 Mois) */}
+        {/* Sélecteur de Quinzaine universel */}
         {view !== 'stocks' && view !== 'profile' && isPlanningMonth && (
           <div className="flex bg-stone-200/70 p-1 rounded-2xl mb-4 shadow-inner">
             <button
@@ -1005,7 +1071,6 @@ Format JSON pur :
         {/* 1. VUE PLANNING */}
         {view === 'menu' && (
           <div className="space-y-4">
-            {/* LIGNE RÉCAPITULATIVE DE CADENCE DISCRÈTE */}
             <div className="bg-amber-50 border border-amber-200/60 rounded-2xl px-3.5 py-2 flex items-center justify-between text-xs text-stone-700">
               <span className="font-bold flex items-center gap-1.5">
                 <span>🎯</span>
@@ -1025,7 +1090,7 @@ Format JSON pur :
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">🚨</span>
-                      <span className="text-xs font-black uppercase tracking-wider">Fraîcheur Frigo (Courses rangées le {basketStatus.date_reception})</span>
+                      <span className="text-xs font-black uppercase tracking-wider">Fraîcheur Frigo (Courses du {basketStatus.date_reception})</span>
                     </div>
                   </div>
                   <p className="text-xs font-medium leading-snug mb-3">
@@ -1062,11 +1127,10 @@ Format JSON pur :
               </div>
             )}
 
-            {/* Boîte d'envie */}
             <form onSubmit={handleApplyCraving} className="bg-white p-4 rounded-3xl shadow-sm border border-stone-200 space-y-2">
               <label className="block text-[11px] font-black uppercase tracking-wider text-[#C25E3E] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <span>✨</span> Une envie précise ce mois-ci ?
+                  <span>✨</span> Une envie gourmande ?
                 </span>
                 {config?.cravings && (
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold">
@@ -1228,7 +1292,6 @@ Format JSON pur :
               </button>
             </div>
 
-            {/* Arbitre Drive */}
             <div className="bg-[#1C1917] rounded-3xl p-4 text-white shadow-xl border border-stone-800">
               <div className="flex items-center justify-between mb-3 border-b border-stone-800 pb-2">
                 <div className="flex items-center gap-2">
@@ -1260,7 +1323,6 @@ Format JSON pur :
               </p>
             </div>
 
-            {/* Suivi Budgétaire */}
             <div className="bg-gradient-to-r from-emerald-700 to-teal-800 text-white p-4 rounded-3xl shadow-md">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-bold uppercase tracking-wider opacity-90">
@@ -1286,7 +1348,6 @@ Format JSON pur :
               </span>
             </div>
 
-            {/* Liste des ingrédients Drive */}
             <div className="space-y-3">
               {activePanierList.map((item, index) => {
                 const nomLower = item.nom.toLowerCase();
@@ -1445,7 +1506,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 3. VUE MES STOCKS (CONGÉLATEUR + PLACARD) */}
+        {/* 3. VUE MES STOCKS */}
         {view === 'stocks' && (
           <div className="space-y-4">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
@@ -1601,7 +1662,7 @@ Format JSON pur :
           </div>
         )}
 
-        {/* 4. VUE PROFIL : RÉGIME, EXCLUSIONS ET NOUVEAU RÉGLAGE DE CADENCE & PORTIONS */}
+        {/* 4. VUE PROFIL AVEC SAUVEGARDE INSTANTANÉE */}
         {view === 'profile' && (
           <div className="space-y-4 animate-in fade-in">
             <div className="bg-gradient-to-r from-stone-800 to-stone-900 rounded-3xl p-5 text-white shadow-xl">
@@ -1611,13 +1672,13 @@ Format JSON pur :
               </div>
               <h2 className="text-xl font-black">Profil & Cadence ⚙️</h2>
               <p className="text-xs text-stone-300 font-medium mt-1">
-                Personnalisez le rythme, le nombre de repas et votre style alimentaire.
+                Vos choix sont enregistrés en direct à chaque tapotement !
               </p>
             </div>
 
             <form onSubmit={handleSaveProfile} className="bg-white p-5 rounded-3xl border border-stone-200 shadow-sm space-y-5">
               
-              {/* NOUVEAU : SÉLECTEUR DE CADENCE / DURÉE */}
+              {/* SÉLECTEUR DE CADENCE / DURÉE */}
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
                   Rythme & Période de Planification
@@ -1631,7 +1692,7 @@ Format JSON pur :
                     <button
                       key={d.id}
                       type="button"
-                      onClick={() => setDureePlanning(d.id)}
+                      onClick={() => autoSaveDuree(d.id)}
                       className={`p-2.5 rounded-2xl border text-center transition-all ${
                         dureePlanning === d.id 
                           ? 'border-[#C25E3E] bg-amber-50 text-[#C25E3E] font-black shadow-sm' 
@@ -1645,7 +1706,7 @@ Format JSON pur :
                 </div>
               </div>
 
-              {/* NOUVEAU : NOMBRE DE RECETTES */}
+              {/* NOMBRE DE RECETTES */}
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-xs font-black uppercase tracking-wider text-stone-700">
@@ -1663,13 +1724,13 @@ Format JSON pur :
                   className="w-full accent-[#C25E3E]"
                 />
                 <div className="flex justify-between text-[10px] text-stone-400 font-bold">
-                  <span>4 repas (Express)</span>
-                  <span>10 repas (Semaine)</span>
-                  <span>14 repas (Complet)</span>
+                  <span>4 repas</span>
+                  <span>10 repas</span>
+                  <span>14 repas</span>
                 </div>
               </div>
 
-              {/* NOUVEAU : NOMBRE DE PORTIONS PAR PLAT */}
+              {/* NOMBRE DE PORTIONS PAR PLAT */}
               <div>
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
                   Portions par Recette Cuisinée
@@ -1682,7 +1743,7 @@ Format JSON pur :
                     <button
                       key={p.val}
                       type="button"
-                      onClick={() => setNbPortions(p.val)}
+                      onClick={() => autoSavePortions(p.val)}
                       className={`p-3 rounded-2xl border text-left transition-all ${
                         nbPortions === p.val 
                           ? 'border-[#C25E3E] bg-amber-50 shadow-sm' 
@@ -1698,30 +1759,35 @@ Format JSON pur :
                 </div>
               </div>
 
-              {/* Choix du Régime */}
+              {/* CHOIX DU RÉGIME AVEC AUTO-SAVE AU CLIC ! */}
               <div className="pt-2 border-t border-stone-100">
                 <label className="text-xs font-black uppercase tracking-wider text-stone-700 block mb-2">
-                  Style Alimentaire
+                  Style Alimentaire (Sauvegardé au clic !)
                 </label>
                 <div className="grid grid-cols-1 gap-2">
                   {[
-                    { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses (Longévité & Cœur)' },
                     { id: 'Omnivore (Manger de tout)', desc: '🍽️ Aucune contrainte, cuisine familiale, variée et gourmande' },
-                    { id: 'Index Glycémique Bas', desc: '🥑 Céréales complètes, zéro sucre rapide, énergie stable (Minceur & Forme)' },
+                    { id: 'Crétois / Méditerranéen', desc: '🌿 Huile d\'olive, poissons, légumes du soleil, légumineuses (Longévité)' },
+                    { id: 'Index Glycémique Bas', desc: '🥑 Zéro sucre rapide, céréales complètes, énergie stable (Forme)' },
                     { id: 'Végétarien Gourmand', desc: '🥕 Zéro viande ni poisson, œufs, fromages, légumineuses' }
                   ].map(r => (
                     <div
                       key={r.id}
-                      onClick={() => setSelectedRegime(r.id)}
-                      className={`p-3 rounded-2xl border transition-all cursor-pointer ${
+                      onClick={() => autoSaveRegime(r.id)}
+                      className={`p-3 rounded-2xl border transition-all cursor-pointer active:scale-98 ${
                         selectedRegime === r.id 
-                          ? 'border-[#C25E3E] bg-amber-50/50 shadow-sm' 
+                          ? 'border-[#C25E3E] bg-amber-50/70 shadow-sm' 
                           : 'border-stone-200 hover:border-stone-300'
                       }`}
                     >
-                      <p className={`text-xs font-extrabold ${selectedRegime === r.id ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
-                        {r.id}
-                      </p>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-xs font-extrabold ${selectedRegime === r.id ? 'text-[#C25E3E]' : 'text-stone-800'}`}>
+                          {r.id}
+                        </p>
+                        {selectedRegime === r.id && (
+                          <span className="text-[10px] bg-[#C25E3E] text-white px-2 py-0.5 rounded-full font-bold">Actif ✓</span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-stone-500 font-medium mt-0.5">{r.desc}</p>
                     </div>
                   ))}
@@ -1740,11 +1806,10 @@ Format JSON pur :
                       type="button"
                       onClick={() => {
                         const current = exclusionsInput ? exclusionsInput.split(',').map(s => s.trim()) : [];
-                        if (current.includes(chip)) {
-                          setExclusionsInput(current.filter(c => c !== chip).join(', '));
-                        } else {
-                          setExclusionsInput([...current, chip].join(', '));
-                        }
+                        const updated = current.includes(chip) 
+                          ? current.filter(c => c !== chip).join(', ')
+                          : [...current, chip].join(', ');
+                        autoSaveExclusions(updated);
                       }}
                       className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border transition ${
                         exclusionsInput.includes(chip) 
@@ -1761,7 +1826,7 @@ Format JSON pur :
                   type="text"
                   placeholder="Ex: Pas de choux de Bruxelles, pas de poivrons crus..."
                   value={exclusionsInput}
-                  onChange={(e) => setExclusionsInput(e.target.value)}
+                  onChange={(e) => autoSaveExclusions(e.target.value)}
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-[#C25E3E]"
                 />
               </div>
@@ -1780,7 +1845,7 @@ Format JSON pur :
                   max="350"
                   step="10"
                   value={budgetInput}
-                  onChange={(e) => setBudgetInput(e.target.value)}
+                  onChange={(e) => setBudgetInput(Number(e.target.value))}
                   className="w-full accent-[#C25E3E]"
                 />
               </div>
@@ -1789,7 +1854,7 @@ Format JSON pur :
                 type="submit"
                 className="w-full bg-[#C25E3E] hover:bg-[#A84E33] text-white font-black text-xs py-3 rounded-2xl transition shadow-md uppercase tracking-wider active:scale-98"
               >
-                Enregistrer mes Réglages Foyer
+                Enregistrer tous mes Réglages Foyer
               </button>
             </form>
           </div>
@@ -1854,7 +1919,7 @@ Format JSON pur :
               </div>
               <div>
                 <span className="text-[10px] font-bold text-stone-400 uppercase block">Portions</span>
-                <span className="text-sm font-black text-stone-800">{config.nb_portions || targetPortions} pers.</span>
+                <span className="text-sm font-black text-stone-800">{targetPortions} pers.</span>
               </div>
             </div>
 
@@ -1876,7 +1941,7 @@ Format JSON pur :
             <div className="space-y-6">
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-stone-400 mb-3">
-                  Ingrédients nécessaires ({config.nb_portions || targetPortions} portions)
+                  Ingrédients nécessaires ({targetPortions} portions)
                 </h3>
                 <ul className="space-y-2">
                   {selectedRecipe.ingredients?.map((ing, i) => (
