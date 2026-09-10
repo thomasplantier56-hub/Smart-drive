@@ -20,7 +20,7 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// Nettoyage et sécurisation absolue du parsing JSON
+// Nettoyage et sécurisation absolue du parsing JSON avec auto-réparation
 function safeParseGeminiJSON(rawText) {
   if (!rawText || typeof rawText !== 'string') throw new Error("Réponse vide de l'IA");
   let cleaned = rawText.trim();
@@ -31,36 +31,85 @@ function safeParseGeminiJSON(rawText) {
   }
   // Supprime les virgules orphelines avant la fermeture d'un objet ou d'un tableau
   cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
-  return JSON.parse(cleaned);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (err) {
+    console.warn("Tentative de réparation du JSON...", err.message);
+    let repaired = cleaned;
+    const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+    if (quoteCount % 2 !== 0) repaired += '"';
+    const openBraces = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
+    const openBrackets = (repaired.match(/\[/g) || []).length - (repaired.match(/]/g) || []).length;
+    for (let i = 0; i < openBrackets; i++) repaired += ']';
+    for (let i = 0; i < openBraces; i++) repaired += '}';
+    try {
+      return JSON.parse(repaired);
+    } catch (e2) {
+      throw err;
+    }
+  }
 }
 
-// Enrichissement instantané côté client (allège l'IA de 70% de tokens)
-function enrichPanierItem(item, defaultRecetteId = 1) {
-  const nomClean = String(item?.nom || "").trim();
-  const prixFrais = Number(item?.prix_frais || item?.prix) || 4.20;
-  const prixCongelo = Number(item?.prix_congelo || item?.congelo) || +(prixFrais * 0.72).toFixed(2);
-  const canFreeze = item?.a_alternative_congelo !== undefined 
-    ? Boolean(item?.a_alternative_congelo) 
-    : (prixCongelo < prixFrais);
+// 🛒 MOTEUR LOGISTIQUE CLIENT : Génère le panier Drive directement à partir des ingrédients des recettes
+function buildPanierFromRecipes(recipes) {
+  const panier = [];
+  const seen = new Set();
 
-  const cleanTerm = cleanDriveTerm(nomClean);
-  const gain = canFreeze ? `-${Math.round((1 - prixCongelo / prixFrais) * 100)}%` : "";
+  (Array.isArray(recipes) ? recipes : []).forEach(recipe => {
+    const rId = recipe?.id || 1;
+    (Array.isArray(recipe?.ingredients) ? recipe.ingredients : []).forEach(ingStr => {
+      if (!ingStr || typeof ingStr !== 'string') return;
 
-  return {
-    nom: nomClean || "Article",
-    rayon: item?.rayon || "Épicerie",
-    a_alternative_congelo: canFreeze,
-    mode_choisi: 'frais',
-    prix_frais: prixFrais,
-    recherche_frais: item?.recherche_frais || cleanTerm,
-    prix_congelo: prixCongelo,
-    recherche_congelo: item?.recherche_congelo || `${cleanTerm} surgele`,
-    gain_anti_radin: item?.gain_anti_radin || gain || "-28%",
-    conseil_anti_gaspi: item?.conseil_anti_gaspi || (canFreeze ? "🧊 Alternative congélateur" : "🌿 À cuisiner frais"),
-    est_condiment: Boolean(item?.est_condiment),
-    recette_id: Number(item?.recette_id) || defaultRecetteId,
-    in_stock: false
-  };
+      // Nettoyer les unités et quantités pour ne garder que le produit
+      let cleanNom = ingStr
+        .replace(/^\d+[\s\w\.\,\/°\-]*\b(de|d'|g|kg|ml|cl|l|c\.à\.s|c\.à\.c|cuillères?|tranches?|filets?|gousses?|pincée)?\s+/i, "")
+        .trim();
+      
+      if (!cleanNom) cleanNom = ingStr.trim();
+      cleanNom = cleanNom.charAt(0).toUpperCase() + cleanNom.slice(1);
+
+      const key = cleanNom.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const nomLower = key;
+      const isCondiment = /sel|poivre|huile|vinaigre|curry|cumin|herbe|paprika|ail|oignon|sauce|moutarde|épice/i.test(nomLower);
+      const isFish = /saumon|poisson|cabillaud|thon|crevette|colin|dorade|merlu/i.test(nomLower);
+      const isMeat = /poulet|boeuf|bœuf|steak|porc|viande|dinde|veau|haché|lardon|saucisse/i.test(nomLower);
+      const isVeg = /courgette|tomate|carotte|légume|salade|avocat|poivron|haricot|brocoli|pomme|champignon/i.test(nomLower);
+      const isDairy = /parmesan|fromage|mozzarella|crème|creme|lait|beurre|feta|reblochon/i.test(nomLower);
+
+      let rayon = "Épicerie";
+      let prixFrais = 3.20;
+      if (isFish) { rayon = "Poissonnerie"; prixFrais = 7.90; }
+      else if (isMeat) { rayon = "Boucherie"; prixFrais = 6.80; }
+      else if (isVeg) { rayon = "Fruits & Légumes"; prixFrais = 2.40; }
+      else if (isDairy) { rayon = "Crémerie"; prixFrais = 2.90; }
+
+      const canFreeze = isFish || isMeat || /haricot|brocoli|légume|frite|épinard|poivron/i.test(nomLower);
+      const prixCongelo = canFreeze ? +(prixFrais * 0.68).toFixed(2) : prixFrais;
+      const cleanTerm = cleanDriveTerm(cleanNom);
+
+      panier.push({
+        nom: cleanNom,
+        rayon: rayon,
+        a_alternative_congelo: canFreeze,
+        mode_choisi: 'frais',
+        prix_frais: prixFrais,
+        recherche_frais: cleanTerm,
+        prix_congelo: prixCongelo,
+        recherche_congelo: `${cleanTerm} surgele`,
+        gain_anti_radin: canFreeze ? `-${Math.round((1 - prixCongelo / prixFrais) * 100)}%` : "",
+        conseil_anti_gaspi: canFreeze ? "🧊 Format congélateur économique" : "🌿 À consommer frais",
+        est_condiment: isCondiment,
+        recette_id: rId,
+        in_stock: false
+      });
+    });
+  });
+
+  return panier;
 }
 
 // 📸 BIBLIOTHÈQUE CULINAIRE 100 % ALIMENTAIRE (SANS HORS-SUJET)
@@ -209,7 +258,7 @@ export default function App() {
   const isLunchboxMode = Boolean(typeRepasPlanifies && String(typeRepasPlanifies).includes("Lunchbox"));
   const targetPortions = isLunchboxMode ? totalPersonnesFoyer * 2 : totalPersonnesFoyer;
 
-  // Exécuteur sécurisé des requêtes Gemini avec repli sur 3.5
+  // Exécuteur sécurisé des requêtes Gemini
   async function executeGeminiPrompt(promptText) {
     let responseText = "";
     try {
@@ -749,7 +798,7 @@ export default function App() {
 
     const prompt = `Tu es un chef cuisinier étoilé pour "À Table !".
 ENVIE DU FOYER : "${envie}".
-COMPOSITION FAMILIALE : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${optionEnfants ? "OUI" : "NON"}.
+COMPOSITION : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${optionEnfants ? "OUI" : "NON"}.
 Portions : ${portions} personnes. Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || 'Aucun'}.
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
@@ -770,34 +819,23 @@ Format JSON pur :
     "conseil": "Astuce chef",
     "basket": ${activeBasket},
     "rating": 0
-  },
-  "nouveaux_ingredients_drive": [
-    {
-      "nom": "Nom produit",
-      "rayon": "Épicerie",
-      "prix_frais": 5.50,
-      "prix_congelo": 3.80,
-      "est_condiment": false,
-      "recette_id": ${targetRecipe.id}
-    }
-  ]
+  }
 }`;
 
     try {
       const response = await executeGeminiPrompt(prompt);
+      const newRecipe = response.nouvelle_recette;
 
-      let updatedMenu = menuArr.map(r => 
-        r.id === targetRecipe.id ? response.nouvelle_recette : r
-      );
-      if (!updatedMenu.some(r => r.id === response.nouvelle_recette.id)) {
-        updatedMenu.push(response.nouvelle_recette);
+      let updatedMenu = menuArr.map(r => r.id === targetRecipe.id ? newRecipe : r);
+      if (!updatedMenu.some(r => r.id === newRecipe.id)) {
+        updatedMenu.push(newRecipe);
       }
 
-      const enrichedNewItems = (response.nouveaux_ingredients_drive || []).map(i => enrichPanierItem(i, targetRecipe.id));
+      const generatedDriveItems = buildPanierFromRecipes([newRecipe]);
       const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
       const updatedPanierJson = {
         ...(config.panier_json || {}),
-        [basketKey]: [...currentBasketList, ...enrichedNewItems]
+        [basketKey]: [...currentBasketList, ...generatedDriveItems]
       };
 
       await supabase.from('foyers').update({
@@ -855,43 +893,23 @@ Format JSON pur :
     "conseil": "Astuce chef",
     "basket": ${targetBasket},
     "rating": 0
-  },
-  "anciens_mots_cles_a_retirer": [],
-  "nouveaux_ingredients_drive": [
-    {
-      "nom": "Nom produit",
-      "rayon": "Épicerie",
-      "prix_frais": 5.50,
-      "prix_congelo": 3.80,
-      "est_condiment": false,
-      "recette_id": ${recipeToSwap.id}
-    }
-  ]
+  }
 }`;
 
     try {
       const response = await executeGeminiPrompt(prompt);
+      const newRecipe = response.nouvelle_recette;
 
       const menuArr = Array.isArray(config.menu_json) ? config.menu_json : [];
-      const updatedMenu = menuArr.map(r => 
-        r.id === recipeToSwap.id ? response.nouvelle_recette : r
-      );
+      const updatedMenu = menuArr.map(r => r.id === recipeToSwap.id ? newRecipe : r);
 
       const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
-      const keywordsToRemove = (response.anciens_mots_cles_a_retirer || []).map(k => String(k).toLowerCase());
-
-      const cleanedBasket = currentBasketList.filter(item => {
-        if (item.recette_id && item.recette_id === recipeToSwap.id) return false;
-        const itemName = String(item.nom || "").toLowerCase();
-        if (keywordsToRemove.some(k => itemName.includes(k))) return false;
-        return true;
-      });
-
-      const enrichedNewItems = (response.nouveaux_ingredients_drive || []).map(i => enrichPanierItem(i, recipeToSwap.id));
+      const cleanedBasket = currentBasketList.filter(item => item.recette_id !== recipeToSwap.id);
+      const replacementDriveItems = buildPanierFromRecipes([newRecipe]);
 
       const updatedPanierJson = {
         ...(config.panier_json || {}),
-        [basketKey]: [...cleanedBasket, ...enrichedNewItems]
+        [basketKey]: [...cleanedBasket, ...replacementDriveItems]
       };
 
       await supabase.from('foyers').update({
@@ -906,10 +924,10 @@ Format JSON pur :
       }));
 
       if (selectedRecipe && selectedRecipe.id === recipeToSwap.id) {
-        setSelectedRecipe(response.nouvelle_recette);
+        setSelectedRecipe(newRecipe);
       }
 
-      alert(`🎉 Plat remplacé par : "${response.nouvelle_recette.nom}" !`);
+      alert(`🎉 Plat remplacé par : "${newRecipe.nom}" !`);
     } catch (e) {
       console.error(e);
       alert("Erreur lors de l'échange : " + e.message);
@@ -918,7 +936,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE PAR LOTS DE 7 REPAS EN PARALLÈLE
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE : IA CULINAIRE PURE + LOGISTIQUE JS CLIENT
   async function generateWithGemini() {
     if (!config) return;
 
@@ -956,18 +974,17 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Constructeur de prompt ultra-léger et sécurisé (zéro débordement de token)
-      const buildBatchPrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier étoilé et logisticien pour "À Table !".
+      // Prompt ultra-léger (~3000 caractères au lieu de 20000 : zéro risque de coupure)
+      const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour l'application "À Table !".
 COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
-Portions par plat : ${portions} portions (dîner + lunchbox du lendemain midi).
+Portions par plat : ${portions} portions (dîner + lunchbox le lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
-${excludedDishes.length > 0 ? `NE PAS FAIRE : ${excludedDishes.join(', ')}.` : ''}
-Réserves existantes (NE PAS les racheter) : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
+${excludedDishes.length > 0 ? `NE PAS FAIRE (déjà planifiés) : ${excludedDishes.join(', ')}.` : ''}
+Réserves existantes à privilégier : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
 
-MISSION : Génère EXACTEMENT ${count} recettes de saison (${portions} portions) pour le mois de ${moisActuel.toUpperCase()} en France.
-Les IDs des recettes vont de ${startId} à ${startId + count - 1}. Le champ "basket" vaut ${quinzaineNum}.
-Pour chaque recette, liste 2 à 4 articles indispensables à acheter dans "panier".
-RÈGLE ABSOLUE DE SÉCURITÉ : N'utilise AUCUN guillemet double (") dans les noms, étapes ou conseils (utilise uniquement l'apostrophe ').
+MISSION : Génère EXACTEMENT ${count} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions) pour la Quinzaine ${quinzaineNum}.
+Les IDs vont de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
+RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les noms, étapes ou conseils (utilise l'apostrophe ').
 
 Format JSON pur :
 {
@@ -982,21 +999,11 @@ Format JSON pur :
       "bienfait_sante": "Équilibre et énergie",
       "saison_atout": "Légumes de saison",
       "kid_friendly": ${isKidFriendly},
-      "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+      "ingredients": ["Ingrédient 1", "Ingrédient 2", "Ingrédient 3"],
       "etapes": ["Étape 1", "Étape 2"],
       "conseil": "Astuce chef",
       "basket": ${quinzaineNum},
       "rating": 0
-    }
-  ],
-  "panier": [
-    {
-      "nom": "Article",
-      "rayon": "Boucherie",
-      "prix_frais": 8.50,
-      "prix_congelo": 6.20,
-      "est_condiment": false,
-      "recette_id": ${startId}
     }
   ]
 }`;
@@ -1006,46 +1013,44 @@ Format JSON pur :
       let panier2 = [];
 
       if (isMonth) {
-        // Étape 1 : Quinzaine 1 (Semaine 1 et Semaine 2 en parallèle)
+        // Quinzaine 1 (Semaines 1 & 2 en parallèle)
         setLoadingStepText("🍳 Quinzaine 1 (14 repas) en cours de préparation...");
         const [sem1, sem2] = await Promise.all([
-          executeGeminiPrompt(buildBatchPrompt(1, 7, 1, [])),
-          executeGeminiPrompt(buildBatchPrompt(1, 7, 8, []))
+          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 1, [])),
+          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
         ]);
 
         const q1Repas = [...(sem1?.repas || []), ...(sem2?.repas || [])];
-        const q1PanierRaw = [...(sem1?.panier || []), ...(sem2?.panier || [])];
-        panier1 = q1PanierRaw.map(i => enrichPanierItem(i));
+        panier1 = buildPanierFromRecipes(q1Repas);
 
-        // Étape 2 : Quinzaine 2 (Semaine 3 et Semaine 4 en parallèle, sans répétition de la Q1)
+        // Quinzaine 2 (Semaines 3 & 4 en parallèle, sans répétition)
         setLoadingStepText("🥗 Quinzaine 2 (14 repas) en cours de préparation...");
         const dishesToAvoid = q1Repas.map(r => r.nom);
         const [sem3, sem4] = await Promise.all([
-          executeGeminiPrompt(buildBatchPrompt(2, 7, 15, dishesToAvoid)),
-          executeGeminiPrompt(buildBatchPrompt(2, 7, 22, dishesToAvoid))
+          executeGeminiPrompt(buildPureRecipePrompt(2, 7, 15, dishesToAvoid)),
+          executeGeminiPrompt(buildPureRecipePrompt(2, 7, 22, dishesToAvoid))
         ]);
 
         const q2Repas = [...(sem3?.repas || []), ...(sem4?.repas || [])];
-        const q2PanierRaw = [...(sem3?.panier || []), ...(sem4?.panier || [])];
-        panier2 = q2PanierRaw.map(i => enrichPanierItem(i));
+        panier2 = buildPanierFromRecipes(q2Repas);
 
         allMeals = [...q1Repas, ...q2Repas];
       } else if (totalRecettes === 14) {
-        // Formule 1 Quinzaine (2 x 7 en parallèle)
+        // 1 Quinzaine (2 x 7 en parallèle)
         setLoadingStepText("🍽️ Génération de vos 14 repas...");
         const [lotA, lotB] = await Promise.all([
-          executeGeminiPrompt(buildBatchPrompt(1, 7, 1, [])),
-          executeGeminiPrompt(buildBatchPrompt(1, 7, 8, []))
+          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 1, [])),
+          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
         ]);
         allMeals = [...(lotA?.repas || []), ...(lotB?.repas || [])];
-        panier1 = [...(lotA?.panier || []), ...(lotB?.panier || [])].map(i => enrichPanierItem(i));
+        panier1 = buildPanierFromRecipes(allMeals);
         panier2 = [];
       } else {
-        // Formule 1 Semaine Express (7 repas en 1 seul lot ultra-rapide)
+        // 1 Semaine Express
         setLoadingStepText("⚡ Génération de votre semaine express...");
-        const res = await executeGeminiPrompt(buildBatchPrompt(1, totalRecettes, 1, []));
+        const res = await executeGeminiPrompt(buildPureRecipePrompt(1, totalRecettes, 1, []));
         allMeals = res?.repas || [];
-        panier1 = (res?.panier || []).map(i => enrichPanierItem(i));
+        panier1 = buildPanierFromRecipes(allMeals);
         panier2 = [];
       }
 
@@ -1072,7 +1077,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Victoire : Vos ${allMeals.length} repas complets (${portions} portions) et paniers Drive ont été générés avec succès !`);
+      alert(`🎉 Vos ${allMeals.length} repas complets (${portions} portions) et paniers Drive ont été générés avec succès !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
@@ -1689,12 +1694,12 @@ Format JSON pur :
                 const prixCongelo = Number(item?.prix_congelo || (prixFrais * 0.7).toFixed(2));
                 const activePrice = isCongelo ? prixCongelo : prixFrais;
 
-                const searchFrais = item?.recherche_frais || item?.nom || "";
-                const searchCongelo = item?.recherche_congelo || `${cleanDriveTerm(searchFrais)} surgele`;
-                const cleanTerm = cleanDriveTerm(isCongelo ? searchCongelo : searchFrais);
+                const cleanTerm = cleanDriveTerm(item?.recherche_frais || item?.nom || "");
+                const searchCongelo = item?.recherche_congelo || `${cleanTerm} surgele`;
+                const termToSearch = isCongelo ? cleanDriveTerm(searchCongelo) : cleanTerm;
 
-                const linkDrive1 = `${driveUrl1}${encodeURIComponent(cleanTerm)}`;
-                const linkDrive2 = `${driveUrl2}${encodeURIComponent(cleanTerm)}`;
+                const linkDrive1 = `${driveUrl1}${encodeURIComponent(termToSearch)}`;
+                const linkDrive2 = `${driveUrl2}${encodeURIComponent(termToSearch)}`;
                 const thumbnail = getProductThumbnail(item?.nom, item?.rayon);
 
                 return (
@@ -1816,7 +1821,7 @@ Format JSON pur :
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            copyToClipboard(cleanTerm, e);
+                            copyToClipboard(termToSearch, e);
                           }}
                           className="bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-black px-2.5 py-1.5 rounded-xl ml-auto transition"
                         >
