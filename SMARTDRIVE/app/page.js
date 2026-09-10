@@ -20,16 +20,25 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// Nettoyage et sécurisation absolue du parsing JSON avec auto-réparation
+// Nettoyage et extraction chirurgicale du JSON (ignore tout texte avant { ou après })
 function safeParseGeminiJSON(rawText) {
   if (!rawText || typeof rawText !== 'string') throw new Error("Réponse vide de l'IA");
+  
   let cleaned = rawText.trim();
-  if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+  
+  // 1. Isoler strictement le bloc entre le premier '{' et la dernière '}'
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  } else if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.replace(/^```json\s*/, "").replace(/\s*```[\s\S]*$/, "");
   } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```$/, "");
+    cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```[\s\S]*$/, "");
   }
-  // Supprime les virgules orphelines avant la fermeture d'un objet ou d'un tableau
+
+  // 2. Supprime les virgules orphelines avant la fermeture d'un objet ou d'un tableau
   cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
 
   try {
@@ -949,7 +958,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE AVEC NOMS DE PRODUITS DRIVE PURS
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE AVEC EXTRACTION CHIRURGICALE DU BLOC JSON
   async function generateWithGemini() {
     if (!config) return;
 
