@@ -51,22 +51,30 @@ function safeParseGeminiJSON(rawText) {
   }
 }
 
-// 🛒 MOTEUR LOGISTIQUE CLIENT : Génère le panier Drive directement à partir des ingrédients des recettes
+// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier propre à partir des articles de supermarché
 function buildPanierFromRecipes(recipes) {
   const panier = [];
   const seen = new Set();
 
   (Array.isArray(recipes) ? recipes : []).forEach(recipe => {
     const rId = recipe?.id || 1;
-    (Array.isArray(recipe?.ingredients) ? recipe.ingredients : []).forEach(ingStr => {
-      if (!ingStr || typeof ingStr !== 'string') return;
+    // Priorité absolue aux noms propres de produits "drive" générés par l'IA
+    const rawItems = Array.isArray(recipe?.drive) && recipe.drive.length > 0 
+      ? recipe.drive 
+      : Array.isArray(recipe?.ingredients_drive) && recipe.ingredients_drive.length > 0
+      ? recipe.ingredients_drive
+      : (recipe?.ingredients || []);
 
-      // Nettoyer les unités et quantités pour ne garder que le produit
-      let cleanNom = ingStr
-        .replace(/^\d+[\s\w\.\,\/°\-]*\b(de|d'|g|kg|ml|cl|l|c\.à\.s|c\.à\.c|cuillères?|tranches?|filets?|gousses?|pincée)?\s+/i, "")
+    rawItems.forEach(rawItem => {
+      if (!rawItem || typeof rawItem !== 'string') return;
+
+      // Nettoyage de sécurité
+      let cleanNom = rawItem
+        .replace(/^\d+[\s\w\.\,\/°\-]*\b(de|d'|g|kg|ml|cl|l|c\.à\.s|c\.à\.c|cuillères?|tranches?|filets?|gousses?|pincée|bocal|brique)?\s+/i, "")
+        .replace(/\b(à soupe|à café|de qualité)\b/gi, "")
         .trim();
       
-      if (!cleanNom) cleanNom = ingStr.trim();
+      if (!cleanNom || cleanNom.length < 2) cleanNom = rawItem.trim();
       cleanNom = cleanNom.charAt(0).toUpperCase() + cleanNom.slice(1);
 
       const key = cleanNom.toLowerCase();
@@ -74,7 +82,7 @@ function buildPanierFromRecipes(recipes) {
       seen.add(key);
 
       const nomLower = key;
-      const isCondiment = /sel|poivre|huile|vinaigre|curry|cumin|herbe|paprika|ail|oignon|sauce|moutarde|épice/i.test(nomLower);
+      const isCondiment = /sel|poivre|huile|vinaigre|curry|cumin|herbe|paprika|ail|oignon|sauce|moutarde|épice|bouillon/i.test(nomLower);
       const isFish = /saumon|poisson|cabillaud|thon|crevette|colin|dorade|merlu/i.test(nomLower);
       const isMeat = /poulet|boeuf|bœuf|steak|porc|viande|dinde|veau|haché|lardon|saucisse/i.test(nomLower);
       const isVeg = /courgette|tomate|carotte|légume|salade|avocat|poivron|haricot|brocoli|pomme|champignon/i.test(nomLower);
@@ -86,6 +94,7 @@ function buildPanierFromRecipes(recipes) {
       else if (isMeat) { rayon = "Boucherie"; prixFrais = 6.80; }
       else if (isVeg) { rayon = "Fruits & Légumes"; prixFrais = 2.40; }
       else if (isDairy) { rayon = "Crémerie"; prixFrais = 2.90; }
+      else if (isCondiment) { rayon = "Épicerie"; prixFrais = 2.20; }
 
       const canFreeze = isFish || isMeat || /haricot|brocoli|légume|frite|épinard|poivron/i.test(nomLower);
       const prixCongelo = canFreeze ? +(prixFrais * 0.68).toFixed(2) : prixFrais;
@@ -800,6 +809,7 @@ export default function App() {
 ENVIE DU FOYER : "${envie}".
 COMPOSITION : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${optionEnfants ? "OUI" : "NON"}.
 Portions : ${portions} personnes. Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || 'Aucun'}.
+CONSIGNE DRIVE : Dans "drive", liste 3 à 5 NOMS PURS DE PRODUITS à acheter au supermarché (ex: "Crème fraîche", "Huile d'olive", "Riz basmati", "Pavés de saumon"). Sans les quantités !
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -815,6 +825,7 @@ Format JSON pur :
     "saison_atout": "Ingrédients de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+    "drive": ["Produit 1", "Produit 2"],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
     "basket": ${activeBasket},
@@ -874,6 +885,7 @@ Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
 COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants. Total ${portions} portions.
 Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}. Régime : ${regimeActuel}. Bannis : ${exclusionsInput || 'Aucun'}.
 Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
+CONSIGNE DRIVE : Dans "drive", liste 3 à 5 NOMS PURS DE PRODUITS à acheter au supermarché (ex: "Crème fraîche", "Huile d'olive", "Riz arborio"). Sans les quantités !
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -889,6 +901,7 @@ Format JSON pur :
     "saison_atout": "Légumes de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
+    "drive": ["Produit 1", "Produit 2"],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
     "basket": ${targetBasket},
@@ -936,7 +949,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE : IA CULINAIRE PURE + LOGISTIQUE JS CLIENT
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE AVEC NOMS DE PRODUITS DRIVE PURS
   async function generateWithGemini() {
     if (!config) return;
 
@@ -974,7 +987,7 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt ultra-léger (~3000 caractères au lieu de 20000 : zéro risque de coupure)
+      // Prompt ultra-léger (~3500 caractères) avec noms de produits de supermarché propres dans "drive"
       const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour l'application "À Table !".
 COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
 Portions par plat : ${portions} portions (dîner + lunchbox le lendemain midi).
@@ -984,6 +997,10 @@ Réserves existantes à privilégier : Congélateur : ${stocksCongelo.join(', ')
 
 MISSION : Génère EXACTEMENT ${count} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions) pour la Quinzaine ${quinzaineNum}.
 Les IDs vont de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
+
+CONSIGNE DRIVE OBLIGATOIRE :
+Dans chaque recette, ajoute "drive" : une liste de 3 à 5 NOMS PURS DE PRODUITS à acheter en magasin Drive (ex: "Crème fraîche", "Riz arborio", "Huile d'olive", "Pavés de saumon", "Parmesan râpé", "Bouillon de légumes").
+N'inclus JAMAIS les unités ou quantités dans "drive" (écris "Huile d'olive" et PAS "2 c.à.s d'huile d'olive").
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les noms, étapes ou conseils (utilise l'apostrophe ').
 
 Format JSON pur :
@@ -999,7 +1016,8 @@ Format JSON pur :
       "bienfait_sante": "Équilibre et énergie",
       "saison_atout": "Légumes de saison",
       "kid_friendly": ${isKidFriendly},
-      "ingredients": ["Ingrédient 1", "Ingrédient 2", "Ingrédient 3"],
+      "ingredients": ["250g de riz arborio", "60g de parmesan râpé", "2 c.à.s d'huile d'olive"],
+      "drive": ["Riz arborio", "Parmesan râpé", "Huile d'olive"],
       "etapes": ["Étape 1", "Étape 2"],
       "conseil": "Astuce chef",
       "basket": ${quinzaineNum},
@@ -1077,7 +1095,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Vos ${allMeals.length} repas complets (${portions} portions) et paniers Drive ont été générés avec succès !`);
+      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive propres ont été générés avec succès !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
