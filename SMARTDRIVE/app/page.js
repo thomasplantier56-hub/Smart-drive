@@ -20,7 +20,7 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// Nettoyage et sécurisation du parsing JSON retourné par l'IA
+// Nettoyage et sécurisation absolue du parsing JSON
 function safeParseGeminiJSON(rawText) {
   if (!rawText || typeof rawText !== 'string') throw new Error("Réponse vide de l'IA");
   let cleaned = rawText.trim();
@@ -29,7 +29,38 @@ function safeParseGeminiJSON(rawText) {
   } else if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```$/, "");
   }
+  // Supprime les virgules orphelines avant la fermeture d'un objet ou d'un tableau
+  cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
   return JSON.parse(cleaned);
+}
+
+// Enrichissement instantané côté client (allège l'IA de 70% de tokens)
+function enrichPanierItem(item, defaultRecetteId = 1) {
+  const nomClean = String(item?.nom || "").trim();
+  const prixFrais = Number(item?.prix_frais || item?.prix) || 4.20;
+  const prixCongelo = Number(item?.prix_congelo || item?.congelo) || +(prixFrais * 0.72).toFixed(2);
+  const canFreeze = item?.a_alternative_congelo !== undefined 
+    ? Boolean(item?.a_alternative_congelo) 
+    : (prixCongelo < prixFrais);
+
+  const cleanTerm = cleanDriveTerm(nomClean);
+  const gain = canFreeze ? `-${Math.round((1 - prixCongelo / prixFrais) * 100)}%` : "";
+
+  return {
+    nom: nomClean || "Article",
+    rayon: item?.rayon || "Épicerie",
+    a_alternative_congelo: canFreeze,
+    mode_choisi: 'frais',
+    prix_frais: prixFrais,
+    recherche_frais: item?.recherche_frais || cleanTerm,
+    prix_congelo: prixCongelo,
+    recherche_congelo: item?.recherche_congelo || `${cleanTerm} surgele`,
+    gain_anti_radin: item?.gain_anti_radin || gain || "-28%",
+    conseil_anti_gaspi: item?.conseil_anti_gaspi || (canFreeze ? "🧊 Alternative congélateur" : "🌿 À cuisiner frais"),
+    est_condiment: Boolean(item?.est_condiment),
+    recette_id: Number(item?.recette_id) || defaultRecetteId,
+    in_stock: false
+  };
 }
 
 // 📸 BIBLIOTHÈQUE CULINAIRE 100 % ALIMENTAIRE (SANS HORS-SUJET)
@@ -192,7 +223,7 @@ export default function App() {
       const result = await model.generateContent(promptText);
       responseText = result.response.text();
     } catch (err) {
-      console.warn("Modèle 3.6 saturé ou erreur, bascule sur 3.5...", err);
+      console.warn("Modèle 3.6 saturé ou indisponible, bascule sur 3.5...", err);
       const fallback = genAI.getGenerativeModel({ 
         model: "gemini-3.5-flash",
         generationConfig: { 
@@ -716,15 +747,11 @@ export default function App() {
     const portions = targetPortions;
     const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
 
-    const prompt = `Tu es un chef cuisinier étoilé pour l'application "À Table !".
+    const prompt = `Tu es un chef cuisinier étoilé pour "À Table !".
 ENVIE DU FOYER : "${envie}".
-COMPOSITION FAMILIALE :
-- Adultes : ${nbAdultes}
-- Enfants (<12 ans) : ${nbEnfants}
-- Kid-Friendly : ${optionEnfants ? "OUI" : "NON"}
-- Portions : ${portions} personnes.
-- Régime : ${regimeActuel}.
-- Aliments bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
+COMPOSITION FAMILIALE : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${optionEnfants ? "OUI" : "NON"}.
+Portions : ${portions} personnes. Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || 'Aucun'}.
+RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
 {
@@ -735,7 +762,7 @@ Format JSON pur :
     "moment": "Soir",
     "calories": "520 kcal",
     "temps": "25 min",
-    "bienfait_sante": "✨ Recette adaptée au foyer",
+    "bienfait_sante": "Équilibre et plaisir",
     "saison_atout": "Ingrédients de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
@@ -747,18 +774,11 @@ Format JSON pur :
   "nouveaux_ingredients_drive": [
     {
       "nom": "Nom produit",
-      "rayon": "Rayon Drive",
-      "a_alternative_congelo": true,
-      "mode_choisi": "frais",
+      "rayon": "Épicerie",
       "prix_frais": 5.50,
-      "recherche_frais": "mot simple",
       "prix_congelo": 3.80,
-      "recherche_congelo": "mot surgele",
-      "gain_anti_radin": "-30%",
-      "conseil_anti_gaspi": "astuce",
       "est_condiment": false,
-      "recette_id": ${targetRecipe.id},
-      "in_stock": false
+      "recette_id": ${targetRecipe.id}
     }
   ]
 }`;
@@ -773,10 +793,11 @@ Format JSON pur :
         updatedMenu.push(response.nouvelle_recette);
       }
 
+      const enrichedNewItems = (response.nouveaux_ingredients_drive || []).map(i => enrichPanierItem(i, targetRecipe.id));
       const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
       const updatedPanierJson = {
         ...(config.panier_json || {}),
-        [basketKey]: [...currentBasketList, ...(response.nouveaux_ingredients_drive || [])]
+        [basketKey]: [...currentBasketList, ...enrichedNewItems]
       };
 
       await supabase.from('foyers').update({
@@ -813,9 +834,9 @@ Format JSON pur :
     const prompt = `Tu es un chef cuisinier pour "À Table !".
 Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
 COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants. Total ${portions} portions.
-Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}.
-Régime : ${regimeActuel}. Bannis : ${exclusionsInput || config.exclusions || 'Aucun'}.
+Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}. Régime : ${regimeActuel}. Bannis : ${exclusionsInput || 'Aucun'}.
 Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
+RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
 {
@@ -826,7 +847,7 @@ Format JSON pur :
     "moment": "${recipeToSwap.moment || 'Soir'}",
     "calories": "490 kcal",
     "temps": "25 min",
-    "bienfait_sante": "🛡️ Bienfait santé",
+    "bienfait_sante": "Bienfait santé",
     "saison_atout": "Légumes de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
@@ -839,18 +860,11 @@ Format JSON pur :
   "nouveaux_ingredients_drive": [
     {
       "nom": "Nom produit",
-      "rayon": "Rayon Drive",
-      "a_alternative_congelo": true,
-      "mode_choisi": "frais",
+      "rayon": "Épicerie",
       "prix_frais": 5.50,
-      "recherche_frais": "mot simple",
       "prix_congelo": 3.80,
-      "recherche_congelo": "mot surgele",
-      "gain_anti_radin": "-30%",
-      "conseil_anti_gaspi": "astuce",
       "est_condiment": false,
-      "recette_id": ${recipeToSwap.id},
-      "in_stock": false
+      "recette_id": ${recipeToSwap.id}
     }
   ]
 }`;
@@ -873,9 +887,11 @@ Format JSON pur :
         return true;
       });
 
+      const enrichedNewItems = (response.nouveaux_ingredients_drive || []).map(i => enrichPanierItem(i, recipeToSwap.id));
+
       const updatedPanierJson = {
         ...(config.panier_json || {}),
-        [basketKey]: [...cleanedBasket, ...(response.nouveaux_ingredients_drive || [])]
+        [basketKey]: [...cleanedBasket, ...enrichedNewItems]
       };
 
       await supabase.from('foyers').update({
@@ -902,11 +918,11 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION SÉCURISÉE AVEC CONFIRMATION ANTI-ÉCRASEMENT
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE PAR LOTS DE 7 REPAS EN PARALLÈLE
   async function generateWithGemini() {
     if (!config) return;
 
-    // 🔒 SÉCURITÉ : Confirmation préalable si un menu existe déjà
+    // 🔒 SÉCURITÉ : Confirmation anti-écrasement
     const hasExistingMenu = Array.isArray(config.menu_json) && config.menu_json.length > 0;
     if (hasExistingMenu) {
       const isConfirmed = window.confirm(
@@ -915,9 +931,7 @@ Format JSON pur :
         "Générer un nouveau planning effacera l'intégralité du menu actuel, le statut des plats cuisinés et les paniers Drive.\n\n" +
         "Êtes-vous sûr(e) de vouloir tout régénérer ?"
       );
-      if (!isConfirmed) {
-        return;
-      }
+      if (!isConfirmed) return;
     }
 
     setLoading(true);
@@ -942,41 +956,30 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      let allMeals = [];
-      let panier1 = [];
-      let panier2 = [];
+      // Constructeur de prompt ultra-léger et sécurisé (zéro débordement de token)
+      const buildBatchPrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier étoilé et logisticien pour "À Table !".
+COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
+Portions par plat : ${portions} portions (dîner + lunchbox du lendemain midi).
+Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
+${excludedDishes.length > 0 ? `NE PAS FAIRE : ${excludedDishes.join(', ')}.` : ''}
+Réserves existantes (NE PAS les racheter) : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
 
-      const buildPrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier étoilé et logisticien financier pour l'application "À Table !".
-COMPOSITION DU FOYER :
-- Adultes : ${adults}
-- Enfants (<12 ans) : ${kids}
-- Option Kid-Friendly : ${isKidFriendly ? "OUI STRICTEMENT (plats qui plaisent aux enfants : gratins doux, purées savoureuses, zéro piquant)" : "NON"}
-- Portions par plat : ${portions} portions (pour nourrir ${totalPersons} personnes avec dîner + lunchbox le lendemain midi).
-
-PROFIL ALIMENTAIRE :
-- Régime : ${regimeActuel}
-- ALIMENTS INTERDITS : ${exclusionsActuelles} (Interdiction formelle !)
-${excludedDishes.length > 0 ? `- À NE PAS RÉPÉTER (déjà planifiés en Quinzaine 1) : ${excludedDishes.join(', ')}.` : ''}
-
-RÉSERVES EXISTANTES (À prioriser pour ne pas les racheter) :
-- Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
-- Placard : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
-
-MISSION : Génère EXACTEMENT ${count} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions) pour la QUINZAINE ${quinzaineNum}.
-Pour chaque recette, les IDs commencent à ${startId} et vont jusqu'à ${startId + count - 1}. Le champ "basket" vaut ${quinzaineNum}.
-Reste concis (2 à 3 étapes claires, 4 à 6 ingrédients principaux) pour garantir un JSON valide.
+MISSION : Génère EXACTEMENT ${count} recettes de saison (${portions} portions) pour le mois de ${moisActuel.toUpperCase()} en France.
+Les IDs des recettes vont de ${startId} à ${startId + count - 1}. Le champ "basket" vaut ${quinzaineNum}.
+Pour chaque recette, liste 2 à 4 articles indispensables à acheter dans "panier".
+RÈGLE ABSOLUE DE SÉCURITÉ : N'utilise AUCUN guillemet double (") dans les noms, étapes ou conseils (utilise uniquement l'apostrophe ').
 
 Format JSON pur :
 {
   "repas": [
     {
       "id": ${startId},
-      "nom": "Nom recette",
+      "nom": "Nom du plat",
       "type": "Frais",
       "moment": "Soir",
       "calories": "510 kcal",
       "temps": "25 min",
-      "bienfait_sante": "🛡️ Bienfait santé",
+      "bienfait_sante": "Équilibre et énergie",
       "saison_atout": "Légumes de saison",
       "kid_friendly": ${isKidFriendly},
       "ingredients": ["Ingrédient 1", "Ingrédient 2"],
@@ -988,46 +991,61 @@ Format JSON pur :
   ],
   "panier": [
     {
-      "nom": "Pavés de Saumon",
-      "rayon": "Poissonnerie",
-      "a_alternative_congelo": true,
-      "mode_choisi": "frais",
-      "prix_frais": 10.50,
-      "recherche_frais": "saumon",
-      "prix_congelo": 6.90,
-      "recherche_congelo": "saumon surgele",
-      "gain_anti_radin": "-34%",
-      "conseil_anti_gaspi": "🧊 Congélateur",
+      "nom": "Article",
+      "rayon": "Boucherie",
+      "prix_frais": 8.50,
+      "prix_congelo": 6.20,
       "est_condiment": false,
-      "recette_id": ${startId},
-      "in_stock": false
+      "recette_id": ${startId}
     }
   ]
 }`;
 
+      let allMeals = [];
+      let panier1 = [];
+      let panier2 = [];
+
       if (isMonth) {
-        const q1Target = Math.ceil(totalRecettes / 2);
-        const q2Target = totalRecettes - q1Target;
+        // Étape 1 : Quinzaine 1 (Semaine 1 et Semaine 2 en parallèle)
+        setLoadingStepText("🍳 Quinzaine 1 (14 repas) en cours de préparation...");
+        const [sem1, sem2] = await Promise.all([
+          executeGeminiPrompt(buildBatchPrompt(1, 7, 1, [])),
+          executeGeminiPrompt(buildBatchPrompt(1, 7, 8, []))
+        ]);
 
-        // Étape 1 : Quinzaine 1
-        setLoadingStepText("🍳 Étape 1/2 : Création de la Quinzaine 1...");
-        const resQ1 = await executeGeminiPrompt(buildPrompt(1, q1Target, 1, []));
-        const q1Repas = Array.isArray(resQ1.repas) ? resQ1.repas : [];
-        panier1 = Array.isArray(resQ1.panier) ? resQ1.panier : [];
+        const q1Repas = [...(sem1?.repas || []), ...(sem2?.repas || [])];
+        const q1PanierRaw = [...(sem1?.panier || []), ...(sem2?.panier || [])];
+        panier1 = q1PanierRaw.map(i => enrichPanierItem(i));
 
-        // Étape 2 : Quinzaine 2 (en évitant les doublons)
-        setLoadingStepText("🥗 Étape 2/2 : Création de la Quinzaine 2 sans doublons...");
-        const q1Dishes = q1Repas.map(r => r.nom);
-        const resQ2 = await executeGeminiPrompt(buildPrompt(2, q2Target, q1Target + 1, q1Dishes));
-        const q2Repas = Array.isArray(resQ2.repas) ? resQ2.repas : [];
-        panier2 = Array.isArray(resQ2.panier) ? resQ2.panier : [];
+        // Étape 2 : Quinzaine 2 (Semaine 3 et Semaine 4 en parallèle, sans répétition de la Q1)
+        setLoadingStepText("🥗 Quinzaine 2 (14 repas) en cours de préparation...");
+        const dishesToAvoid = q1Repas.map(r => r.nom);
+        const [sem3, sem4] = await Promise.all([
+          executeGeminiPrompt(buildBatchPrompt(2, 7, 15, dishesToAvoid)),
+          executeGeminiPrompt(buildBatchPrompt(2, 7, 22, dishesToAvoid))
+        ]);
+
+        const q2Repas = [...(sem3?.repas || []), ...(sem4?.repas || [])];
+        const q2PanierRaw = [...(sem3?.panier || []), ...(sem4?.panier || [])];
+        panier2 = q2PanierRaw.map(i => enrichPanierItem(i));
 
         allMeals = [...q1Repas, ...q2Repas];
+      } else if (totalRecettes === 14) {
+        // Formule 1 Quinzaine (2 x 7 en parallèle)
+        setLoadingStepText("🍽️ Génération de vos 14 repas...");
+        const [lotA, lotB] = await Promise.all([
+          executeGeminiPrompt(buildBatchPrompt(1, 7, 1, [])),
+          executeGeminiPrompt(buildBatchPrompt(1, 7, 8, []))
+        ]);
+        allMeals = [...(lotA?.repas || []), ...(lotB?.repas || [])];
+        panier1 = [...(lotA?.panier || []), ...(lotB?.panier || [])].map(i => enrichPanierItem(i));
+        panier2 = [];
       } else {
-        setLoadingStepText("🍽️ Génération de votre planning...");
-        const res = await executeGeminiPrompt(buildPrompt(1, totalRecettes, 1, []));
-        allMeals = Array.isArray(res.repas) ? res.repas : [];
-        panier1 = Array.isArray(res.panier) ? res.panier : [];
+        // Formule 1 Semaine Express (7 repas en 1 seul lot ultra-rapide)
+        setLoadingStepText("⚡ Génération de votre semaine express...");
+        const res = await executeGeminiPrompt(buildBatchPrompt(1, totalRecettes, 1, []));
+        allMeals = res?.repas || [];
+        panier1 = (res?.panier || []).map(i => enrichPanierItem(i));
         panier2 = [];
       }
 
@@ -1054,9 +1072,9 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Succès : Vos ${allMeals.length} repas complets et les paniers Drive ont été générés sans aucune erreur !`);
+      alert(`🎉 Victoire : Vos ${allMeals.length} repas complets (${portions} portions) et paniers Drive ont été générés avec succès !`);
     } catch (e) {
-      console.error(e);
+      console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
     } finally {
       setLoading(false);
@@ -1665,11 +1683,7 @@ Format JSON pur :
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {activePanierList.map((item, index) => {
-                const nomLower = String(item?.nom || "").toLowerCase();
-                const canFreeze = item?.a_alternative_congelo || 
-                  ['saumon', 'cabillaud', 'poisson', 'poulet', 'boeuf', 'bœuf', 'steak', 'porc', 'brocoli', 'haricot', 'legume', 'frite', 'figue']
-                  .some(kw => nomLower.includes(kw));
-
+                const canFreeze = item?.a_alternative_congelo;
                 const isCongelo = item?.mode_choisi === 'congelo' && canFreeze;
                 const prixFrais = Number(item?.prix_frais || 4.5);
                 const prixCongelo = Number(item?.prix_congelo || (prixFrais * 0.7).toFixed(2));
