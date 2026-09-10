@@ -20,12 +20,12 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE AVEC ROTATION
+// 📸 BIBLIOTHÈQUE CULINAIRE 100 % ALIMENTAIRE SANS HORS-SUJET
 const PHOTO_LIBRARY = {
   poisson_blanc: [
     "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1579208030886-b937da0925dc?auto=format&fit=crop&w=700&q=80"
   ],
   saumon: [
     "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
@@ -45,12 +45,13 @@ const PHOTO_LIBRARY = {
   ],
   porc: [
     "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80"
   ],
   pates_lasagnes: [
     "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1619895092538-128341789043?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80"
   ],
   salade_bowl: [
     "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
@@ -59,7 +60,7 @@ const PHOTO_LIBRARY = {
   ],
   dahl_soupe: [
     "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1584278860047-22db9ff82bed?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1594756202469-9ff9799b2e4e?auto=format&fit=crop&w=700&q=80"
   ],
   burger: [
     "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
@@ -73,18 +74,20 @@ const PHOTO_LIBRARY = {
 
 function getRecipePhoto(dishName = "", recipeId = 1) {
   const name = String(dishName || "").toLowerCase();
-  const pick = (list) => (Array.isArray(list) && list.length > 0) ? list[Math.abs(Number(recipeId) || 0) % list.length] : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
+  const pick = (list) => (Array.isArray(list) && list.length > 0) 
+    ? list[Math.abs(Number(recipeId) || 0) % list.length] 
+    : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80";
 
-  if (name.includes("saumon")) return pick(PHOTO_LIBRARY.saumon);
-  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin")) return pick(PHOTO_LIBRARY.poisson_blanc);
-  if (name.includes("burger")) return pick(PHOTO_LIBRARY.burger);
-  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine")) return pick(PHOTO_LIBRARY.poulet);
-  if (name.includes("pâtes") || name.includes("gnocchi") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("risotto")) return pick(PHOTO_LIBRARY.pates_lasagnes);
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché")) return pick(PHOTO_LIBRARY.boeuf);
-  if (name.includes("porc") || name.includes("mignon")) return pick(PHOTO_LIBRARY.porc);
+  if (name.includes("saumon") || name.includes("truite")) return pick(PHOTO_LIBRARY.saumon);
+  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) return pick(PHOTO_LIBRARY.poisson_blanc);
+  if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap")) return pick(PHOTO_LIBRARY.burger);
+  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine") || name.includes("volaille")) return pick(PHOTO_LIBRARY.poulet);
+  if (name.includes("pâte") || name.includes("pâtes") || name.includes("penne") || name.includes("spaghetti") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("gnocchi") || name.includes("gratin")) return pick(PHOTO_LIBRARY.pates_lasagnes);
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché") || name.includes("parmentier") || name.includes("bourguignon")) return pick(PHOTO_LIBRARY.boeuf);
+  if (name.includes("porc") || name.includes("mignon") || name.includes("lardon") || name.includes("saucisse")) return pick(PHOTO_LIBRARY.porc);
   if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa") || name.includes("avocat") || name.includes("poke")) return pick(PHOTO_LIBRARY.salade_bowl);
-  if (name.includes("pizza") || name.includes("tarte") || name.includes("quiche")) return pick(PHOTO_LIBRARY.pizza_tarte);
-  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté") || name.includes("pois")) return pick(PHOTO_LIBRARY.dahl_soupe);
+  if (name.includes("pizza") || name.includes("tarte") || name.includes("quiche") || name.includes("flamm")) return pick(PHOTO_LIBRARY.pizza_tarte);
+  if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté") || name.includes("veloute") || name.includes("potage") || name.includes("pois")) return pick(PHOTO_LIBRARY.dahl_soupe);
 
   return pick(PHOTO_LIBRARY.salade_bowl);
 }
@@ -135,7 +138,8 @@ export default function App() {
   const [customBannedWord, setCustomBannedWord] = useState("");
   const [budgetInput, setBudgetInput] = useState(230);
   const [dureePlanning, setDureePlanning] = useState("1 Mois (2 Paniers)");
-  const [nbRecettes, setNbRecettes] = useState(14);
+  // Option A : 28 recettes pour 1 mois (14 en Q1 + 14 en Q2)
+  const [nbRecettes, setNbRecettes] = useState(28);
   const [typeRepasPlanifies, setTypeRepasPlanifies] = useState("Dîner + Lunchbox midi");
 
   // 👪 Composition familiale
@@ -188,7 +192,7 @@ export default function App() {
   async function loadFoyerData(code) {
     setLoading(true);
     try {
-      const { data: foyer, error } = await supabase
+      const { data: foyer } = await supabase
         .from('foyers')
         .select('*')
         .eq('code_foyer', code.trim().toUpperCase())
@@ -200,8 +204,17 @@ export default function App() {
         setSelectedRegime(foyer.regime_alimentaire || "Omnivore (Manger de tout)");
         setExclusionsInput(foyer.exclusions || "");
         setBudgetInput(foyer.budget_mensuel || 230);
-        setDureePlanning(foyer.duree_planning || "1 Mois (2 Paniers)");
-        setNbRecettes(foyer.nb_recettes || 14);
+        
+        const loadedDuree = foyer.duree_planning || "1 Mois (2 Paniers)";
+        setDureePlanning(loadedDuree);
+        
+        // Option A : Passage automatique à 28 recettes si c'est 1 Mois pour garantir 100 % de couverture
+        const defaultForDuree = loadedDuree.includes('Mois') ? 28 : loadedDuree.includes('Quinzaine') ? 14 : 7;
+        const loadedNbRecettes = (foyer.nb_recettes === 14 && loadedDuree.includes('Mois'))
+          ? 28 
+          : (foyer.nb_recettes || defaultForDuree);
+        
+        setNbRecettes(loadedNbRecettes);
         setTypeRepasPlanifies(foyer.type_repas_planifies || "Dîner + Lunchbox midi");
 
         setNbAdultes(foyer.nb_adultes !== undefined && foyer.nb_adultes !== null ? foyer.nb_adultes : 2);
@@ -246,7 +259,7 @@ export default function App() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('foyers').insert({
+      const { error } = await supabase.from('foyers').insert({
         code_foyer: code,
         nom_famille: newFoyerName,
         current_month: moisActuel,
@@ -370,10 +383,13 @@ export default function App() {
 
   async function autoSaveDuree(newDuree) {
     setDureePlanning(newDuree);
+    // Option A : Ajustement automatique du volume de recettes
+    const newNb = newDuree.includes('Mois') ? 28 : newDuree.includes('Quinzaine') ? 14 : 7;
+    setNbRecettes(newNb);
     if (!config) return;
-    setConfig(prev => ({ ...prev, duree_planning: newDuree }));
+    setConfig(prev => ({ ...prev, duree_planning: newDuree, nb_recettes: newNb }));
     try {
-      await supabase.from('foyers').update({ duree_planning: newDuree }).eq('id', config.id);
+      await supabase.from('foyers').update({ duree_planning: newDuree, nb_recettes: newNb }).eq('id', config.id);
     } catch (e) {
       console.error(e);
     }
@@ -388,7 +404,7 @@ export default function App() {
         exclusions: exclusionsInput,
         budget_mensuel: Number(budgetInput) || 230,
         duree_planning: dureePlanning,
-        nb_recettes: Number(nbRecettes) || 14,
+        nb_recettes: Number(nbRecettes) || 28,
         type_repas_planifies: typeRepasPlanifies,
         nb_adultes: Number(nbAdultes) || 2,
         nb_enfants: Number(nbEnfants) || 0,
@@ -403,7 +419,7 @@ export default function App() {
         exclusions: exclusionsInput,
         budget_mensuel: Number(budgetInput) || 230,
         duree_planning: dureePlanning,
-        nb_recettes: Number(nbRecettes) || 14,
+        nb_recettes: Number(nbRecettes) || 28,
         type_repas_planifies: typeRepasPlanifies,
         nb_adultes: Number(nbAdultes) || 2,
         nb_enfants: Number(nbEnfants) || 0,
@@ -883,7 +899,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION MENSUELLE SÉCURISÉE
+  // 🎯 GÉNÉRATION MENSUELLE SÉCURISÉE (OPTION A : COUVERTURE 100 %)
   async function generateWithGemini() {
     if (!config) return;
     setLoading(true);
@@ -900,7 +916,9 @@ Format JSON pur :
     const exclusionsActuelles = exclusionsInput || config.exclusions || 'Aucune';
     const budgetActuel = Number(budgetInput || config.budget_mensuel || 230);
     const duree = String(dureePlanning || config.duree_planning || "1 Mois (2 Paniers)");
-    const totalRecettes = Number(nbRecettes || config.nb_recettes || 14);
+    
+    const isMonth = duree.includes('Mois');
+    const totalRecettes = Number(nbRecettes || config.nb_recettes || (isMonth ? 28 : 14));
     const modeRepas = String(typeRepasPlanifies || config.type_repas_planifies || "Dîner + Lunchbox midi");
 
     const adults = Number(nbAdultes !== undefined ? nbAdultes : (config.nb_adultes ?? 2));
@@ -909,15 +927,14 @@ Format JSON pur :
     const totalPersons = adults + kids;
     const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-    const isMonth = duree.includes('Mois');
     const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
 
-    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier pour "À Table !".
+    const prompt = `Tu es un chef cuisinier étoilé et logisticien financier pour l'application "À Table !".
 COMPOSITION FAMILIALE OBLIGATOIRE :
 - Adultes : ${adults}
 - Enfants (<12 ans) : ${kids}
 - Option Kid-Friendly : ${isKidFriendly ? "OUI STRICTEMENT (Recettes qui plaisent aux enfants : légumes habilement intégrés en gratins/purées douces, zéro piment fort, saveurs réconfortantes)" : "NON"}
-- Portions par plat : ${portions} portions (pour nourrir ${totalPersons} personnes).
+- Portions par plat : ${portions} portions (pour nourrir ${totalPersons} personnes avec dîner + lunchbox le lendemain midi).
 
 PROFIL ALIMENTAIRE :
 - Régime : ${regimeActuel}
@@ -925,15 +942,17 @@ PROFIL ALIMENTAIRE :
 
 CADENCE :
 - Période : ${duree}
-- EXACTEMENT ${totalRecettes} RECETTES DANS "repas".
-${isMonth ? `- Répartition : Recettes 1 à ${q1Count} en Panier 1, Recettes ${q1Count + 1} à ${totalRecettes} en Panier 2.` : `- Toutes les recettes ont "basket": 1.`}
+- EXACTEMENT ${totalRecettes} RECETTES DANS "repas" (pour couvrir 100% des jours du cycle).
+${isMonth ? `- Répartition : Recettes 1 à ${q1Count} avec "basket": 1 (Quinzaine 1), Recettes ${q1Count + 1} à ${totalRecettes} avec "basket": 2 (Quinzaine 2).` : `- Toutes les recettes ont "basket": 1.`}
 
 RÉSERVES DU FOYER :
 - Congélateur : ${stocksCongelo.length ? stocksCongelo.join(', ') : 'Aucun'}
 - Placard : ${stocksPlacard.length ? stocksPlacard.join(', ') : 'Aucun'}
 Utilise ces réserves en priorité et NE LES COMMANDE PAS au Drive !
 
+RÈGLE DE FORMAT : Reste concis (2 à 3 étapes courtes par recette, 4 à 6 ingrédients principaux) afin que le JSON soit complet et valide sans tronquage.
 Génère ${totalRecettes} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions).
+
 Format JSON pur :
 {
   "repas": [
@@ -995,7 +1014,10 @@ Format JSON pur :
       try {
         const model = genAI.getGenerativeModel({ 
           model: "gemini-3.6-flash",
-          generationConfig: { responseMimeType: "application/json" }
+          generationConfig: { 
+            responseMimeType: "application/json",
+            maxOutputTokens: 8192
+          }
         });
         const result = await model.generateContent(prompt);
         responseText = result.response.text();
@@ -1003,7 +1025,10 @@ Format JSON pur :
         console.warn("Modèle 3.6 saturé, bascule sur 3.5...", err);
         const fallback = genAI.getGenerativeModel({ 
           model: "gemini-3.5-flash",
-          generationConfig: { responseMimeType: "application/json" }
+          generationConfig: { 
+            responseMimeType: "application/json",
+            maxOutputTokens: 8192
+          }
         });
         const result = await fallback.generateContent(prompt);
         responseText = result.response.text();
@@ -1034,7 +1059,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       loadFoyerData(foyerCode);
-      alert(`Menu généré pour ${adults} adulte(s) et ${kids} enfant(s) (${isKidFriendly ? '🧸 Kid-Friendly' : ''}) !`);
+      alert(`🎉 Planning de ${totalRecettes} repas généré avec succès (${portions} portions par repas pour couvrir 100% du mois) !`);
     } catch (e) {
       console.error(e);
       alert("Erreur de génération : " + e.message);
@@ -1177,7 +1202,7 @@ Format JSON pur :
 
   const currentDuree = String(dureePlanning || config?.duree_planning || "1 Mois (2 Paniers)");
   const isPlanningMonth = currentDuree.includes('Mois');
-  const targetNbRecettes = Number(nbRecettes || config?.nb_recettes || 14);
+  const targetNbRecettes = Number(nbRecettes || config?.nb_recettes || (isPlanningMonth ? 28 : 14));
   const q1Threshold = isPlanningMonth ? Math.ceil(targetNbRecettes / 2) : targetNbRecettes;
 
   const menuList = Array.isArray(config?.menu_json) ? config.menu_json : [];
@@ -1282,7 +1307,7 @@ Format JSON pur :
                 activeBasket === 1 ? 'bg-white text-[#C25E3E] shadow-sm' : 'text-stone-500 hover:text-stone-700'
               }`}
             >
-              Quinzaine 1 (Sem. 1 & 2)
+              Quinzaine 1 (14 Repas)
             </button>
             <button
               onClick={() => setActiveBasket(2)}
@@ -1290,7 +1315,7 @@ Format JSON pur :
                 activeBasket === 2 ? 'bg-white text-[#C25E3E] shadow-sm' : 'text-stone-500 hover:text-stone-700'
               }`}
             >
-              Quinzaine 2 (Sem. 3 & 4)
+              Quinzaine 2 (14 Repas)
             </button>
           </div>
         )}
@@ -1321,7 +1346,7 @@ Format JSON pur :
                     🎯 {targetNbRecettes} repas • {nbAdultes} Adulte(s) {nbEnfants > 0 && `• ${nbEnfants} Enfant(s)`}
                   </span>
                   <p className="text-[11px] text-stone-500 mt-0.5">
-                    {targetPortions} pers. par plat {optionEnfants && '• Mode Kid-Friendly 🧸'}
+                    {targetPortions} pers. par plat (Dîner + Lunchbox) {optionEnfants && '• Mode Kid-Friendly 🧸'}
                   </p>
                 </div>
                 <button
@@ -1414,7 +1439,7 @@ Format JSON pur :
                 {isPlanningMonth ? `Repas de la Quinzaine ${activeBasket}` : `Repas du cycle (${currentDuree})`}
               </h2>
               <span className="text-xs text-emerald-700 font-black bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers. {optionEnfants && '🧸'}
+                {mealsForActiveQuinzaine.length} Recettes • {targetPortions} pers. • 100% des jours couverts
               </span>
             </div>
 
@@ -1819,7 +1844,7 @@ Format JSON pur :
               <button
                 onClick={() => setStockTab('placard')}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
-                  stockTab === 'placard' ? 'bg-white text-amber-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+                  stockTab === 'placard' ? 'bg-amber-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
               >
                 <span>🥫</span> Placard & Épicerie ({safeStockList.filter(i => i.emplacement === 'placard').length})
@@ -2045,7 +2070,7 @@ Format JSON pur :
                     </h3>
                     <div className="grid grid-cols-1 gap-2">
                       {[
-                        { id: 'Dîner + Lunchbox midi', icon: '🥡', desc: 'Dîner le soir + Lunchbox le lendemain (La formule éco)' },
+                        { id: 'Dîner + Lunchbox midi', icon: '🥡', desc: 'Dîner le soir + Lunchbox le lendemain (Couverture quotidienne)' },
                         { id: 'Midi & Soir (Deux repas par jour)', icon: '☀️🌙', desc: 'Des recettes différentes pour le midi et pour le soir' },
                         { id: 'Dîner uniquement (Soir)', icon: '🌙', desc: 'Uniquement les repas du soir' }
                       ].map(m => (
@@ -2071,14 +2096,14 @@ Format JSON pur :
                   {/* Cadence */}
                   <div className="bg-white p-5 md:p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-wider text-stone-700">
-                      3. Rythme & Nombre de Recettes
+                      3. Rythme & Nombre de Recettes (Option A)
                     </h3>
                     
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois' },
-                        { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine' },
-                        { id: '1 Semaine Express', icon: '⚡', label: '1 Semaine' }
+                        { id: '1 Mois (2 Paniers)', icon: '📅', label: '1 Mois (28 repas)' },
+                        { id: '1 Quinzaine (1 Panier)', icon: '🗓️', label: '1 Quinzaine (14 repas)' },
+                        { id: '1 Semaine Express', icon: '⚡', label: '1 Semaine (7 repas)' }
                       ].map(d => (
                         <button
                           key={d.id}
@@ -2099,13 +2124,15 @@ Format JSON pur :
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <label className="text-xs font-bold text-stone-600">Nombre de Recettes</label>
-                        <span className="text-sm font-black text-[#C25E3E]">{nbRecettes} recettes</span>
+                        <span className="text-sm font-black text-[#C25E3E]">
+                          {nbRecettes} recettes {isPlanningMonth && `(soit ${Math.ceil(nbRecettes / 2)} / quinzaine)`}
+                        </span>
                       </div>
                       <input
                         type="range"
-                        min="4"
-                        max="14"
-                        step="1"
+                        min={dureePlanning.includes('Mois') ? 14 : 4}
+                        max={dureePlanning.includes('Mois') ? 28 : dureePlanning.includes('Quinzaine') ? 14 : 7}
+                        step={dureePlanning.includes('Mois') ? 2 : 1}
                         value={nbRecettes}
                         onChange={(e) => setNbRecettes(Number(e.target.value))}
                         className="w-full accent-[#C25E3E]"
@@ -2205,7 +2232,7 @@ Format JSON pur :
                     <input
                       type="range"
                       min="150"
-                      max="400"
+                      max="500"
                       step="10"
                       value={budgetInput}
                       onChange={(e) => setBudgetInput(Number(e.target.value))}
