@@ -60,14 +60,13 @@ function safeParseGeminiJSON(rawText) {
   }
 }
 
-// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier propre à partir des articles de supermarché
+// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier avec NOMS et QUANTITÉS RÉELLES
 function buildPanierFromRecipes(recipes) {
   const panier = [];
   const seen = new Set();
 
   (Array.isArray(recipes) ? recipes : []).forEach(recipe => {
     const rId = recipe?.id || 1;
-    // Priorité absolue aux noms propres de produits "drive" générés par l'IA
     const rawItems = Array.isArray(recipe?.drive) && recipe.drive.length > 0 
       ? recipe.drive 
       : Array.isArray(recipe?.ingredients_drive) && recipe.ingredients_drive.length > 0
@@ -75,15 +74,25 @@ function buildPanierFromRecipes(recipes) {
       : (recipe?.ingredients || []);
 
     rawItems.forEach(rawItem => {
-      if (!rawItem || typeof rawItem !== 'string') return;
+      if (!rawItem) return;
+
+      let nom = "";
+      let quantite = "";
+
+      if (typeof rawItem === 'object' && rawItem !== null) {
+        nom = String(rawItem.nom || "").trim();
+        quantite = String(rawItem.quantite || "").trim();
+      } else if (typeof rawItem === 'string') {
+        nom = rawItem.trim();
+      }
 
       // Nettoyage de sécurité
-      let cleanNom = rawItem
+      let cleanNom = nom
         .replace(/^\d+[\s\w\.\,\/°\-]*\b(de|d'|g|kg|ml|cl|l|c\.à\.s|c\.à\.c|cuillères?|tranches?|filets?|gousses?|pincée|bocal|brique)?\s+/i, "")
         .replace(/\b(à soupe|à café|de qualité)\b/gi, "")
         .trim();
       
-      if (!cleanNom || cleanNom.length < 2) cleanNom = rawItem.trim();
+      if (!cleanNom || cleanNom.length < 2) cleanNom = nom;
       cleanNom = cleanNom.charAt(0).toUpperCase() + cleanNom.slice(1);
 
       const key = cleanNom.toLowerCase();
@@ -111,6 +120,7 @@ function buildPanierFromRecipes(recipes) {
 
       panier.push({
         nom: cleanNom,
+        quantite: quantite,
         rayon: rayon,
         a_alternative_congelo: canFreeze,
         mode_choisi: 'frais',
@@ -818,7 +828,8 @@ export default function App() {
 ENVIE DU FOYER : "${envie}".
 COMPOSITION : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${optionEnfants ? "OUI" : "NON"}.
 Portions : ${portions} personnes. Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || 'Aucun'}.
-CONSIGNE DRIVE : Dans "drive", liste 3 à 5 NOMS PURS DE PRODUITS à acheter au supermarché (ex: "Crème fraîche", "Huile d'olive", "Riz basmati", "Pavés de saumon"). Sans les quantités !
+CONSIGNE DRIVE AVEC QUANTITÉS (${portions} pers.) :
+Dans "drive", liste 3 à 5 articles avec le nom pur et la quantité d'achat concrète.
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -834,7 +845,10 @@ Format JSON pur :
     "saison_atout": "Ingrédients de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
-    "drive": ["Produit 1", "Produit 2"],
+    "drive": [
+      {"nom": "Produit 1", "quantite": "500g"},
+      {"nom": "Produit 2", "quantite": "1 pot (20cl)"}
+    ],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
     "basket": ${activeBasket},
@@ -894,7 +908,8 @@ Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
 COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants. Total ${portions} portions.
 Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}. Régime : ${regimeActuel}. Bannis : ${exclusionsInput || 'Aucun'}.
 Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
-CONSIGNE DRIVE : Dans "drive", liste 3 à 5 NOMS PURS DE PRODUITS à acheter au supermarché (ex: "Crème fraîche", "Huile d'olive", "Riz arborio"). Sans les quantités !
+CONSIGNE DRIVE AVEC QUANTITÉS (${portions} pers.) :
+Dans "drive", liste 3 à 5 articles avec le nom pur et la quantité d'achat concrète.
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -910,7 +925,10 @@ Format JSON pur :
     "saison_atout": "Légumes de saison",
     "kid_friendly": ${optionEnfants},
     "ingredients": ["Ingrédient 1", "Ingrédient 2"],
-    "drive": ["Produit 1", "Produit 2"],
+    "drive": [
+      {"nom": "Produit 1", "quantite": "500g"},
+      {"nom": "Produit 2", "quantite": "1 sachet (100g)"}
+    ],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
     "basket": ${targetBasket},
@@ -958,7 +976,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE AVEC EXTRACTION CHIRURGICALE DU BLOC JSON
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE : NOMS PURS + QUANTITÉS CONCRÈTES D'ACHAT
   async function generateWithGemini() {
     if (!config) return;
 
@@ -996,10 +1014,10 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt ultra-léger (~3500 caractères) avec noms de produits de supermarché propres dans "drive"
+      // Prompt ultra-léger (~4000 caractères) avec noms de produits ET quantités réelles pour le foyer
       const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour l'application "À Table !".
-COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
-Portions par plat : ${portions} portions (dîner + lunchbox le lendemain midi).
+COMPOSITION DU FOYER : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
+Portions par plat : ${portions} portions (dîner du soir + lunchbox le lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
 ${excludedDishes.length > 0 ? `NE PAS FAIRE (déjà planifiés) : ${excludedDishes.join(', ')}.` : ''}
 Réserves existantes à privilégier : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
@@ -1007,9 +1025,14 @@ Réserves existantes à privilégier : Congélateur : ${stocksCongelo.join(', ')
 MISSION : Génère EXACTEMENT ${count} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions) pour la Quinzaine ${quinzaineNum}.
 Les IDs vont de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
 
-CONSIGNE DRIVE OBLIGATOIRE :
-Dans chaque recette, ajoute "drive" : une liste de 3 à 5 NOMS PURS DE PRODUITS à acheter en magasin Drive (ex: "Crème fraîche", "Riz arborio", "Huile d'olive", "Pavés de saumon", "Parmesan râpé", "Bouillon de légumes").
-N'inclus JAMAIS les unités ou quantités dans "drive" (écris "Huile d'olive" et PAS "2 c.à.s d'huile d'olive").
+CONSIGNE DRIVE AVEC QUANTITÉS CONCRÈTES D'ACHAT (POUR ${portions} PORTIONS) :
+Dans chaque recette, ajoute "drive" : une liste de 3 à 5 articles indispensables avec le nom de produit pur et la quantité d'achat concrète pour nourrir ${totalPersons} personnes (${portions} portions).
+Exemples :
+- {"nom": "Pavés de saumon", "quantite": "4 pavés (~500g)"}
+- {"nom": "Crème fraîche", "quantite": "1 pot (20cl)"}
+- {"nom": "Riz arborio", "quantite": "500g"}
+- {"nom": "Courgettes", "quantite": "3 pièces"}
+- {"nom": "Huile d'olive", "quantite": "1 bouteille"}
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les noms, étapes ou conseils (utilise l'apostrophe ').
 
 Format JSON pur :
@@ -1026,7 +1049,11 @@ Format JSON pur :
       "saison_atout": "Légumes de saison",
       "kid_friendly": ${isKidFriendly},
       "ingredients": ["250g de riz arborio", "60g de parmesan râpé", "2 c.à.s d'huile d'olive"],
-      "drive": ["Riz arborio", "Parmesan râpé", "Huile d'olive"],
+      "drive": [
+        {"nom": "Riz arborio", "quantite": "500g"},
+        {"nom": "Parmesan râpé", "quantite": "1 sachet (100g)"},
+        {"nom": "Huile d'olive", "quantite": "1 bouteille"}
+      ],
       "etapes": ["Étape 1", "Étape 2"],
       "conseil": "Astuce chef",
       "basket": ${quinzaineNum},
@@ -1104,7 +1131,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive propres ont été générés avec succès !`);
+      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive avec quantités précises ont été générés avec succès !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
@@ -1775,11 +1802,22 @@ Format JSON pur :
                             </span>
                           </div>
 
-                          <span className={`text-sm font-extrabold block truncate ${
-                            item?.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
-                          }`}>
-                            {item?.nom}
-                          </span>
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className={`text-sm font-extrabold ${
+                              item?.in_stock ? 'line-through text-stone-400' : 'text-stone-900'
+                            }`}>
+                              {item?.nom}
+                            </span>
+                            {item?.quantite && (
+                              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border ${
+                                item?.in_stock 
+                                  ? 'bg-stone-200/60 text-stone-500 border-stone-300'
+                                  : 'bg-amber-100/70 text-amber-900 border-amber-300/70'
+                              }`}>
+                                📦 {item.quantite}
+                              </span>
+                            )}
+                          </div>
 
                           {item?.in_stock && (
                             <span className="text-[10px] font-bold text-emerald-700 uppercase">
