@@ -20,6 +20,43 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
+// Normalisation lexicale pour la réconciliation intelligente stocks <-> recettes
+function normalizeFoodTerm(term) {
+  if (!term || typeof term !== 'string') return "";
+  return term
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
+    .replace(/\b\d+[\s\w]*(g|kg|ml|cl|l|boites?|bocaux|sachets?|tranches?|pieces?|gousses?)\b/gi, "") // Supprime les quantités (ex: 500g, 1kg)
+    .replace(/\b(de|d|le|la|les|du|des|un|une|frais|fraiche|surgel[eé]|bio|nature|extra)\b/gi, "")
+    .replace(/[^a-z]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Vérifie si un produit de stock correspond à un ingrédient du panier (gère singulier/pluriel, grammages)
+function isStockMatch(stockName = "", itemName = "") {
+  const sNorm = normalizeFoodTerm(stockName);
+  const iNorm = normalizeFoodTerm(itemName);
+  if (!sNorm || !iNorm) return false;
+
+  if (sNorm === iNorm) return true;
+
+  const sStem = sNorm.replace(/[sx]$/, "");
+  const iStem = iNorm.replace(/[sx]$/, "");
+  if (sStem === iStem) return true;
+
+  const sWords = sNorm.split(" ").filter(w => w.length >= 3);
+  const iWords = iNorm.split(" ").filter(w => w.length >= 3);
+
+  return sWords.some(sw => {
+    const swS = sw.replace(/[sx]$/, "");
+    return iWords.some(iw => {
+      const iwS = iw.replace(/[sx]$/, "");
+      return swS === iwS;
+    });
+  });
+}
+
 // Nettoyage, extraction chirurgicale et auto-réparation de coupure JSON
 function safeParseGeminiJSON(rawText) {
   if (!rawText || typeof rawText !== 'string') throw new Error("Réponse vide de l'IA");
@@ -55,8 +92,8 @@ function safeParseGeminiJSON(rawText) {
   }
 }
 
-// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier avec NOMS et QUANTITÉS RÉELLES
-function buildPanierFromRecipes(recipes) {
+// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier avec NOMS, QUANTITÉS et DÉTECTION DU STOCK MAISON
+function buildPanierFromRecipes(recipes, activeStocks = []) {
   const panier = [];
   const seen = new Set();
 
@@ -103,6 +140,11 @@ function buildPanierFromRecipes(recipes) {
       const canFreeze = isFish || isMeat || /haricot|brocoli|légume|frite|épinard|poivron/i.test(nomLower);
       const prixCongelo = canFreeze ? +(prixFrais * 0.68).toFixed(2) : prixFrais;
 
+      // 🔍 VÉRIFICATION DIRECTE DANS LES RÉSERVES DU FOYER
+      const isInStock = (Array.isArray(activeStocks) ? activeStocks : []).some(
+        s => !s.est_consomme && (s.quantite || 0) > 0 && isStockMatch(s.nom_produit, cleanNom)
+      );
+
       panier.push({
         nom: cleanNom,
         quantite: quantite,
@@ -117,12 +159,33 @@ function buildPanierFromRecipes(recipes) {
         conseil_anti_gaspi: canFreeze ? "🧊 Format congélateur économique" : "🌿 À consommer frais",
         est_condiment: isCondiment,
         recette_id: rId,
-        in_stock: false
+        in_stock: isInStock
       });
     });
   });
 
   return panier;
+}
+
+// 🔄 Synchronisation dynamique d'un panier existant avec les stocks réels
+function reconcilePanierWithStocks(panierJson, stocks) {
+  if (!panierJson || !Array.isArray(stocks)) return panierJson;
+  const safeStocks = stocks.filter(s => !s.est_consomme && (s.quantite || 0) > 0);
+  const updated = { ...panierJson };
+
+  ['p1', 'p2'].forEach(key => {
+    if (Array.isArray(updated[key])) {
+      updated[key] = updated[key].map(item => {
+        const hasStock = safeStocks.some(s => isStockMatch(s.nom_produit, item.nom));
+        return {
+          ...item,
+          in_stock: item.in_stock || hasStock
+        };
+      });
+    }
+  });
+
+  return updated;
 }
 
 // 📸 BIBLIOTHÈQUE CULINAIRE 100 % ALIMENTAIRE (SANS HORS-SUJET)
@@ -206,7 +269,7 @@ function getProductThumbnail(productName = "", rayon = "") {
   if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) return "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=160&q=80";
   if (p.includes("curry") || p.includes("coriandre") || p.includes("épice") || p.includes("herbe") || p.includes("sel") || p.includes("poivre")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=160&q=80";
   if (p.includes("huile") || p.includes("vinaigre") || p.includes("sauce") || p.includes("moutarde")) return "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve")) return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve") || p.includes("lasagne")) return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
   return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80";
 }
 
@@ -331,12 +394,6 @@ export default function App() {
         .single();
 
       if (foyer) {
-        setConfig(foyer);
-        setCravingInput(foyer.cravings || "");
-        setSelectedRegime(foyer.regime_alimentaire || "Omnivore (Manger de tout)");
-        setExclusionsInput(foyer.exclusions || "");
-        setBudgetInput(foyer.budget_mensuel || 230);
-        
         const loadedDuree = foyer.duree_planning || "1 Mois (2 Paniers)";
         setDureePlanning(loadedDuree);
         
@@ -347,6 +404,10 @@ export default function App() {
         
         setNbRecettes(loadedNbRecettes);
         setTypeRepasPlanifies(foyer.type_repas_planifies || "Dîner + Lunchbox midi");
+        setCravingInput(foyer.cravings || "");
+        setSelectedRegime(foyer.regime_alimentaire || "Omnivore (Manger de tout)");
+        setExclusionsInput(foyer.exclusions || "");
+        setBudgetInput(foyer.budget_mensuel || 230);
 
         setNbAdultes(foyer.nb_adultes !== undefined && foyer.nb_adultes !== null ? foyer.nb_adultes : 2);
         setNbEnfants(foyer.nb_enfants !== undefined && foyer.nb_enfants !== null ? foyer.nb_enfants : 1);
@@ -362,7 +423,12 @@ export default function App() {
           .eq('est_consomme', false)
           .order('created_at', { ascending: false });
 
-        setStockList(Array.isArray(stocks) ? stocks : []);
+        const safeStocks = Array.isArray(stocks) ? stocks : [];
+        setStockList(safeStocks);
+
+        // 🔄 Réconciliation automatique du panier avec les stocks dès le chargement
+        const reconciledPanier = reconcilePanierWithStocks(foyer.panier_json, safeStocks);
+        setConfig({ ...foyer, panier_json: reconciledPanier });
       } else {
         setConfig(null);
       }
@@ -585,10 +651,17 @@ export default function App() {
       }).select().single();
 
       if (data) {
-        setStockList(prev => [data, ...prev]);
+        const updatedStocks = [data, ...stockList];
+        setStockList(updatedStocks);
         setNewItemName("");
         setNewItemQty(1);
-        alert(`✅ "${data.nom_produit}" ajouté à vos réserves !`);
+
+        // Réconcilie immédiatement le panier existant avec le nouvel ingrédient ajouté
+        const reconciledPanier = reconcilePanierWithStocks(config.panier_json, updatedStocks);
+        setConfig(prev => ({ ...prev, panier_json: reconciledPanier }));
+        await supabase.from('foyers').update({ panier_json: reconciledPanier }).eq('id', config.id);
+
+        alert(`✅ "${data.nom_produit}" ajouté à vos réserves et synchronisé avec vos courses !`);
       }
     } catch (err) {
       console.error(err);
@@ -597,13 +670,15 @@ export default function App() {
 
   async function adjustStockQty(item, delta) {
     const newQty = (item.quantite || 1) + delta;
+    let updatedStocks;
     if (newQty <= 0) {
       await supabase.from('inventaire_congelateur').update({ est_consomme: true, quantite: 0 }).eq('id', item.id);
-      setStockList(prev => prev.filter(i => i.id !== item.id));
+      updatedStocks = stockList.filter(i => i.id !== item.id);
     } else {
       await supabase.from('inventaire_congelateur').update({ quantite: newQty, est_consomme: false }).eq('id', item.id);
-      setStockList(prev => prev.map(i => i.id === item.id ? { ...i, quantite: newQty } : i));
+      updatedStocks = stockList.map(i => i.id === item.id ? { ...i, quantite: newQty } : i);
     }
+    setStockList(updatedStocks);
   }
 
   async function rescueToFreezer(productName, originInfo = "Sauvetage Frigo") {
@@ -629,7 +704,7 @@ export default function App() {
     }
   }
 
-  // 👨‍🍳 VALIDATION & ANNULATION DU PLAT CUISINÉ (AVEC RESTITUTION)
+  // 👨‍🍳 VALIDATION & ANNULATION DU PLAT CUISINÉ (AVEC DÉCOMPTE PRÉCIS DES STOCKS)
   async function toggleRecipeCooked(recipeId, moment = null, e) {
     if (e) e.stopPropagation();
     if (!config) return;
@@ -654,12 +729,14 @@ export default function App() {
     });
 
     if (newCookedStatus && targetRecipe && Array.isArray(targetRecipe.ingredients)) {
-      const ingredientsText = targetRecipe.ingredients.map(ing => typeof ing === 'object' ? `${ing.qte || ''} ${ing.nom || ''}` : ing).join(" ").toLowerCase();
-
       for (const stockItem of stockList) {
         if (!stockItem.est_consomme && stockItem.quantite > 0) {
-          const stockNameLower = String(stockItem.nom_produit || "").toLowerCase();
-          if (stockNameLower && (ingredientsText.includes(stockNameLower) || stockNameLower.includes(cleanDriveTerm(stockNameLower)))) {
+          const isMatch = targetRecipe.ingredients.some(ing => {
+            const ingNom = typeof ing === 'object' ? ing.nom : ing;
+            return isStockMatch(stockItem.nom_produit, ingNom);
+          });
+
+          if (isMatch) {
             await adjustStockQty(stockItem, -1);
             deductedItems.push({ id: stockItem.id, nom: stockItem.nom_produit, emplacement: stockItem.emplacement });
           }
@@ -815,7 +892,7 @@ COMPOSITION : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${opti
 Portions : ${portions} personnes. Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || 'Aucun'}.
 
 RÈGLE DES INGRÉDIENTS (POUR ${portions} PORTIONS) :
-Chaque ingrédient doit être un objet : {"nom": "Nom produit pur pour le drive", "qte": "Quantité précise d'achat"}.
+Chaque ingrédient doit être un objet : {"nom": "Nom produit pur", "qte": "Quantité précise d'achat"}.
 Exemples :
 - {"nom": "Pavés de saumon", "qte": "4 pavés (~500g)"}
 - {"nom": "Riz arborio", "qte": "500g"}
@@ -856,7 +933,8 @@ Format JSON pur :
         updatedMenu.push(newRecipe);
       }
 
-      const generatedDriveItems = buildPanierFromRecipes([newRecipe]);
+      const activeStocks = stockList.filter(s => !s.est_consomme && (s.quantite || 0) > 0);
+      const generatedDriveItems = buildPanierFromRecipes([newRecipe], activeStocks);
       const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
       const updatedPanierJson = {
         ...(config.panier_json || {}),
@@ -901,7 +979,7 @@ Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}. Régime : ${regimeActuel}. Ba
 Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
 
 RÈGLE DES INGRÉDIENTS (POUR ${portions} PORTIONS) :
-Chaque ingrédient doit être un objet : {"nom": "Nom produit pur pour le drive", "qte": "Quantité précise d'achat"}.
+Chaque ingrédient doit être un objet : {"nom": "Nom produit pur", "qte": "Quantité précise d'achat"}.
 RÈGLES DE CONCISION :
 - "etapes": EXACTEMENT 2 étapes courtes.
 - N'utilise AUCUN guillemet double (") dans les textes.
@@ -938,7 +1016,9 @@ Format JSON pur :
 
       const currentBasketList = Array.isArray(config.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
       const cleanedBasket = currentBasketList.filter(item => item.recette_id !== recipeToSwap.id);
-      const replacementDriveItems = buildPanierFromRecipes([newRecipe]);
+      
+      const activeStocks = stockList.filter(s => !s.est_consomme && (s.quantite || 0) > 0);
+      const replacementDriveItems = buildPanierFromRecipes([newRecipe], activeStocks);
 
       const updatedPanierJson = {
         ...(config.panier_json || {}),
@@ -969,7 +1049,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE : INGRÉDIENTS UNIFIÉS {NOM, QTE} ULTRA-LÉGERS
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE : DÉTECTION PRÉCISE DES STOCKS EXISTANTS DÈS LE DÉPART
   async function generateWithGemini() {
     if (!config) return;
 
@@ -1007,13 +1087,13 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt ultra-léger (~4 500 caractères) avec tableau unifié d'ingrédients {nom, qte}
+      // Prompt avec consignes nettes sur les réserves à privilégier
       const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour "À Table !".
 COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
 Portions : ${portions} portions (dîner + lunchbox du lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
 ${excludedDishes.length > 0 ? `NE PAS FAIRE (déjà planifiés) : ${excludedDishes.join(', ')}.` : ''}
-Réserves existantes : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
+Réserves existantes du foyer : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
 
 MISSION : Génère EXACTEMENT ${count} recettes (${portions} portions) pour le mois de ${moisActuel.toUpperCase()} en France (Quinzaine ${quinzaineNum}).
 IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
@@ -1027,7 +1107,7 @@ Exemples :
 - {"nom": "Courgettes", "qte": "2 pièces"}
 - {"nom": "Huile d'olive", "qte": "1 bouteille"}
 
-RÈGLES DE CONCISION OBLIGATOIRES (POUR ÉVITER LA COUPE) :
+RÈGLES DE CONCISION :
 - "etapes": EXACTEMENT 2 étapes courtes et directes.
 - N'utilise AUCUN guillemet double (") dans les textes.
 
@@ -1070,7 +1150,7 @@ Format JSON pur :
         ]);
 
         const q1Repas = [...(sem1?.repas || []), ...(sem2?.repas || [])];
-        panier1 = buildPanierFromRecipes(q1Repas);
+        panier1 = buildPanierFromRecipes(q1Repas, stocksActifs);
 
         // Quinzaine 2 (Semaines 3 & 4 en parallèle, sans répétition)
         setLoadingStepText("🥗 Quinzaine 2 (14 repas) en cours de préparation...");
@@ -1081,7 +1161,7 @@ Format JSON pur :
         ]);
 
         const q2Repas = [...(sem3?.repas || []), ...(sem4?.repas || [])];
-        panier2 = buildPanierFromRecipes(q2Repas);
+        panier2 = buildPanierFromRecipes(q2Repas, stocksActifs);
 
         allMeals = [...q1Repas, ...q2Repas];
       } else if (totalRecettes === 14) {
@@ -1092,14 +1172,14 @@ Format JSON pur :
           executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
         ]);
         allMeals = [...(lotA?.repas || []), ...(lotB?.repas || [])];
-        panier1 = buildPanierFromRecipes(allMeals);
+        panier1 = buildPanierFromRecipes(allMeals, stocksActifs);
         panier2 = [];
       } else {
         // 1 Semaine Express
         setLoadingStepText("⚡ Génération de votre semaine express...");
         const res = await executeGeminiPrompt(buildPureRecipePrompt(1, totalRecettes, 1, []));
         allMeals = res?.repas || [];
-        panier1 = buildPanierFromRecipes(allMeals);
+        panier1 = buildPanierFromRecipes(allMeals, stocksActifs);
         panier2 = [];
       }
 
@@ -1126,7 +1206,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive avec quantités précises ont été générés avec succès !`);
+      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive réconciliés avec vos réserves ont été générés avec succès !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
