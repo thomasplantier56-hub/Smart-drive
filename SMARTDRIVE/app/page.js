@@ -20,43 +20,38 @@ function cleanDriveTerm(text) {
     .trim();
 }
 
-// Nettoyage et extraction chirurgicale du JSON (ignore tout texte avant { ou après })
+// Nettoyage, extraction chirurgicale et auto-réparation de coupure JSON
 function safeParseGeminiJSON(rawText) {
   if (!rawText || typeof rawText !== 'string') throw new Error("Réponse vide de l'IA");
   
   let cleaned = rawText.trim();
   
-  // 1. Isoler strictement le bloc entre le premier '{' et la dernière '}'
   const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-  } else if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.replace(/^```json\s*/, "").replace(/\s*```[\s\S]*$/, "");
-  } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```[\s\S]*$/, "");
+  if (firstBrace !== -1) {
+    cleaned = cleaned.substring(firstBrace);
   }
-
-  // 2. Supprime les virgules orphelines avant la fermeture d'un objet ou d'un tableau
+  
+  cleaned = cleaned.replace(/```[\s\S]*$/, "").trim();
   cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
 
   try {
     return JSON.parse(cleaned);
   } catch (err) {
-    console.warn("Tentative de réparation du JSON...", err.message);
-    let repaired = cleaned;
-    const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
-    if (quoteCount % 2 !== 0) repaired += '"';
-    const openBraces = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
-    const openBrackets = (repaired.match(/\[/g) || []).length - (repaired.match(/]/g) || []).length;
-    for (let i = 0; i < openBrackets; i++) repaired += ']';
-    for (let i = 0; i < openBraces; i++) repaired += '}';
-    try {
-      return JSON.parse(repaired);
-    } catch (e2) {
-      throw err;
+    console.warn("Auto-réparation du JSON tronqué...", err.message);
+    const lastValidObj = cleaned.lastIndexOf('}');
+    if (lastValidObj !== -1) {
+      let trimmed = cleaned.substring(0, lastValidObj + 1);
+      const openBrackets = (trimmed.match(/\[/g) || []).length - (trimmed.match(/\]/g) || []).length;
+      const openBraces = (trimmed.match(/{/g) || []).length - (trimmed.match(/}/g) || []).length;
+      for (let i = 0; i < openBrackets; i++) trimmed += ']';
+      for (let i = 0; i < openBraces; i++) trimmed += '}';
+      try {
+        return JSON.parse(trimmed);
+      } catch (e2) {
+        console.error("Échec réparation JSON :", e2);
+      }
     }
+    throw err;
   }
 }
 
@@ -67,11 +62,7 @@ function buildPanierFromRecipes(recipes) {
 
   (Array.isArray(recipes) ? recipes : []).forEach(recipe => {
     const rId = recipe?.id || 1;
-    const rawItems = Array.isArray(recipe?.drive) && recipe.drive.length > 0 
-      ? recipe.drive 
-      : Array.isArray(recipe?.ingredients_drive) && recipe.ingredients_drive.length > 0
-      ? recipe.ingredients_drive
-      : (recipe?.ingredients || []);
+    const rawItems = Array.isArray(recipe?.ingredients) ? recipe.ingredients : [];
 
     rawItems.forEach(rawItem => {
       if (!rawItem) return;
@@ -81,17 +72,12 @@ function buildPanierFromRecipes(recipes) {
 
       if (typeof rawItem === 'object' && rawItem !== null) {
         nom = String(rawItem.nom || "").trim();
-        quantite = String(rawItem.quantite || "").trim();
+        quantite = String(rawItem.qte || rawItem.quantite || "").trim();
       } else if (typeof rawItem === 'string') {
         nom = rawItem.trim();
       }
 
-      // Nettoyage de sécurité
-      let cleanNom = nom
-        .replace(/^\d+[\s\w\.\,\/°\-]*\b(de|d'|g|kg|ml|cl|l|c\.à\.s|c\.à\.c|cuillères?|tranches?|filets?|gousses?|pincée|bocal|brique)?\s+/i, "")
-        .replace(/\b(à soupe|à café|de qualité)\b/gi, "")
-        .trim();
-      
+      let cleanNom = cleanDriveTerm(nom);
       if (!cleanNom || cleanNom.length < 2) cleanNom = nom;
       cleanNom = cleanNom.charAt(0).toUpperCase() + cleanNom.slice(1);
 
@@ -116,7 +102,6 @@ function buildPanierFromRecipes(recipes) {
 
       const canFreeze = isFish || isMeat || /haricot|brocoli|légume|frite|épinard|poivron/i.test(nomLower);
       const prixCongelo = canFreeze ? +(prixFrais * 0.68).toFixed(2) : prixFrais;
-      const cleanTerm = cleanDriveTerm(cleanNom);
 
       panier.push({
         nom: cleanNom,
@@ -125,9 +110,9 @@ function buildPanierFromRecipes(recipes) {
         a_alternative_congelo: canFreeze,
         mode_choisi: 'frais',
         prix_frais: prixFrais,
-        recherche_frais: cleanTerm,
+        recherche_frais: cleanNom,
         prix_congelo: prixCongelo,
-        recherche_congelo: `${cleanTerm} surgele`,
+        recherche_congelo: `${cleanNom} surgele`,
         gain_anti_radin: canFreeze ? `-${Math.round((1 - prixCongelo / prixFrais) * 100)}%` : "",
         conseil_anti_gaspi: canFreeze ? "🧊 Format congélateur économique" : "🌿 À consommer frais",
         est_condiment: isCondiment,
@@ -669,7 +654,7 @@ export default function App() {
     });
 
     if (newCookedStatus && targetRecipe && Array.isArray(targetRecipe.ingredients)) {
-      const ingredientsText = targetRecipe.ingredients.join(" ").toLowerCase();
+      const ingredientsText = targetRecipe.ingredients.map(ing => typeof ing === 'object' ? `${ing.qte || ''} ${ing.nom || ''}` : ing).join(" ").toLowerCase();
 
       for (const stockItem of stockList) {
         if (!stockItem.est_consomme && stockItem.quantite > 0) {
@@ -828,9 +813,16 @@ export default function App() {
 ENVIE DU FOYER : "${envie}".
 COMPOSITION : Adultes: ${nbAdultes}, Enfants: ${nbEnfants}, Kid-Friendly: ${optionEnfants ? "OUI" : "NON"}.
 Portions : ${portions} personnes. Régime : ${regimeActuel}. Aliments bannis : ${exclusionsInput || 'Aucun'}.
-CONSIGNE DRIVE AVEC QUANTITÉS (${portions} pers.) :
-Dans "drive", liste 3 à 5 articles avec le nom pur et la quantité d'achat concrète.
-RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
+
+RÈGLE DES INGRÉDIENTS (POUR ${portions} PORTIONS) :
+Chaque ingrédient doit être un objet : {"nom": "Nom produit pur pour le drive", "qte": "Quantité précise d'achat"}.
+Exemples :
+- {"nom": "Pavés de saumon", "qte": "4 pavés (~500g)"}
+- {"nom": "Riz arborio", "qte": "500g"}
+
+RÈGLES DE CONCISION :
+- "etapes": EXACTEMENT 2 étapes courtes.
+- N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
 {
@@ -844,10 +836,9 @@ Format JSON pur :
     "bienfait_sante": "Équilibre et plaisir",
     "saison_atout": "Ingrédients de saison",
     "kid_friendly": ${optionEnfants},
-    "ingredients": ["Ingrédient 1", "Ingrédient 2"],
-    "drive": [
-      {"nom": "Produit 1", "quantite": "500g"},
-      {"nom": "Produit 2", "quantite": "1 pot (20cl)"}
+    "ingredients": [
+      {"nom": "Ingrédient 1", "qte": "Quantité"},
+      {"nom": "Ingrédient 2", "qte": "Quantité"}
     ],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
@@ -908,9 +899,12 @@ Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
 COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants. Total ${portions} portions.
 Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}. Régime : ${regimeActuel}. Bannis : ${exclusionsInput || 'Aucun'}.
 Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
-CONSIGNE DRIVE AVEC QUANTITÉS (${portions} pers.) :
-Dans "drive", liste 3 à 5 articles avec le nom pur et la quantité d'achat concrète.
-RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes.
+
+RÈGLE DES INGRÉDIENTS (POUR ${portions} PORTIONS) :
+Chaque ingrédient doit être un objet : {"nom": "Nom produit pur pour le drive", "qte": "Quantité précise d'achat"}.
+RÈGLES DE CONCISION :
+- "etapes": EXACTEMENT 2 étapes courtes.
+- N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
 {
@@ -924,10 +918,9 @@ Format JSON pur :
     "bienfait_sante": "Bienfait santé",
     "saison_atout": "Légumes de saison",
     "kid_friendly": ${optionEnfants},
-    "ingredients": ["Ingrédient 1", "Ingrédient 2"],
-    "drive": [
-      {"nom": "Produit 1", "quantite": "500g"},
-      {"nom": "Produit 2", "quantite": "1 sachet (100g)"}
+    "ingredients": [
+      {"nom": "Ingrédient 1", "qte": "Quantité"},
+      {"nom": "Ingrédient 2", "qte": "Quantité"}
     ],
     "etapes": ["Étape 1", "Étape 2"],
     "conseil": "Astuce chef",
@@ -976,7 +969,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE : NOMS PURS + QUANTITÉS CONCRÈTES D'ACHAT
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE : INGRÉDIENTS UNIFIÉS {NOM, QTE} ULTRA-LÉGERS
   async function generateWithGemini() {
     if (!config) return;
 
@@ -1014,26 +1007,29 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt ultra-léger (~4000 caractères) avec noms de produits ET quantités réelles pour le foyer
-      const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour l'application "À Table !".
-COMPOSITION DU FOYER : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
-Portions par plat : ${portions} portions (dîner du soir + lunchbox le lendemain midi).
+      // Prompt ultra-léger (~4 500 caractères) avec tableau unifié d'ingrédients {nom, qte}
+      const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour "À Table !".
+COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
+Portions : ${portions} portions (dîner + lunchbox du lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
 ${excludedDishes.length > 0 ? `NE PAS FAIRE (déjà planifiés) : ${excludedDishes.join(', ')}.` : ''}
-Réserves existantes à privilégier : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
+Réserves existantes : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
 
-MISSION : Génère EXACTEMENT ${count} recettes de saison pour ${moisActuel.toUpperCase()} en France (${portions} portions) pour la Quinzaine ${quinzaineNum}.
-Les IDs vont de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
+MISSION : Génère EXACTEMENT ${count} recettes (${portions} portions) pour le mois de ${moisActuel.toUpperCase()} en France (Quinzaine ${quinzaineNum}).
+IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
 
-CONSIGNE DRIVE AVEC QUANTITÉS CONCRÈTES D'ACHAT (POUR ${portions} PORTIONS) :
-Dans chaque recette, ajoute "drive" : une liste de 3 à 5 articles indispensables avec le nom de produit pur et la quantité d'achat concrète pour nourrir ${totalPersons} personnes (${portions} portions).
+RÈGLE DES INGRÉDIENTS AVEC QUANTITÉS PRÉCISES (POUR ${portions} PORTIONS) :
+Chaque ingrédient doit être un objet court : {"nom": "Nom produit pur", "qte": "Quantité d'achat"}.
 Exemples :
-- {"nom": "Pavés de saumon", "quantite": "4 pavés (~500g)"}
-- {"nom": "Crème fraîche", "quantite": "1 pot (20cl)"}
-- {"nom": "Riz arborio", "quantite": "500g"}
-- {"nom": "Courgettes", "quantite": "3 pièces"}
-- {"nom": "Huile d'olive", "quantite": "1 bouteille"}
-RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les noms, étapes ou conseils (utilise l'apostrophe ').
+- {"nom": "Pavés de saumon", "qte": "4 pavés (~500g)"}
+- {"nom": "Crème fraîche", "qte": "1 pot (20cl)"}
+- {"nom": "Riz arborio", "qte": "500g"}
+- {"nom": "Courgettes", "qte": "2 pièces"}
+- {"nom": "Huile d'olive", "qte": "1 bouteille"}
+
+RÈGLES DE CONCISION OBLIGATOIRES (POUR ÉVITER LA COUPE) :
+- "etapes": EXACTEMENT 2 étapes courtes et directes.
+- N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
 {
@@ -1048,13 +1044,12 @@ Format JSON pur :
       "bienfait_sante": "Équilibre et énergie",
       "saison_atout": "Légumes de saison",
       "kid_friendly": ${isKidFriendly},
-      "ingredients": ["250g de riz arborio", "60g de parmesan râpé", "2 c.à.s d'huile d'olive"],
-      "drive": [
-        {"nom": "Riz arborio", "quantite": "500g"},
-        {"nom": "Parmesan râpé", "quantite": "1 sachet (100g)"},
-        {"nom": "Huile d'olive", "quantite": "1 bouteille"}
+      "ingredients": [
+        {"nom": "Riz arborio", "qte": "500g"},
+        {"nom": "Courgettes", "qte": "2 pièces"},
+        {"nom": "Parmesan râpé", "qte": "1 sachet (100g)"}
       ],
-      "etapes": ["Étape 1", "Étape 2"],
+      "etapes": ["Cuire le riz avec le bouillon", "Ajouter les courgettes et le parmesan"],
       "conseil": "Astuce chef",
       "basket": ${quinzaineNum},
       "rating": 0
@@ -1454,7 +1449,7 @@ Format JSON pur :
                       👨‍🍳 Cuisiner
                     </button>
                     <button
-                      onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0] || premierPlatFrais.nom, "Sauvetage Frigo")}
+                      onClick={() => rescueToFreezer(premierPlatFrais.ingredients?.[0]?.nom || premierPlatFrais.nom, "Sauvetage Frigo")}
                       className="flex-1 bg-stone-900/40 hover:bg-stone-900 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl border border-white/20 active:scale-95 transition"
                     >
                       🧊 Sauver au Congélo
@@ -1600,7 +1595,7 @@ Format JSON pur :
                           <div className="flex items-center gap-1">
                             <StarRating 
                               rating={repas.rating || 0} 
-                              onRate={(star, e) => updateRating(repas.id, star, e)} 
+                              onRate={(star, e) => updateRating(repas.id, star)} 
                             />
                             {hasRating && (
                               <span className="text-[10px] font-bold text-amber-600">({repas.rating}/5)</span>
@@ -2478,12 +2473,23 @@ Format JSON pur :
                     Ingrédients nécessaires ({targetPortions} portions)
                   </h3>
                   <ul className="space-y-2">
-                    {Array.isArray(selectedRecipe.ingredients) && selectedRecipe.ingredients.map((ing, i) => (
-                      <li key={i} className="text-sm text-stone-800 flex items-center gap-2.5 bg-stone-50 p-2.5 rounded-xl border border-stone-100">
-                        <span className="w-2 h-2 rounded-full bg-[#C25E3E] flex-shrink-0"></span>
-                        <span className="font-medium">{ing}</span>
-                      </li>
-                    ))}
+                    {Array.isArray(selectedRecipe.ingredients) && selectedRecipe.ingredients.map((ing, i) => {
+                      const nom = typeof ing === 'object' ? ing.nom : ing;
+                      const qte = typeof ing === 'object' ? ing.qte || ing.quantite : "";
+                      return (
+                        <li key={i} className="text-sm text-stone-800 flex items-center justify-between bg-stone-50 p-2.5 rounded-xl border border-stone-100">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-2 h-2 rounded-full bg-[#C25E3E] flex-shrink-0"></span>
+                            <span className="font-medium">{nom}</span>
+                          </div>
+                          {qte && (
+                            <span className="text-xs font-bold text-stone-500 bg-white px-2 py-0.5 rounded-md border border-stone-200">
+                              {qte}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
 
