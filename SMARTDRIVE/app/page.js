@@ -362,36 +362,49 @@ export default function App() {
     };
   }, [selectedRecipe]);
 
-  // Exécuteur sécurisé des requêtes Gemini
+  // Exécuteur sécurisé des requêtes Gemini avec Cascade Anti-Surcharge (503)
   async function executeGeminiPrompt(promptText) {
+    // Liste des modèles à tester par ordre de priorité
+    const modelsToTry = [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.5-flash" // Le modèle de secours ultra-stable
+    ];
+
     let responseText = "";
-    try {
-      // Utilisation du modèle le plus intelligent et rapide de ta liste
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-3.8-flash",
-        generationConfig: { 
-          responseMimeType: "application/json",
-          maxOutputTokens: 8192,
-          temperature: 0.2 
-        }
-      });
-      const result = await model.generateContent(promptText);
-      responseText = result.response.text();
-    } catch (err) {
-      console.warn("Modèle 3.8 saturé, bascule sur 3.7...", err);
-      const fallback = genAI.getGenerativeModel({ 
-        model: "gemini-3.7-flash",
-        generationConfig: { 
-          responseMimeType: "application/json",
-          maxOutputTokens: 8192,
-          temperature: 0.2
-        }
-      });
-      const result = await fallback.generateContent(promptText);
-      responseText = result.response.text();
+    let lastError = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`Tentative de génération avec : ${modelName}...`);
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: { 
+            responseMimeType: "application/json",
+            maxOutputTokens: 8192,
+            temperature: 0.2 // Garde le JSON strict
+          }
+        });
+        
+        const result = await model.generateContent(promptText);
+        responseText = result.response.text();
+        
+        // Si on arrive ici, le modèle a répondu avec succès, on sort de la boucle !
+        break; 
+        
+      } catch (err) {
+        console.warn(`Surcharge ou échec sur ${modelName} :`, err.message);
+        lastError = err;
+        // La boucle continue et va essayer le modèle suivant dans la liste
+      }
+    }
+
+    // Si après avoir testé les 3 modèles, on n'a toujours pas de réponse
+    if (!responseText) {
+      throw new Error("Les serveurs Google sont exceptionnellement surchargés. Veuillez réessayer dans quelques minutes.");
     }
     
-    // Nettoyage agressif des guillemets parasites qui causent l'erreur "Unterminated string"
+    // Nettoyage agressif des guillemets parasites
     let cleanedText = responseText.replace(/\\"/g, "'"); 
     return safeParseGeminiJSON(cleanedText);
   }
