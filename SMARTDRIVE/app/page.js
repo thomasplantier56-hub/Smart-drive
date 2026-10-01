@@ -25,15 +25,15 @@ function normalizeFoodTerm(term) {
   if (!term || typeof term !== 'string') return "";
   return term
     .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Supprime les accents
-    .replace(/\b\d+[\s\w]*(g|kg|ml|cl|l|boites?|bocaux|sachets?|tranches?|pieces?|gousses?)\b/gi, "") // Supprime les quantités (ex: 500g, 1kg)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b\d+[\s\w]*(g|kg|ml|cl|l|boites?|bocaux|sachets?|tranches?|pieces?|gousses?)\b/gi, "")
     .replace(/\b(de|d|le|la|les|du|des|un|une|frais|fraiche|surgel[eé]|bio|nature|extra)\b/gi, "")
     .replace(/[^a-z]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// Vérifie si un produit de stock correspond à un ingrédient du panier (gère singulier/pluriel, grammages)
+// Vérifie si un produit de stock correspond à un ingrédient du panier
 function isStockMatch(stockName = "", itemName = "") {
   const sNorm = normalizeFoodTerm(stockName);
   const iNorm = normalizeFoodTerm(itemName);
@@ -140,7 +140,6 @@ function buildPanierFromRecipes(recipes, activeStocks = []) {
       const canFreeze = isFish || isMeat || /haricot|brocoli|légume|frite|épinard|poivron/i.test(nomLower);
       const prixCongelo = canFreeze ? +(prixFrais * 0.68).toFixed(2) : prixFrais;
 
-      // 🔍 VÉRIFICATION DIRECTE DANS LES RÉSERVES DU FOYER
       const isInStock = (Array.isArray(activeStocks) ? activeStocks : []).some(
         s => !s.est_consomme && (s.quantite || 0) > 0 && isStockMatch(s.nom_produit, cleanNom)
       );
@@ -167,7 +166,6 @@ function buildPanierFromRecipes(recipes, activeStocks = []) {
   return panier;
 }
 
-// 🔄 Synchronisation dynamique d'un panier existant avec les stocks réels
 function reconcilePanierWithStocks(panierJson, stocks) {
   if (!panierJson || !Array.isArray(stocks)) return panierJson;
   const safeStocks = stocks.filter(s => !s.est_consomme && (s.quantite || 0) > 0);
@@ -177,10 +175,7 @@ function reconcilePanierWithStocks(panierJson, stocks) {
     if (Array.isArray(updated[key])) {
       updated[key] = updated[key].map(item => {
         const hasStock = safeStocks.some(s => isStockMatch(s.nom_produit, item.nom));
-        return {
-          ...item,
-          in_stock: item.in_stock || hasStock
-        };
+        return { ...item, in_stock: item.in_stock || hasStock };
       });
     }
   });
@@ -188,7 +183,7 @@ function reconcilePanierWithStocks(panierJson, stocks) {
   return updated;
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE 100 % ALIMENTAIRE (SANS HORS-SUJET)
+// 📸 BIBLIOTHÈQUE CULINAIRE ENRICHIE
 const PHOTO_LIBRARY = {
   poisson_blanc: [
     "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
@@ -197,14 +192,12 @@ const PHOTO_LIBRARY = {
   ],
   saumon: [
     "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
   ],
   poulet: [
     "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1606728035253-49e8a23146de?auto=format&fit=crop&w=700&q=80"
+    "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80"
   ],
   boeuf: [
     "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
@@ -212,7 +205,6 @@ const PHOTO_LIBRARY = {
     "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=700&q=80"
   ],
   porc: [
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80"
   ],
   pates_lasagnes: [
@@ -236,6 +228,26 @@ const PHOTO_LIBRARY = {
   pizza_tarte: [
     "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80",
     "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=700&q=80"
+  ],
+  wok_asiatique: [
+    "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=700&q=80"
+  ],
+  risotto: [
+    "https://images.unsplash.com/photo-1633964913295-ceb43826e7cf?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1595295333158-4742f28fbd85?auto=format&fit=crop&w=700&q=80"
+  ],
+  tacos_wrap: [
+    "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=700&q=80"
+  ],
+  gratin: [
+    "https://images.unsplash.com/photo-1622621746668-59fb299bc4d7?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1590165482129-1b8b27698780?auto=format&fit=crop&w=700&q=80"
+  ],
+  couscous_tajine: [
+    "https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&fit=crop&w=700&q=80"
   ]
 };
 
@@ -247,11 +259,16 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
 
   if (name.includes("saumon") || name.includes("truite")) return pick(PHOTO_LIBRARY.saumon);
   if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) return pick(PHOTO_LIBRARY.poisson_blanc);
-  if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap")) return pick(PHOTO_LIBRARY.burger);
-  if (name.includes("curry") || name.includes("poulet") || name.includes("wok") || name.includes("dinde") || name.includes("tajine") || name.includes("volaille")) return pick(PHOTO_LIBRARY.poulet);
-  if (name.includes("pâte") || name.includes("pâtes") || name.includes("penne") || name.includes("spaghetti") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("gnocchi") || name.includes("gratin")) return pick(PHOTO_LIBRARY.pates_lasagnes);
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché") || name.includes("parmentier") || name.includes("bourguignon")) return pick(PHOTO_LIBRARY.boeuf);
-  if (name.includes("porc") || name.includes("mignon") || name.includes("lardon") || name.includes("saucisse")) return pick(PHOTO_LIBRARY.porc);
+  if (name.includes("burger") || name.includes("croque")) return pick(PHOTO_LIBRARY.burger);
+  if (name.includes("tacos") || name.includes("wrap") || name.includes("fajitas") || name.includes("burrito")) return pick(PHOTO_LIBRARY.tacos_wrap);
+  if (name.includes("wok") || name.includes("nouille") || name.includes("asiatique") || name.includes("pad thai")) return pick(PHOTO_LIBRARY.wok_asiatique);
+  if (name.includes("risotto")) return pick(PHOTO_LIBRARY.risotto);
+  if (name.includes("couscous") || name.includes("tajine")) return pick(PHOTO_LIBRARY.couscous_tajine);
+  if (name.includes("gratin") || name.includes("hachis") || name.includes("parmentier") || name.includes("tartiflette") || name.includes("moussaka")) return pick(PHOTO_LIBRARY.gratin);
+  if (name.includes("curry") || name.includes("poulet") || name.includes("dinde") || name.includes("volaille")) return pick(PHOTO_LIBRARY.poulet);
+  if (name.includes("pâte") || name.includes("pâtes") || name.includes("penne") || name.includes("spaghetti") || name.includes("lasagne") || name.includes("tagliatelle") || name.includes("gnocchi") || name.includes("macaroni")) return pick(PHOTO_LIBRARY.pates_lasagnes);
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché") || name.includes("bourguignon")) return pick(PHOTO_LIBRARY.boeuf);
+  if (name.includes("porc") || name.includes("mignon") || name.includes("lardon") || name.includes("saucisse") || name.includes("filet")) return pick(PHOTO_LIBRARY.porc);
   if (name.includes("salade") || name.includes("bowl") || name.includes("quinoa") || name.includes("avocat") || name.includes("poke")) return pick(PHOTO_LIBRARY.salade_bowl);
   if (name.includes("pizza") || name.includes("tarte") || name.includes("quiche") || name.includes("flamm")) return pick(PHOTO_LIBRARY.pizza_tarte);
   if (name.includes("dahl") || name.includes("lentille") || name.includes("soupe") || name.includes("velouté") || name.includes("veloute") || name.includes("potage") || name.includes("pois")) return pick(PHOTO_LIBRARY.dahl_soupe);
@@ -426,7 +443,6 @@ export default function App() {
         const safeStocks = Array.isArray(stocks) ? stocks : [];
         setStockList(safeStocks);
 
-        // 🔄 Réconciliation automatique du panier avec les stocks dès le chargement
         const reconciledPanier = reconcilePanierWithStocks(foyer.panier_json, safeStocks);
         setConfig({ ...foyer, panier_json: reconciledPanier });
       } else {
@@ -656,7 +672,6 @@ export default function App() {
         setNewItemName("");
         setNewItemQty(1);
 
-        // Réconcilie immédiatement le panier existant avec le nouvel ingrédient ajouté
         const reconciledPanier = reconcilePanierWithStocks(config.panier_json, updatedStocks);
         setConfig(prev => ({ ...prev, panier_json: reconciledPanier }));
         await supabase.from('foyers').update({ panier_json: reconciledPanier }).eq('id', config.id);
@@ -897,8 +912,8 @@ Exemples :
 - {"nom": "Pavés de saumon", "qte": "4 pavés (~500g)"}
 - {"nom": "Riz arborio", "qte": "500g"}
 
-RÈGLES DE CONCISION :
-- "etapes": EXACTEMENT 2 étapes courtes.
+RÈGLES DE QUALITÉ :
+- "etapes": 4 à 5 étapes détaillées pour une vraie recette de qualité.
 - N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -909,7 +924,7 @@ Format JSON pur :
     "type": "Plaisir",
     "moment": "Soir",
     "calories": "520 kcal",
-    "temps": "25 min",
+    "temps": "35 min",
     "bienfait_sante": "Équilibre et plaisir",
     "saison_atout": "Ingrédients de saison",
     "kid_friendly": ${optionEnfants},
@@ -917,7 +932,7 @@ Format JSON pur :
       {"nom": "Ingrédient 1", "qte": "Quantité"},
       {"nom": "Ingrédient 2", "qte": "Quantité"}
     ],
-    "etapes": ["Étape 1", "Étape 2"],
+    "etapes": ["Étape 1", "Étape 2", "Étape 3", "Étape 4"],
     "conseil": "Astuce chef",
     "basket": ${activeBasket},
     "rating": 0
@@ -974,14 +989,14 @@ Format JSON pur :
 
     const prompt = `Tu es un chef cuisinier pour "À Table !".
 Le foyer ne souhaite PAS cuisiner : "${recipeToSwap.nom}".
-COMPOSITION : ${nbAdultes} adultes, ${nbEnfants} enfants. Total ${portions} portions.
+COMPOSITION : ${nbAdultes} adults, ${nbEnfants} enfants. Total ${portions} portions.
 Option Enfants : ${optionEnfants ? 'OUI' : 'NON'}. Régime : ${regimeActuel}. Bannis : ${exclusionsInput || 'Aucun'}.
 Génère UNE NOUVELLE RECETTE DE REMPLACEMENT (${portions} portions) de saison pour ${moisActuel.toUpperCase()} en France.
 
 RÈGLE DES INGRÉDIENTS (POUR ${portions} PORTIONS) :
 Chaque ingrédient doit être un objet : {"nom": "Nom produit pur", "qte": "Quantité précise d'achat"}.
-RÈGLES DE CONCISION :
-- "etapes": EXACTEMENT 2 étapes courtes.
+RÈGLES DE QUALITÉ :
+- "etapes": 4 à 5 étapes détaillées pour une vraie recette de qualité.
 - N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -992,7 +1007,7 @@ Format JSON pur :
     "type": "${recipeToSwap.type || 'Frais'}",
     "moment": "${recipeToSwap.moment || 'Soir'}",
     "calories": "490 kcal",
-    "temps": "25 min",
+    "temps": "35 min",
     "bienfait_sante": "Bienfait santé",
     "saison_atout": "Légumes de saison",
     "kid_friendly": ${optionEnfants},
@@ -1000,7 +1015,7 @@ Format JSON pur :
       {"nom": "Ingrédient 1", "qte": "Quantité"},
       {"nom": "Ingrédient 2", "qte": "Quantité"}
     ],
-    "etapes": ["Étape 1", "Étape 2"],
+    "etapes": ["Étape 1", "Étape 2", "Étape 3", "Étape 4"],
     "conseil": "Astuce chef",
     "basket": ${targetBasket},
     "rating": 0
@@ -1049,11 +1064,10 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE : DÉTECTION PRÉCISE DES STOCKS EXISTANTS DÈS LE DÉPART
+  // 🎯 GÉNÉRATION SÉQUENTIELLE INTELLIGENTE : GESTION DES STOCKS ET ANTI-DOUBLONS
   async function generateWithGemini() {
     if (!config) return;
 
-    // 🔒 SÉCURITÉ : Confirmation anti-écrasement
     const hasExistingMenu = Array.isArray(config.menu_json) && config.menu_json.length > 0;
     if (hasExistingMenu) {
       const isConfirmed = window.confirm(
@@ -1069,8 +1083,7 @@ Format JSON pur :
 
     try {
       const stocksActifs = (Array.isArray(stockList) ? stockList : []).filter(s => !s.est_consomme && s.quantite > 0);
-      const stocksCongelo = stocksActifs.filter(s => s.emplacement === 'congelateur').map(s => `${s.nom_produit} (qté: ${s.quantite})`);
-      const stocksPlacard = stocksActifs.filter(s => s.emplacement === 'placard').map(s => `${s.nom_produit} (qté: ${s.quantite})`);
+      let currentStocks = JSON.parse(JSON.stringify(stocksActifs)); // Copie de travail pour déduction virtuelle
 
       const regimeActuel = selectedRegime || config.regime_alimentaire || "Omnivore (Manger de tout)";
       const exclusionsActuelles = exclusionsInput || config.exclusions || 'Aucune';
@@ -1087,28 +1100,27 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt avec consignes nettes sur les réserves à privilégier
-      const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier pour "À Table !".
+      const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = [], availableStocks = []) => {
+        const stocksCongelo = availableStocks.filter(s => s.emplacement === 'congelateur' && s.quantite > 0).map(s => `${s.nom_produit} (x${s.quantite})`);
+        const stocksPlacard = availableStocks.filter(s => s.emplacement === 'placard' && s.quantite > 0).map(s => `${s.nom_produit} (x${s.quantite})`);
+
+        return `Tu es un chef cuisinier pour "À Table !".
 COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
 Portions : ${portions} portions (dîner + lunchbox du lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
-${excludedDishes.length > 0 ? `NE PAS FAIRE (déjà planifiés) : ${excludedDishes.join(', ')}.` : ''}
-Réserves existantes du foyer : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
+${excludedDishes.length > 0 ? `INTERDICTION ABSOLUE DE FAIRE CES PLATS (déjà planifiés) : ${excludedDishes.join(', ')}.` : ''}
+RÉSERVES DISPONIBLES (Déduis mentalement ce que tu utilises) : Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}, Placard : ${stocksPlacard.join(', ') || 'Aucun'}.
 
 MISSION : Génère EXACTEMENT ${count} recettes (${portions} portions) pour le mois de ${moisActuel.toUpperCase()} en France (Quinzaine ${quinzaineNum}).
 IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
 
 RÈGLE DES INGRÉDIENTS AVEC QUANTITÉS PRÉCISES (POUR ${portions} PORTIONS) :
 Chaque ingrédient doit être un objet court : {"nom": "Nom produit pur", "qte": "Quantité d'achat"}.
-Exemples :
-- {"nom": "Pavés de saumon", "qte": "4 pavés (~500g)"}
-- {"nom": "Crème fraîche", "qte": "1 pot (20cl)"}
-- {"nom": "Riz arborio", "qte": "500g"}
-- {"nom": "Courgettes", "qte": "2 pièces"}
-- {"nom": "Huile d'olive", "qte": "1 bouteille"}
+Exemples : {"nom": "Pavés de saumon", "qte": "4 pavés (~500g)"}, {"nom": "Riz arborio", "qte": "500g"}
 
-RÈGLES DE CONCISION :
-- "etapes": EXACTEMENT 2 étapes courtes et directes.
+RÈGLES DE QUALITÉ :
+- "etapes": 4 à 5 étapes détaillées pour une vraie recette de qualité.
+- VARIÉTÉ ABSOLUE : Ne propose jamais deux fois le même plat ou le même ingrédient principal dans la même semaine.
 - N'utilise AUCUN guillemet double (") dans les textes.
 
 Format JSON pur :
@@ -1120,68 +1132,58 @@ Format JSON pur :
       "type": "Frais",
       "moment": "Soir",
       "calories": "510 kcal",
-      "temps": "25 min",
+      "temps": "35 min",
       "bienfait_sante": "Équilibre et énergie",
       "saison_atout": "Légumes de saison",
       "kid_friendly": ${isKidFriendly},
       "ingredients": [
         {"nom": "Riz arborio", "qte": "500g"},
-        {"nom": "Courgettes", "qte": "2 pièces"},
-        {"nom": "Parmesan râpé", "qte": "1 sachet (100g)"}
+        {"nom": "Courgettes", "qte": "2 pièces"}
       ],
-      "etapes": ["Cuire le riz avec le bouillon", "Ajouter les courgettes et le parmesan"],
+      "etapes": ["Étape 1", "Étape 2", "Étape 3", "Étape 4"],
       "conseil": "Astuce chef",
       "basket": ${quinzaineNum},
       "rating": 0
     }
   ]
 }`;
+      };
 
       let allMeals = [];
-      let panier1 = [];
-      let panier2 = [];
+      let generatedDishes = [];
 
-      if (isMonth) {
-        // Quinzaine 1 (Semaines 1 & 2 en parallèle)
-        setLoadingStepText("🍳 Quinzaine 1 (14 repas) en cours de préparation...");
-        const [sem1, sem2] = await Promise.all([
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 1, [])),
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
-        ]);
+      // Génération séquentielle par lots de 7 pour gérer les stocks et éviter les doublons
+      const numBatches = Math.ceil(totalRecettes / 7);
+      for (let i = 0; i < numBatches; i++) {
+        const count = Math.min(7, totalRecettes - i * 7);
+        const startId = i * 7 + 1;
+        const quinzaineNum = isMonth ? (i < 2 ? 1 : 2) : 1;
 
-        const q1Repas = [...(sem1?.repas || []), ...(sem2?.repas || [])];
-        panier1 = buildPanierFromRecipes(q1Repas, stocksActifs);
+        setLoadingStepText(`🍳 Génération du lot ${i + 1}/${numBatches} (${count} repas)...`);
 
-        // Quinzaine 2 (Semaines 3 & 4 en parallèle, sans répétition)
-        setLoadingStepText("🥗 Quinzaine 2 (14 repas) en cours de préparation...");
-        const dishesToAvoid = q1Repas.map(r => r.nom);
-        const [sem3, sem4] = await Promise.all([
-          executeGeminiPrompt(buildPureRecipePrompt(2, 7, 15, dishesToAvoid)),
-          executeGeminiPrompt(buildPureRecipePrompt(2, 7, 22, dishesToAvoid))
-        ]);
+        const prompt = buildPureRecipePrompt(quinzaineNum, count, startId, generatedDishes, currentStocks);
+        const res = await executeGeminiPrompt(prompt);
+        const batchMeals = res?.repas || [];
 
-        const q2Repas = [...(sem3?.repas || []), ...(sem4?.repas || [])];
-        panier2 = buildPanierFromRecipes(q2Repas, stocksActifs);
+        batchMeals.forEach(meal => {
+          generatedDishes.push(meal.nom);
+          // Déduction virtuelle des stocks pour le lot suivant
+          (meal.ingredients || []).forEach(ing => {
+            const nom = typeof ing === 'object' ? ing.nom : ing;
+            const match = currentStocks.find(s => s.quantite > 0 && isStockMatch(s.nom_produit, nom));
+            if (match) match.quantite -= 1;
+          });
+        });
 
-        allMeals = [...q1Repas, ...q2Repas];
-      } else if (totalRecettes === 14) {
-        // 1 Quinzaine (2 x 7 en parallèle)
-        setLoadingStepText("🍽️ Génération de vos 14 repas...");
-        const [lotA, lotB] = await Promise.all([
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 1, [])),
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
-        ]);
-        allMeals = [...(lotA?.repas || []), ...(lotB?.repas || [])];
-        panier1 = buildPanierFromRecipes(allMeals, stocksActifs);
-        panier2 = [];
-      } else {
-        // 1 Semaine Express
-        setLoadingStepText("⚡ Génération de votre semaine express...");
-        const res = await executeGeminiPrompt(buildPureRecipePrompt(1, totalRecettes, 1, []));
-        allMeals = res?.repas || [];
-        panier1 = buildPanierFromRecipes(allMeals, stocksActifs);
-        panier2 = [];
+        allMeals = [...allMeals, ...batchMeals];
       }
+
+      setLoadingStepText("🛒 Construction de vos paniers Drive...");
+      const q1Meals = allMeals.filter(m => m.basket === 1);
+      const q2Meals = allMeals.filter(m => m.basket === 2);
+      
+      const panier1 = buildPanierFromRecipes(q1Meals, stocksActifs);
+      const panier2 = buildPanierFromRecipes(q2Meals, stocksActifs);
 
       const finalPanierJson = {
         p1: panier1,
@@ -1206,7 +1208,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive réconciliés avec vos réserves ont été générés avec succès !`);
+      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive ont été générés avec succès !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
@@ -1675,7 +1677,7 @@ Format JSON pur :
                           <div className="flex items-center gap-1">
                             <StarRating 
                               rating={repas.rating || 0} 
-                              onRate={(star, e) => updateRating(repas.id, star)} 
+                              onRate={(star, e) => updateRating(repas.id, star, e)} 
                             />
                             {hasRating && (
                               <span className="text-[10px] font-bold text-amber-600">({repas.rating}/5)</span>
@@ -2443,9 +2445,28 @@ Format JSON pur :
 
       {/* MODAL RECETTE DÉTAILLÉE */}
       {selectedRecipe && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-6 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-none md:rounded-[32px] overflow-hidden shadow-2xl relative min-h-screen md:min-h-0 md:max-h-[90vh] overflow-y-auto pb-8">
-            <div className="relative h-64 w-full bg-stone-900">
+        <div 
+          className="fixed inset-0 bg-stone-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-6 overflow-y-auto"
+          onClick={() => setSelectedRecipe(null)}
+        >
+          <div 
+            className="bg-white w-full max-w-2xl rounded-none md:rounded-[32px] overflow-hidden shadow-2xl relative min-h-screen md:min-h-0 md:max-h-[90vh] overflow-y-auto pb-8 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header Mobile Sticky pour fermer facilement */}
+            <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-stone-200 p-3 flex justify-between items-center md:hidden">
+              <button 
+                onClick={() => setSelectedRecipe(null)}
+                className="flex items-center gap-2 text-stone-600 font-bold text-sm px-3 py-1.5 bg-stone-100 rounded-xl active:scale-95 transition"
+              >
+                <span>⬅</span> Retour
+              </button>
+              <span className="font-black text-[#C25E3E] text-xs uppercase tracking-wider truncate ml-4">
+                {selectedRecipe.nom}
+              </span>
+            </div>
+
+            <div className="relative h-64 w-full bg-stone-900 flex-shrink-0">
               <img 
                 src={getRecipePhoto(selectedRecipe.nom, selectedRecipe.id)} 
                 alt={selectedRecipe.nom} 
@@ -2453,17 +2474,17 @@ Format JSON pur :
               />
               <button
                 onClick={() => setSelectedRecipe(null)}
-                className="absolute top-5 right-5 w-10 h-10 rounded-full bg-stone-900/70 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg"
+                className="hidden md:flex absolute top-5 right-5 w-10 h-10 rounded-full bg-stone-900/70 text-white font-bold items-center justify-center backdrop-blur shadow-lg hover:bg-stone-900 transition"
               >
                 ✕
               </button>
               <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white">
                 <div className="flex items-center gap-1.5">
-                  <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  <span className="bg-[#C25E3E] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                     {selectedRecipe.moment || 'Soir'} • Panier {selectedRecipe.basket || activeBasket}
                   </span>
                   {selectedRecipe.kid_friendly && (
-                    <span className="bg-amber-400 text-stone-950 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    <span className="bg-amber-400 text-stone-950 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                       🧸 Kid-Friendly
                     </span>
                   )}
@@ -2471,7 +2492,7 @@ Format JSON pur :
               </div>
             </div>
 
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 flex-1">
               <h2 className="text-2xl md:text-3xl font-black text-stone-900 leading-tight mb-2 font-serif">
                 {selectedRecipe.nom}
               </h2>
@@ -2589,8 +2610,7 @@ Format JSON pur :
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* BARRE DE NAVIGATION BASSE */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-stone-200 py-2.5 z-30 shadow-lg flex justify-center">
