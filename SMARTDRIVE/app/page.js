@@ -186,74 +186,55 @@ function reconcilePanierWithStocks(panierJson, stocks) {
   return updated;
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE 100 % PLATS CHAUDS ET SALÉS DE QUALITÉ
+// 📸 BIBLIOTHÈQUE CULINAIRE ULTRA-PRÉCISE (Séparation stricte des aliments)
 const PHOTO_LIBRARY = {
-  poisson: [
-    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
+  // --- PÂTES SÉPARÉES ---
+  spaghetti: [
+    "https://images.unsplash.com/photo-1626844131082-256783844137?auto=format&fit=crop&w=700&q=80", // Vrais spaghetti tomate
+    "https://images.unsplash.com/photo-1579684947550-22e945225d9a?auto=format&fit=crop&w=700&q=80"  // Vrais spaghetti
   ],
-  saumon: [
-    "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
+  autres_pates: [
+    "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80", // Farfalle/Penne
+    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80"
+  ],
+  lasagne_gratin: [
+    "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=700&q=80"
+  ],
+  
+  // --- VIANDES SÉPARÉES ---
+  steak_hache: [
+    "https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=700&q=80", // Vrai steak haché
+  ],
+  piece_boeuf: [
+    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=700&q=80", // Pièce de boeuf / Entrecôte
+  ],
+  porc_ribs: [
+    "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80", // Travers de porc
   ],
   poulet: [
     "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
   ],
-  viande_boeuf: [
-    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=700&q=80"
+
+  // --- POISSONS SÉPARÉS ---
+  saumon: [
+    "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
   ],
-  porc: [
-    "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
+  poisson_blanc: [
+    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
   ],
-  // Vraies lasagnes et gratins dorés (aucune pâtisserie)
-  lasagne_gratin: [
-    "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1619895092538-128341789043?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80"
-  ],
-  // Vrais plats de pâtes chaudes italiennes
-  pates_chaudes: [
-    "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=700&q=80"
+
+  // --- AUTRES ---
+  salades_lentilles: [
+    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
   ],
   risotto_céréales: [
     "https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1539136788836-5699e78bfc75?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=700&q=80"
   ],
-  // Vraies salades composées et lentilles
-  salades_lentilles: [
-    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=700&q=80"
-  ],
-  curry_vegetarien: [
-    "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=700&q=80"
-  ],
-  soupe_dahl: [
-    "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1594756202469-9ff9799b2e4e?auto=format&fit=crop&w=700&q=80"
-  ],
-  // Vraie quiche salée dorée au four
   quiche_tarte_salée: [
     "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1598373182133-52452f7691ef?auto=format&fit=crop&w=700&q=80"
-  ],
-  burger_wrap: [
-    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80"
   ],
   poelee_chaude: [
     "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=700&q=80"
   ]
 };
 
@@ -261,73 +242,29 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
   const name = String(dishName || "").toLowerCase();
   const pick = (list) => (Array.isArray(list) && list.length > 0) 
     ? list[Math.abs(Number(recipeId) || 0) % list.length] 
-    : "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80";
+    : PHOTO_LIBRARY.poelee_chaude[0];
 
-  // 1. Quiches, tartes salées (même si écrit "sans pâte")
-  if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte") || name.includes("flamm")) {
-    return pick(PHOTO_LIBRARY.quiche_tarte_salée);
-  }
+  // 1. Pâtes (Séparation stricte Spaghetti vs Autres)
+  if (name.includes("spaghetti")) return pick(PHOTO_LIBRARY.spaghetti);
+  if (name.includes("penne") || name.includes("farfalle") || name.includes("macaroni") || name.includes("pâte") || name.includes("pâtes")) return pick(PHOTO_LIBRARY.autres_pates);
+  if (name.includes("lasagne") || name.includes("gratin")) return pick(PHOTO_LIBRARY.lasagne_gratin);
 
-  // 2. Salades composées et lentilles (prioritaires sur lardons ou volaille)
-  if (name.includes("salade") || name.includes("lentille") || name.includes("bowl") || name.includes("avocat") || name.includes("poke")) {
-    return pick(PHOTO_LIBRARY.salades_lentilles);
-  }
+  // 2. Viandes (Séparation stricte Steak haché vs Pièce de boeuf)
+  if (name.includes("haché") || name.includes("burger") || name.includes("boulette")) return pick(PHOTO_LIBRARY.steak_hache);
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("entrecôte")) return pick(PHOTO_LIBRARY.piece_boeuf);
+  if (name.includes("porc") || name.includes("lardon") || name.includes("saucisse") || name.includes("ribs")) return pick(PHOTO_LIBRARY.porc_ribs);
+  if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille")) return pick(PHOTO_LIBRARY.poulet);
 
-  // 3. Lasagnes, gratins et parmentiers (salés chauds)
-  if (name.includes("lasagne") || name.includes("gratin") || name.includes("parmentier")) {
-    return pick(PHOTO_LIBRARY.lasagne_gratin);
-  }
+  // 3. Poissons
+  if (name.includes("saumon") || name.includes("truite")) return pick(PHOTO_LIBRARY.saumon);
+  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon")) return pick(PHOTO_LIBRARY.poisson_blanc);
 
-  // 4. Risottos, poêlées d'ébly, céréales et riz
-  if (name.includes("risotto") || name.includes("ebly") || name.includes("riz") || name.includes("paella") || name.includes("quinoa")) {
-    return pick(PHOTO_LIBRARY.risotto_céréales);
-  }
+  // 4. Salades / Quiches / Riz
+  if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte")) return pick(PHOTO_LIBRARY.quiche_tarte_salée);
+  if (name.includes("salade") || name.includes("lentille") || name.includes("bowl")) return pick(PHOTO_LIBRARY.salades_lentilles);
+  if (name.includes("risotto") || name.includes("ebly") || name.includes("riz") || name.includes("quinoa")) return pick(PHOTO_LIBRARY.risotto_céréales);
 
-  // 5. Pâtes chaudes (spaghetti, penne, tagliatelle)
-  if (name.includes("spaghetti") || name.includes("penne") || name.includes("tagliatelle") || name.includes("pâte") || name.includes("pâtes") || name.includes("gnocchi")) {
-    return pick(PHOTO_LIBRARY.pates_chaudes);
-  }
-
-  // 6. Saumon
-  if (name.includes("saumon") || name.includes("truite")) {
-    return pick(PHOTO_LIBRARY.saumon);
-  }
-
-  // 7. Poissons et fruits de mer
-  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) {
-    return pick(PHOTO_LIBRARY.poisson);
-  }
-
-  // 8. Curry végétarien / pois chiches
-  if (name.includes("pois chiche") || name.includes("dahl") || (name.includes("curry") && !name.includes("poulet"))) {
-    return pick(PHOTO_LIBRARY.curry_vegetarien);
-  }
-
-  // 9. Burgers & wraps
-  if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap")) {
-    return pick(PHOTO_LIBRARY.burger_wrap);
-  }
-
-  // 10. Volailles
-  if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille") || name.includes("kebab") || name.includes("wok")) {
-    return pick(PHOTO_LIBRARY.poulet);
-  }
-
-  // 11. Bœuf, steak haché, viandes mijotées
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché") || name.includes("bourguignon") || name.includes("veau")) {
-    return pick(PHOTO_LIBRARY.viande_boeuf);
-  }
-
-  // 12. Porc
-  if (name.includes("porc") || name.includes("mignon") || name.includes("lardon") || name.includes("saucisse")) {
-    return pick(PHOTO_LIBRARY.porc);
-  }
-
-  // 13. Soupes et veloutés
-  if (name.includes("soupe") || name.includes("velouté") || name.includes("potage") || name.includes("pois")) {
-    return pick(PHOTO_LIBRARY.soupe_dahl);
-  }
-
+  // Par défaut
   return pick(PHOTO_LIBRARY.poelee_chaude);
 }
 
@@ -429,28 +366,34 @@ export default function App() {
   async function executeGeminiPrompt(promptText) {
     let responseText = "";
     try {
+      // Utilisation du modèle le plus intelligent et rapide de ta liste
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-3.6-flash",
+        model: "gemini-3.8-flash",
         generationConfig: { 
           responseMimeType: "application/json",
-          maxOutputTokens: 8192
+          maxOutputTokens: 8192,
+          temperature: 0.2 
         }
       });
       const result = await model.generateContent(promptText);
       responseText = result.response.text();
     } catch (err) {
-      console.warn("Modèle 3.6 saturé ou indisponible, bascule sur 3.5...", err);
+      console.warn("Modèle 3.8 saturé, bascule sur 3.7...", err);
       const fallback = genAI.getGenerativeModel({ 
-        model: "gemini-3.5-flash",
+        model: "gemini-3.7-flash",
         generationConfig: { 
           responseMimeType: "application/json",
-          maxOutputTokens: 8192
+          maxOutputTokens: 8192,
+          temperature: 0.2
         }
       });
       const result = await fallback.generateContent(promptText);
       responseText = result.response.text();
     }
-    return safeParseGeminiJSON(responseText);
+    
+    // Nettoyage agressif des guillemets parasites qui causent l'erreur "Unterminated string"
+    let cleanedText = responseText.replace(/\\"/g, "'"); 
+    return safeParseGeminiJSON(cleanedText);
   }
 
   // Chargement Foyer avec repli automatique sur FOYER-PA
