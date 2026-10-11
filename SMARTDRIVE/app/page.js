@@ -275,35 +275,16 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
     ? list[Math.abs(Number(recipeId) || 0) % list.length] 
     : "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80";
 
-  // 1. Soupes et veloutés (Priorité absolue pour éviter qu'un velouté de lentilles devienne une salade)
   if (name.includes("soupe") || name.includes("velouté") || name.includes("potage") || name.includes("bouillon")) return pick(PHOTO_LIBRARY.soupe_dahl);
-  
-  // 2. Quiches et tartes
   if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte") || name.includes("flamm")) return pick(PHOTO_LIBRARY.quiche_tarte_salée);
-  
-  // 3. Salades et bowls
   if (name.includes("salade") || name.includes("bowl") || name.includes("poke")) return pick(PHOTO_LIBRARY.salades_lentilles);
-  
-  // 4. Gratins et Lasagnes
   if (name.includes("lasagne") || name.includes("gratin") || name.includes("parmentier") || name.includes("hachis")) return pick(PHOTO_LIBRARY.lasagne_gratin);
-  
-  // 5. Pâtes chaudes
   if (name.includes("pâte") || name.includes("pâtes") || name.includes("spaghetti") || name.includes("penne") || name.includes("tagliatelle") || name.includes("macaroni") || name.includes("coquillette") || name.includes("torsade") || name.includes("gnocchi")) return pick(PHOTO_LIBRARY.pates_chaudes);
-  
-  // 6. Risottos et céréales
   if (name.includes("risotto") || name.includes("riz") || name.includes("paella") || name.includes("ebly") || name.includes("blé") || name.includes("quinoa")) return pick(PHOTO_LIBRARY.risotto_céréales);
-  
-  // 7. Burgers et Wraps
   if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap") || name.includes("croque")) return pick(PHOTO_LIBRARY.burger_wrap);
-  
-  // 8. Plats végétariens épicés
   if (name.includes("curry") || name.includes("dahl") || name.includes("colombo") || name.includes("tikka") || name.includes("pois chiche")) return pick(PHOTO_LIBRARY.curry_vegetarien);
-  
-  // 9. Poissons
   if (name.includes("saumon") || name.includes("truite")) return pick(PHOTO_LIBRARY.saumon);
   if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) return pick(PHOTO_LIBRARY.poisson);
-  
-  // 10. Viandes
   if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille") || name.includes("canard") || name.includes("kebab") || name.includes("wok")) return pick(PHOTO_LIBRARY.poulet);
   if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("veau") || name.includes("agneau") || name.includes("bourguignon")) return pick(PHOTO_LIBRARY.viande_boeuf);
   if (name.includes("porc") || name.includes("lardon") || name.includes("saucisse") || name.includes("chorizo") || name.includes("filet mignon")) return pick(PHOTO_LIBRARY.porc);
@@ -887,8 +868,11 @@ export default function App() {
 
   async function toggleItemStock(basketKey, index) {
     const list = Array.isArray(config?.panier_json?.[basketKey]) ? config.panier_json[basketKey] : [];
+    const itemToToggle = list[index];
+    const willBeInStock = !itemToToggle.in_stock;
+
     const updatedList = list.map((item, i) => {
-      if (i === index) return { ...item, in_stock: !item.in_stock };
+      if (i === index) return { ...item, in_stock: willBeInStock };
       return item;
     });
 
@@ -899,6 +883,36 @@ export default function App() {
 
     setConfig(prev => ({ ...prev, panier_json: updatedPanierJson }));
     await supabase.from('foyers').update({ panier_json: updatedPanierJson }).eq('id', config.id);
+
+    // AUTO-AJOUT DANS LES RÉSERVES SI COCHÉ
+    if (willBeInStock) {
+      const alreadyInStock = stockList.some(s => !s.est_consomme && s.quantite > 0 && isStockMatch(s.nom_produit, itemToToggle.nom));
+      
+      if (!alreadyInStock) {
+        const isFrozen = itemToToggle.mode_choisi === 'congelo';
+        const isMeatOrFish = itemToToggle.rayon === 'Boucherie' || itemToToggle.rayon === 'Poissonnerie';
+        const location = (isFrozen || isMeatOrFish) ? 'congelateur' : 'placard';
+
+        try {
+          const { data } = await supabase.from('inventaire_congelateur').insert({
+            foyer_id: config.id,
+            nom_produit: itemToToggle.nom,
+            emplacement: location,
+            quantite: 1,
+            date_entree: `${jourDuMois} ${moisActuel}`,
+            origine: 'Coché dans le Drive',
+            conservation_mois: location === 'placard' ? 18 : 6,
+            est_consomme: false
+          }).select().single();
+
+          if (data) {
+            setStockList(prev => [data, ...prev]);
+          }
+        } catch (err) {
+          console.error("Erreur auto-ajout stock:", err);
+        }
+      }
+    }
   }
 
   async function toggleItemMode(basketKey, index, e) {
@@ -2058,7 +2072,7 @@ Format JSON pur :
 
             <div className="flex bg-stone-200/70 p-1 rounded-2xl shadow-inner max-w-md mx-auto">
               <button
-                onClick={() => setStockTab('congelateur')}
+                onClick={() => { setStockTab('congelateur'); setNewItemLocation('congelateur'); }}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
                   stockTab === 'congelateur' ? 'bg-white text-sky-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
@@ -2066,7 +2080,7 @@ Format JSON pur :
                 <span>🧊</span> Grand Congélateur ({safeStockList.filter(i => (i.emplacement || 'congelateur') === 'congelateur').length})
               </button>
               <button
-                onClick={() => setStockTab('placard')}
+                onClick={() => { setStockTab('placard'); setNewItemLocation('placard'); }}
                 className={`flex-1 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
                   stockTab === 'placard' ? 'bg-amber-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                 }`}
