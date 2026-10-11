@@ -2741,4 +2741,3 @@ Format JSON pur :
     </div>
   );
 }
-```
