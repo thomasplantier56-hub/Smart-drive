@@ -57,23 +57,41 @@ function isStockMatch(stockName = "", itemName = "") {
   });
 }
 
-// Nettoyage, extraction chirurgicale et auto-réparation de coupure JSON
+// Nettoyage absolu et auto-récupération d'urgence
 function safeParseGeminiJSON(rawText) {
   if (!rawText || typeof rawText !== 'string') throw new Error("Réponse vide de l'IA");
   
   let cleaned = rawText.trim();
   const firstBrace = cleaned.indexOf('{');
-  if (firstBrace !== -1) {
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  } else if (firstBrace !== -1) {
     cleaned = cleaned.substring(firstBrace);
   }
   
-  cleaned = cleaned.replace(/```[\s\S]*$/, "").trim();
+  cleaned = cleaned.replace(/^```json\s*/i, "").replace(/```[\s\S]*$/, "").trim();
   cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
 
   try {
     return JSON.parse(cleaned);
   } catch (err) {
-    console.warn("Auto-réparation du JSON...", err.message);
+    console.warn("Parsing standard échoué, tentative d'extraction d'urgence...", err.message);
+    
+    const recipeMatches = cleaned.match(/\{\s*"id"\s*:\s*\d+[\s\S]*?\}(?=\s*,\s*\{\s*"id"|\s*\])/g);
+    if (recipeMatches && recipeMatches.length > 0) {
+      const recoveredRecipes = [];
+      for (const rStr of recipeMatches) {
+        try {
+          recoveredRecipes.push(JSON.parse(rStr));
+        } catch (e) {}
+      }
+      if (recoveredRecipes.length > 0) {
+        return { repas: recoveredRecipes };
+      }
+    }
+
     const lastValidObj = cleaned.lastIndexOf('}');
     if (lastValidObj !== -1) {
       let trimmed = cleaned.substring(0, lastValidObj + 1);
@@ -83,9 +101,7 @@ function safeParseGeminiJSON(rawText) {
       for (let i = 0; i < openBraces; i++) trimmed += '}';
       try {
         return JSON.parse(trimmed);
-      } catch (e2) {
-        console.error("Échec réparation JSON :", e2);
-      }
+      } catch (e2) {}
     }
     throw err;
   }
@@ -186,55 +202,70 @@ function reconcilePanierWithStocks(panierJson, stocks) {
   return updated;
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE ULTRA-PRÉCISE (Séparation stricte des aliments)
+// 📸 BIBLIOTHÈQUE CULINAIRE 100 % PLATS CHAUDS ET SALÉS DE QUALITÉ
 const PHOTO_LIBRARY = {
-  // --- PÂTES SÉPARÉES ---
-  spaghetti: [
-    "https://images.unsplash.com/photo-1626844131082-256783844137?auto=format&fit=crop&w=700&q=80", // Vrais spaghetti tomate
-    "https://images.unsplash.com/photo-1579684947550-22e945225d9a?auto=format&fit=crop&w=700&q=80"  // Vrais spaghetti
+  poisson: [
+    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
   ],
-  autres_pates: [
-    "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80", // Farfalle/Penne
-    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80"
-  ],
-  lasagne_gratin: [
-    "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=700&q=80"
-  ],
-  
-  // --- VIANDES SÉPARÉES ---
-  steak_hache: [
-    "https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=700&q=80", // Vrai steak haché
-  ],
-  piece_boeuf: [
-    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=700&q=80", // Pièce de boeuf / Entrecôte
-  ],
-  porc_ribs: [
-    "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80", // Travers de porc
+  saumon: [
+    "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
   ],
   poulet: [
     "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
   ],
-
-  // --- POISSONS SÉPARÉS ---
-  saumon: [
-    "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
+  viande_boeuf: [
+    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=700&q=80"
   ],
-  poisson_blanc: [
-    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
+  porc: [
+    "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
   ],
-
-  // --- AUTRES ---
-  salades_lentilles: [
-    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
+  lasagne_gratin: [
+    "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1619895092538-128341789043?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80"
+  ],
+  pates_chaudes: [
+    "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=700&q=80"
   ],
   risotto_céréales: [
     "https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1539136788836-5699e78bfc75?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=700&q=80"
+  ],
+  salades_lentilles: [
+    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=700&q=80"
+  ],
+  curry_vegetarien: [
+    "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=700&q=80"
+  ],
+  soupe_dahl: [
+    "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1594756202469-9ff9799b2e4e?auto=format&fit=crop&w=700&q=80"
   ],
   quiche_tarte_salée: [
     "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1598373182133-52452f7691ef?auto=format&fit=crop&w=700&q=80"
+  ],
+  burger_wrap: [
+    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80"
   ],
   poelee_chaude: [
     "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
+    "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=700&q=80"
   ]
 };
 
@@ -242,29 +273,48 @@ function getRecipePhoto(dishName = "", recipeId = 1) {
   const name = String(dishName || "").toLowerCase();
   const pick = (list) => (Array.isArray(list) && list.length > 0) 
     ? list[Math.abs(Number(recipeId) || 0) % list.length] 
-    : PHOTO_LIBRARY.poelee_chaude[0];
+    : "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80";
 
-  // 1. Pâtes (Séparation stricte Spaghetti vs Autres)
-  if (name.includes("spaghetti")) return pick(PHOTO_LIBRARY.spaghetti);
-  if (name.includes("penne") || name.includes("farfalle") || name.includes("macaroni") || name.includes("pâte") || name.includes("pâtes")) return pick(PHOTO_LIBRARY.autres_pates);
-  if (name.includes("lasagne") || name.includes("gratin")) return pick(PHOTO_LIBRARY.lasagne_gratin);
+  if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte") || name.includes("flamm")) {
+    return pick(PHOTO_LIBRARY.quiche_tarte_salée);
+  }
+  if (name.includes("salade") || name.includes("lentille") || name.includes("bowl") || name.includes("avocat") || name.includes("poke")) {
+    return pick(PHOTO_LIBRARY.salades_lentilles);
+  }
+  if (name.includes("lasagne") || name.includes("gratin") || name.includes("parmentier")) {
+    return pick(PHOTO_LIBRARY.lasagne_gratin);
+  }
+  if (name.includes("risotto") || name.includes("ebly") || name.includes("riz") || name.includes("paella") || name.includes("quinoa")) {
+    return pick(PHOTO_LIBRARY.risotto_céréales);
+  }
+  if (name.includes("spaghetti") || name.includes("penne") || name.includes("tagliatelle") || name.includes("pâte") || name.includes("pâtes") || name.includes("gnocchi")) {
+    return pick(PHOTO_LIBRARY.pates_chaudes);
+  }
+  if (name.includes("saumon") || name.includes("truite")) {
+    return pick(PHOTO_LIBRARY.saumon);
+  }
+  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) {
+    return pick(PHOTO_LIBRARY.poisson);
+  }
+  if (name.includes("pois chiche") || name.includes("dahl") || (name.includes("curry") && !name.includes("poulet"))) {
+    return pick(PHOTO_LIBRARY.curry_vegetarien);
+  }
+  if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap")) {
+    return pick(PHOTO_LIBRARY.burger_wrap);
+  }
+  if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille") || name.includes("kebab") || name.includes("wok")) {
+    return pick(PHOTO_LIBRARY.poulet);
+  }
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("haché") || name.includes("bourguignon") || name.includes("veau")) {
+    return pick(PHOTO_LIBRARY.viande_boeuf);
+  }
+  if (name.includes("porc") || name.includes("mignon") || name.includes("lardon") || name.includes("saucisse")) {
+    return pick(PHOTO_LIBRARY.porc);
+  }
+  if (name.includes("soupe") || name.includes("velouté") || name.includes("potage") || name.includes("pois")) {
+    return pick(PHOTO_LIBRARY.soupe_dahl);
+  }
 
-  // 2. Viandes (Séparation stricte Steak haché vs Pièce de boeuf)
-  if (name.includes("haché") || name.includes("burger") || name.includes("boulette")) return pick(PHOTO_LIBRARY.steak_hache);
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("entrecôte")) return pick(PHOTO_LIBRARY.piece_boeuf);
-  if (name.includes("porc") || name.includes("lardon") || name.includes("saucisse") || name.includes("ribs")) return pick(PHOTO_LIBRARY.porc_ribs);
-  if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille")) return pick(PHOTO_LIBRARY.poulet);
-
-  // 3. Poissons
-  if (name.includes("saumon") || name.includes("truite")) return pick(PHOTO_LIBRARY.saumon);
-  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon")) return pick(PHOTO_LIBRARY.poisson_blanc);
-
-  // 4. Salades / Quiches / Riz
-  if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte")) return pick(PHOTO_LIBRARY.quiche_tarte_salée);
-  if (name.includes("salade") || name.includes("lentille") || name.includes("bowl")) return pick(PHOTO_LIBRARY.salades_lentilles);
-  if (name.includes("risotto") || name.includes("ebly") || name.includes("riz") || name.includes("quinoa")) return pick(PHOTO_LIBRARY.risotto_céréales);
-
-  // Par défaut
   return pick(PHOTO_LIBRARY.poelee_chaude);
 }
 
@@ -362,51 +412,32 @@ export default function App() {
     };
   }, [selectedRecipe]);
 
-  // Exécuteur sécurisé des requêtes Gemini avec Cascade Anti-Surcharge (503)
-  async function executeGeminiPrompt(promptText) {
-    // Liste des modèles à tester par ordre de priorité
-    const modelsToTry = [
-      "gemini-3.8-flash",
-      "gemini-3.7-flash",
-      "gemini-3.5-flash" // Le modèle de secours ultra-stable
-    ];
-
-    let responseText = "";
+  // 🛡️ Exécuteur sécurisé avec cascade de modèles et re-tentative automatique (Backoff)
+  async function executeGeminiPrompt(promptText, retries = 3) {
+    const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.8-flash"];
     let lastError = null;
 
-    for (const modelName of modelsToTry) {
-      try {
-        console.log(`Tentative de génération avec : ${modelName}...`);
-        const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          generationConfig: { 
-            responseMimeType: "application/json",
-            maxOutputTokens: 8192,
-            temperature: 0.2 // Garde le JSON strict
-          }
-        });
-        
-        const result = await model.generateContent(promptText);
-        responseText = result.response.text();
-        
-        // Si on arrive ici, le modèle a répondu avec succès, on sort de la boucle !
-        break; 
-        
-      } catch (err) {
-        console.warn(`Surcharge ou échec sur ${modelName} :`, err.message);
-        lastError = err;
-        // La boucle continue et va essayer le modèle suivant dans la liste
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      for (const modelName of modelsToTry) {
+        try {
+          const model = genAI.getGenerativeModel({ 
+            model: modelName,
+            generationConfig: { 
+              responseMimeType: "application/json",
+              maxOutputTokens: 8192
+            }
+          });
+          const result = await model.generateContent(promptText);
+          return safeParseGeminiJSON(result.response.text());
+        } catch (err) {
+          console.warn(`[${modelName}] Échec (Essai ${attempt}/${retries}):`, err.message);
+          lastError = err;
+          // Pause exponentielle avant d'essayer le modèle suivant pour éviter le Rate Limit
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
       }
     }
-
-    // Si après avoir testé les 3 modèles, on n'a toujours pas de réponse
-    if (!responseText) {
-      throw new Error("Les serveurs Google sont exceptionnellement surchargés. Veuillez réessayer dans quelques minutes.");
-    }
-    
-    // Nettoyage agressif des guillemets parasites
-    let cleanedText = responseText.replace(/\\"/g, "'"); 
-    return safeParseGeminiJSON(cleanedText);
+    throw new Error("Les serveurs Google sont exceptionnellement surchargés. Veuillez réessayer dans quelques minutes.");
   }
 
   // Chargement Foyer avec repli automatique sur FOYER-PA
@@ -1095,7 +1126,7 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE : DÉTECTION PRÉCISE DES STOCKS ET ÉTAPES CULINAIRES DE CHEF
+  // 🎯 GÉNÉRATION INDESTRUCTIBLE : MICRO-BATCHING SÉQUENTIEL (4 RECETTES MAX PAR APPEL)
   async function generateWithGemini() {
     if (!config) return;
 
@@ -1133,8 +1164,8 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt avec règles d'unicité des stocks et 3 à 4 étapes culinaires
-      const buildPureRecipePrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier gastronomique pour "À Table !".
+      // Prompt ultra-léger pour un petit lot de recettes
+      const buildBatchPrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier gastronomique pour "À Table !".
 COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
 Portions par plat : ${portions} portions (dîner du soir + lunchbox du lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
@@ -1143,10 +1174,7 @@ ${excludedDishes.length > 0 ? `NE PAS PROPOSER : ${excludedDishes.join(', ')}.` 
 RÉSERVES DU FOYER :
 - Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}
 - Placard : ${stocksPlacard.join(', ') || 'Aucun'}
-RÈGLE D'OR DES RÉSERVES : Chaque produit de réserve (ex: 1 sachet de pâtes, 1 boîte de thon, 1 sachet de tomates) ne peut être utilisé que dans UNE SEULE recette du lot. Ne réutilise JAMAIS un ingrédient de réserve déjà affecté à un autre plat.
-
-VARIÉTÉ CULINAIRE STRICTE :
-Varie impérativement les sources de protéines et les féculents (alterner volaille, poisson, boeuf/porc, végétarien, riz, pâtes, légumineuses). Zéro répétition de plats similaires.
+RÈGLE D'OR : Chaque produit de réserve ne peut être utilisé que dans UNE SEULE recette du lot.
 
 MISSION : Génère EXACTEMENT ${count} recettes variées de saison (${portions} portions) pour ${moisActuel.toUpperCase()} en France (Quinzaine ${quinzaineNum}).
 IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
@@ -1154,8 +1182,8 @@ IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
 INGRÉDIENTS (POUR ${portions} PORTIONS) :
 Chaque ingrédient doit être un objet : {"nom": "Nom produit pur", "qte": "Quantité d'achat précise"}.
 
-ÉTAPES DE PRÉPARATION (3 À 4 ÉTAPES) :
-Rédige 3 à 4 étapes culinaires détaillées et claires (saisir, mijoter/cuisson, assaisonnement du chef, dressage).
+ÉTAPES DE PRÉPARATION (3 ÉTAPES) :
+Rédige 3 étapes claires (saisir, cuisson/assaisonnement, dressage). Chaque étape doit être sur UNE SEULE ligne sans saut de ligne.
 RÈGLE STRICTE : N'utilise AUCUN guillemet double (") dans les textes (utilise l'apostrophe ').
 
 Format JSON pur :
@@ -1179,7 +1207,7 @@ Format JSON pur :
       "etapes": [
         "Nacrer le riz arborio dans un filet d'huile d'olive pendant 2 minutes.",
         "Ajouter le bouillon chaud louche après louche en remuant constamment.",
-        "Incorporer les courgettes poêlées et le parmesan en fin de cuisson, puis laisser reposer 2 minutes avant de servir."
+        "Incorporer les courgettes et le parmesan en fin de cuisson puis laisser reposer 2 minutes."
       ],
       "conseil": "Astuce chef",
       "basket": ${quinzaineNum},
@@ -1188,50 +1216,45 @@ Format JSON pur :
   ]
 }`;
 
+      // Fonction de traitement par micro-lots (4 recettes max par appel)
+      const processQuinzaine = async (qNum, totalForQ, startIdOffset, globalExcluded) => {
+        let qMeals = [];
+        let currentExcluded = [...globalExcluded];
+        const batchSize = 4; // Limite stricte pour éviter la coupure de 3500 caractères
+
+        for (let i = 0; i < totalForQ; i += batchSize) {
+          const count = Math.min(batchSize, totalForQ - i);
+          const currentStartId = startIdOffset + i;
+          setLoadingStepText(`⏳ Quinzaine ${qNum} : Création des repas ${i + 1} à ${i + count} sur ${totalForQ}...`);
+          
+          const prompt = buildBatchPrompt(qNum, count, currentStartId, currentExcluded);
+          const res = await executeGeminiPrompt(prompt);
+          const batchMeals = res?.repas || [];
+          
+          qMeals = [...qMeals, ...batchMeals];
+          currentExcluded = [...currentExcluded, ...batchMeals.map(m => m.nom)];
+        }
+        return qMeals;
+      };
+
       let allMeals = [];
       let panier1 = [];
       let panier2 = [];
 
-      if (isMonth) {
-        // Quinzaine 1 (Semaines 1 & 2 en parallèle)
-        setLoadingStepText("🍳 Quinzaine 1 (14 repas) en cours de préparation...");
-        const [sem1, sem2] = await Promise.all([
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 1, [])),
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
-        ]);
+      const q1Count = isMonth ? Math.ceil(totalRecettes / 2) : totalRecettes;
+      const q2Count = isMonth ? totalRecettes - q1Count : 0;
 
-        const q1Repas = [...(sem1?.repas || []), ...(sem2?.repas || [])];
+      if (q1Count > 0) {
+        const q1Repas = await processQuinzaine(1, q1Count, 1, []);
+        allMeals = [...allMeals, ...q1Repas];
         panier1 = buildPanierFromRecipes(q1Repas, stocksActifs);
+      }
 
-        // Quinzaine 2 (Semaines 3 & 4 en parallèle, sans répétition)
-        setLoadingStepText("🥗 Quinzaine 2 (14 repas) en cours de préparation...");
-        const dishesToAvoid = q1Repas.map(r => r.nom);
-        const [sem3, sem4] = await Promise.all([
-          executeGeminiPrompt(buildPureRecipePrompt(2, 7, 15, dishesToAvoid)),
-          executeGeminiPrompt(buildPureRecipePrompt(2, 7, 22, dishesToAvoid))
-        ]);
-
-        const q2Repas = [...(sem3?.repas || []), ...(sem4?.repas || [])];
+      if (q2Count > 0) {
+        const q1Names = allMeals.map(r => r.nom);
+        const q2Repas = await processQuinzaine(2, q2Count, q1Count + 1, q1Names);
+        allMeals = [...allMeals, ...q2Repas];
         panier2 = buildPanierFromRecipes(q2Repas, stocksActifs);
-
-        allMeals = [...q1Repas, ...q2Repas];
-      } else if (totalRecettes === 14) {
-        // 1 Quinzaine (2 x 7 en parallèle)
-        setLoadingStepText("🍽️ Génération de vos 14 repas...");
-        const [lotA, lotB] = await Promise.all([
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 1, [])),
-          executeGeminiPrompt(buildPureRecipePrompt(1, 7, 8, []))
-        ]);
-        allMeals = [...(lotA?.repas || []), ...(lotB?.repas || [])];
-        panier1 = buildPanierFromRecipes(allMeals, stocksActifs);
-        panier2 = [];
-      } else {
-        // 1 Semaine Express
-        setLoadingStepText("⚡ Génération de votre semaine express...");
-        const res = await executeGeminiPrompt(buildPureRecipePrompt(1, totalRecettes, 1, []));
-        allMeals = res?.repas || [];
-        panier1 = buildPanierFromRecipes(allMeals, stocksActifs);
-        panier2 = [];
       }
 
       const finalPanierJson = {
@@ -1257,7 +1280,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Vos ${allMeals.length} repas complets et vos paniers Drive réconciliés avec vos réserves ont été générés avec succès !`);
+      alert(`🎉 Succès : Vos ${allMeals.length} repas complets et vos paniers Drive ont été générés sans aucune coupure !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
@@ -2660,7 +2683,7 @@ Format JSON pur :
               </div>
             </div>
 
-            {/* Bouton retour en bas de page pour navigation fluide */}
+            {/* Bouton retour en bas de page */}
             <div className="p-6 pt-2 border-t border-stone-100 text-center bg-white sticky bottom-0 z-20">
               <button
                 type="button"
