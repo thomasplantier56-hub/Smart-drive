@@ -206,108 +206,62 @@ function reconcilePanierWithStocks(panierJson, stocks) {
   return updated;
 }
 
-// 📸 BIBLIOTHÈQUE CULINAIRE 100 % FIABLE (LIENS VÉRIFIÉS)
-const PHOTO_LIBRARY = {
-  soupe_dahl: [
-    "https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1548943487-a2e4f43b4850?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1604152135912-04a022e23696?auto=format&fit=crop&w=700&q=80"
-  ],
-  quiche_tarte_salée: [
-    "https://images.unsplash.com/photo-1608039829572-78524f79c4c7?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1598373182133-52452f7691ef?auto=format&fit=crop&w=700&q=80"
-  ],
-  salades_lentilles: [
-    "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=80"
-  ],
-  lasagne_gratin: [
-    "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1619895092538-128341789043?auto=format&fit=crop&w=700&q=80"
-  ],
-  pates_chaudes: [
-    "https://images.unsplash.com/photo-1621996346565-e3d5d6281220?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1598866594230-a7c12756260f?auto=format&fit=crop&w=700&q=80"
-  ],
-  risotto_céréales: [
-    "https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1539136788836-5699e78bfc75?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=700&q=80"
-  ],
-  burger_wrap: [
-    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80"
-  ],
-  curry_vegetarien: [
-    "https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=700&q=80"
-  ],
-  saumon: [
-    "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=80"
-  ],
-  poisson: [
-    "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=700&q=80"
-  ],
-  poulet: [
-    "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=700&q=80"
-  ],
-  viande_boeuf: [
-    "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1600891964092-4316c288032e?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=80"
-  ],
-  porc: [
-    "https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=700&q=80",
-    "https://images.unsplash.com/photo-1432139555190-58524dae6a55?auto=format&fit=crop&w=700&q=80"
-  ],
-  poelee_chaude: [
-    "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=700&q=80"
-  ]
-};
-
-// Algorithme de tri des images avec ordre de priorité strict
-function getRecipePhoto(dishName = "", recipeId = 1) {
+// 🎨 NOUVEAU SYSTÈME VISUEL : Gradients CSS et Emojis (100% Infaillible)
+function getRecipeVisuals(dishName = "") {
   const name = String(dishName || "").toLowerCase();
-  const pick = (list) => (Array.isArray(list) && list.length > 0) 
-    ? list[Math.abs(Number(recipeId) || 0) % list.length] 
-    : "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=80";
 
-  if (name.includes("soupe") || name.includes("velouté") || name.includes("potage") || name.includes("bouillon")) return pick(PHOTO_LIBRARY.soupe_dahl);
-  if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte") || name.includes("flamm")) return pick(PHOTO_LIBRARY.quiche_tarte_salée);
-  if (name.includes("salade") || name.includes("bowl") || name.includes("poke")) return pick(PHOTO_LIBRARY.salades_lentilles);
-  if (name.includes("lasagne") || name.includes("gratin") || name.includes("parmentier") || name.includes("hachis")) return pick(PHOTO_LIBRARY.lasagne_gratin);
-  if (name.includes("pâte") || name.includes("pâtes") || name.includes("spaghetti") || name.includes("penne") || name.includes("tagliatelle") || name.includes("macaroni") || name.includes("coquillette") || name.includes("torsade") || name.includes("gnocchi")) return pick(PHOTO_LIBRARY.pates_chaudes);
-  if (name.includes("risotto") || name.includes("riz") || name.includes("paella") || name.includes("ebly") || name.includes("blé") || name.includes("quinoa")) return pick(PHOTO_LIBRARY.risotto_céréales);
-  if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap") || name.includes("croque")) return pick(PHOTO_LIBRARY.burger_wrap);
-  if (name.includes("curry") || name.includes("dahl") || name.includes("colombo") || name.includes("tikka") || name.includes("pois chiche")) return pick(PHOTO_LIBRARY.curry_vegetarien);
-  if (name.includes("saumon") || name.includes("truite")) return pick(PHOTO_LIBRARY.saumon);
-  if (name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) return pick(PHOTO_LIBRARY.poisson);
-  if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille") || name.includes("canard") || name.includes("kebab") || name.includes("wok")) return pick(PHOTO_LIBRARY.poulet);
-  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("veau") || name.includes("agneau") || name.includes("bourguignon")) return pick(PHOTO_LIBRARY.viande_boeuf);
-  if (name.includes("porc") || name.includes("lardon") || name.includes("saucisse") || name.includes("chorizo") || name.includes("filet mignon")) return pick(PHOTO_LIBRARY.porc);
+  if (name.includes("soupe") || name.includes("velouté") || name.includes("potage") || name.includes("bouillon")) {
+    return { emoji: "🥣", gradient: "from-emerald-500 to-teal-700" };
+  }
+  if (name.includes("quiche") || name.includes("tarte") || name.includes("tourte") || name.includes("flamm")) {
+    return { emoji: "🥧", gradient: "from-amber-400 to-orange-500" };
+  }
+  if (name.includes("salade") || name.includes("bowl") || name.includes("poke")) {
+    return { emoji: "🥗", gradient: "from-green-400 to-emerald-600" };
+  }
+  if (name.includes("lasagne") || name.includes("gratin") || name.includes("parmentier") || name.includes("hachis")) {
+    return { emoji: "🥘", gradient: "from-orange-400 to-red-500" };
+  }
+  if (name.includes("pâte") || name.includes("pâtes") || name.includes("spaghetti") || name.includes("penne") || name.includes("tagliatelle") || name.includes("macaroni") || name.includes("coquillette") || name.includes("torsade") || name.includes("gnocchi")) {
+    return { emoji: "🍝", gradient: "from-yellow-400 to-amber-600" };
+  }
+  if (name.includes("risotto") || name.includes("riz") || name.includes("paella") || name.includes("ebly") || name.includes("blé") || name.includes("quinoa")) {
+    return { emoji: "🍛", gradient: "from-amber-500 to-orange-600" };
+  }
+  if (name.includes("burger") || name.includes("sandwich") || name.includes("wrap") || name.includes("croque")) {
+    return { emoji: "🍔", gradient: "from-red-400 to-rose-600" };
+  }
+  if (name.includes("curry") || name.includes("dahl") || name.includes("colombo") || name.includes("tikka") || name.includes("pois chiche")) {
+    return { emoji: "🍲", gradient: "from-orange-500 to-red-600" };
+  }
+  if (name.includes("saumon") || name.includes("truite") || name.includes("cabillaud") || name.includes("poisson") || name.includes("colin") || name.includes("thon") || name.includes("crevette") || name.includes("dorade") || name.includes("merlu")) {
+    return { emoji: "🐟", gradient: "from-cyan-500 to-blue-600" };
+  }
+  if (name.includes("poulet") || name.includes("dinde") || name.includes("volaille") || name.includes("canard") || name.includes("kebab") || name.includes("wok")) {
+    return { emoji: "🍗", gradient: "from-orange-400 to-amber-600" };
+  }
+  if (name.includes("boeuf") || name.includes("bœuf") || name.includes("steak") || name.includes("veau") || name.includes("agneau") || name.includes("bourguignon")) {
+    return { emoji: "🥩", gradient: "from-red-500 to-rose-700" };
+  }
+  if (name.includes("porc") || name.includes("lardon") || name.includes("saucisse") || name.includes("chorizo") || name.includes("filet mignon")) {
+    return { emoji: "🥓", gradient: "from-rose-400 to-red-500" };
+  }
 
-  return pick(PHOTO_LIBRARY.poelee_chaude);
+  return { emoji: "🍽️", gradient: "from-stone-400 to-stone-600" };
 }
 
 function getProductThumbnail(productName = "", rayon = "") {
   const p = (String(productName || "") + " " + String(rayon || "")).toLowerCase();
-  if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) return "https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) return "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("thon")) return "https://images.unsplash.com/photo-1534483509719-3feaee7c30da?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) return "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) return "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) return "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("curry") || p.includes("coriandre") || p.includes("épice") || p.includes("herbe") || p.includes("sel") || p.includes("poivre")) return "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("huile") || p.includes("vinaigre") || p.includes("sauce") || p.includes("moutarde")) return "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=160&q=80";
-  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve") || p.includes("lasagne")) return "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=160&q=80";
-  return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=160&q=80";
+  if (p.includes("poulet") || p.includes("dinde") || p.includes("volaille")) return "🍗";
+  if (p.includes("boeuf") || p.includes("steak") || p.includes("viande") || p.includes("boucherie") || p.includes("porc")) return "🥩";
+  if (p.includes("poisson") || p.includes("saumon") || p.includes("cabillaud") || p.includes("crevette") || p.includes("thon")) return "🐟";
+  if (p.includes("fromage") || p.includes("reblochon") || p.includes("mozzarella") || p.includes("feta") || p.includes("crémerie") || p.includes("lait") || p.includes("creme") || p.includes("parmesan")) return "🧀";
+  if (p.includes("courgette") || p.includes("aubergine") || p.includes("poivron") || p.includes("brocoli") || p.includes("légume") || p.includes("fruit") || p.includes("tomate") || p.includes("carotte") || p.includes("oignon") || p.includes("figue") || p.includes("poireau") || p.includes("avocat") || p.includes("ail")) return "🥦";
+  if (p.includes("pain") || p.includes("burger") || p.includes("pâte") || p.includes("boulangerie")) return "🥖";
+  if (p.includes("curry") || p.includes("coriandre") || p.includes("épice") || p.includes("herbe") || p.includes("sel") || p.includes("poivre")) return "🧂";
+  if (p.includes("huile") || p.includes("vinaigre") || p.includes("sauce") || p.includes("moutarde")) return "🫙";
+  if (p.includes("riz") || p.includes("lentille") || p.includes("quinoa") || p.includes("pâtes") || p.includes("epicerie") || p.includes("conserve") || p.includes("lasagne")) return "🍝";
+  return "🛒";
 }
 
 export default function App() {
@@ -1677,11 +1631,11 @@ Format JSON pur :
               </span>
             </div>
 
-            {/* GRILLE DES RECETTES */}
+            {/* GRILLE DES RECETTES (DESIGN BENTO / EMOJI) */}
             {mealsForActiveQuinzaine.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {mealsForActiveQuinzaine.map((repas) => {
-                  const photoUrl = getRecipePhoto(repas?.nom, repas?.id);
+                  const visual = getRecipeVisuals(repas?.nom);
                   const isSwapping = swappingId === repas?.id;
                   const hasRating = repas?.rating && repas.rating > 0;
                   const canShowStars = repas?.est_cuisine || hasRating;
@@ -1691,23 +1645,23 @@ Format JSON pur :
                     <div
                       key={repas.id}
                       onClick={() => setSelectedRecipe(repas)}
-                      className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border transition-all cursor-pointer flex flex-col justify-between ${
+                      className={`bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md border transition-all cursor-pointer flex flex-col justify-between group ${
                         repas.est_cuisine ? 'border-emerald-300 ring-2 ring-emerald-500/20' : 'border-stone-200'
                       }`}
                     >
                       <div>
-                        <div className="relative h-48 w-full bg-stone-200 overflow-hidden">
-                          <img 
-                            src={photoUrl} 
-                            alt={repas.nom} 
-                            className={`w-full h-full object-cover transition-transform duration-500 hover:scale-105 ${repas.est_cuisine ? 'opacity-75 grayscale-[15%]' : ''}`}
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent"></div>
+                        {/* NOUVEAU HEADER VISUEL (Gradient + Emoji) */}
+                        <div className={`relative h-48 w-full bg-gradient-to-br ${visual.gradient} flex items-center justify-center overflow-hidden`}>
+                          
+                          <span className={`text-7xl drop-shadow-xl transform transition-transform duration-500 group-hover:scale-110 ${repas.est_cuisine ? 'opacity-50 grayscale' : ''}`}>
+                            {visual.emoji}
+                          </span>
+                          
+                          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 via-transparent to-transparent"></div>
                           
                           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                             <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${
-                              isMidi ? 'bg-amber-400 text-stone-950' : 'bg-indigo-900 text-white'
+                              isMidi ? 'bg-amber-400 text-stone-950' : 'bg-stone-900/80 text-white backdrop-blur-sm'
                             }`}>
                               {isMidi ? '☀️ Midi' : '🌙 Soir'}
                             </span>
@@ -1934,13 +1888,8 @@ Format JSON pur :
                           {item?.in_stock && <span className="text-xs font-bold">✓</span>}
                         </div>
 
-                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200">
-                          <img 
-                            src={thumbnail} 
-                            alt={item?.nom || "Produit"} 
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 flex-shrink-0 border border-stone-200 flex items-center justify-center text-2xl">
+                          {thumbnail}
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -2533,18 +2482,17 @@ Format JSON pur :
           <div className="bg-white w-full max-w-2xl rounded-none md:rounded-[32px] overflow-hidden shadow-2xl relative min-h-screen md:min-h-0 md:max-h-[90vh] overflow-y-auto pb-12 flex flex-col justify-between">
             
             <div>
-              {/* Image d'en-tête */}
-              <div className="relative h-64 w-full bg-stone-900">
-                <img 
-                  src={getRecipePhoto(selectedRecipe.nom, selectedRecipe.id)} 
-                  alt={selectedRecipe.nom} 
-                  className="w-full h-full object-cover opacity-90"
-                />
+              {/* NOUVEAU HEADER VISUEL (Gradient + Emoji) */}
+              <div className={`relative h-64 w-full bg-gradient-to-br ${getRecipeVisuals(selectedRecipe.nom).gradient} flex items-center justify-center overflow-hidden`}>
+                
+                <span className={`text-8xl drop-shadow-2xl transform transition-transform duration-500 ${selectedRecipe.est_cuisine ? 'opacity-50 grayscale' : ''}`}>
+                  {getRecipeVisuals(selectedRecipe.nom).emoji}
+                </span>
                 
                 {/* Bouton retour en haut à gauche */}
                 <button
                   onClick={() => setSelectedRecipe(null)}
-                  className="absolute top-4 left-4 bg-stone-900/80 hover:bg-stone-900 text-white text-xs font-black px-3.5 py-2 rounded-2xl backdrop-blur shadow-lg flex items-center gap-1.5 transition active:scale-95"
+                  className="absolute top-4 left-4 bg-stone-900/40 hover:bg-stone-900 text-white text-xs font-black px-3.5 py-2 rounded-2xl backdrop-blur shadow-lg flex items-center gap-1.5 transition active:scale-95"
                 >
                   <span>←</span>
                   <span>Retour au planning</span>
@@ -2553,7 +2501,7 @@ Format JSON pur :
                 {/* Bouton fermer ✕ en haut à droite */}
                 <button
                   onClick={() => setSelectedRecipe(null)}
-                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-stone-900/80 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg hover:bg-stone-900 transition active:scale-95"
+                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-stone-900/40 text-white font-bold flex items-center justify-center backdrop-blur shadow-lg hover:bg-stone-900 transition active:scale-95"
                   title="Fermer (Échap)"
                 >
                   ✕
