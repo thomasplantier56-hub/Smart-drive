@@ -107,7 +107,7 @@ function safeParseGeminiJSON(rawText) {
   }
 }
 
-// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier avec détection des stocks
+// 🛒 MOTEUR LOGISTIQUE CLIENT : Construit le panier avec détection des stocks et FILTRE ANTI-PRODUITS DE BASE
 function buildPanierFromRecipes(recipes, activeStocks = []) {
   const panier = [];
   const seen = new Set();
@@ -135,10 +135,15 @@ function buildPanierFromRecipes(recipes, activeStocks = []) {
 
       const key = cleanNom.toLowerCase();
       if (seen.has(key)) return;
+      
+      const nomLower = key;
+      
+      // 🛑 FILTRE STRICT : On ignore totalement les produits de base pour ne pas polluer la liste Drive
+      const isStaple = /\b(sel|poivre|huile|vinaigre|beurre|lait|farine|oeufs?|œufs?|sucre|ail|oignons?|moutarde|épices?|herbes?|bouillon|eau)\b/i.test(nomLower);
+      if (isStaple) return; // On passe à l'ingrédient suivant sans l'ajouter au panier
+
       seen.add(key);
 
-      const nomLower = key;
-      const isCondiment = /sel|poivre|huile|vinaigre|curry|cumin|herbe|paprika|ail|oignon|sauce|moutarde|épice|bouillon/i.test(nomLower);
       const isFish = /saumon|poisson|cabillaud|thon|crevette|colin|dorade|merlu/i.test(nomLower);
       const isMeat = /poulet|boeuf|bœuf|steak|porc|viande|dinde|veau|haché|lardon|saucisse/i.test(nomLower);
       const isVeg = /courgette|tomate|carotte|légume|salade|avocat|poivron|haricot|brocoli|pomme|champignon/i.test(nomLower);
@@ -150,7 +155,6 @@ function buildPanierFromRecipes(recipes, activeStocks = []) {
       else if (isMeat) { rayon = "Boucherie"; prixFrais = 6.80; }
       else if (isVeg) { rayon = "Fruits & Légumes"; prixFrais = 2.40; }
       else if (isDairy) { rayon = "Crémerie"; prixFrais = 2.90; }
-      else if (isCondiment) { rayon = "Épicerie"; prixFrais = 2.20; }
 
       const canFreeze = isFish || isMeat || /haricot|brocoli|légume|frite|épinard|poivron/i.test(nomLower);
       const prixCongelo = canFreeze ? +(prixFrais * 0.68).toFixed(2) : prixFrais;
@@ -171,7 +175,7 @@ function buildPanierFromRecipes(recipes, activeStocks = []) {
         recherche_congelo: `${cleanNom} surgele`,
         gain_anti_radin: canFreeze ? `-${Math.round((1 - prixCongelo / prixFrais) * 100)}%` : "",
         conseil_anti_gaspi: canFreeze ? "🧊 Format congélateur économique" : "🌿 À consommer frais",
-        est_condiment: isCondiment,
+        est_condiment: false,
         recette_id: rId,
         in_stock: isInStock
       });
@@ -388,7 +392,7 @@ export default function App() {
 
   // 🛡️ Exécuteur sécurisé avec cascade de modèles et re-tentative automatique (Backoff)
   async function executeGeminiPrompt(promptText, retries = 3) {
-    const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.8-flash"];
+    const modelsToTry = ["ggemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.8-flash"];
     let lastError = null;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
@@ -893,10 +897,12 @@ export default function App() {
         const isMeatOrFish = itemToToggle.rayon === 'Boucherie' || itemToToggle.rayon === 'Poissonnerie';
         const location = (isFrozen || isMeatOrFish) ? 'congelateur' : 'placard';
 
+        const stockName = itemToToggle.quantite ? `${itemToToggle.nom} (${itemToToggle.quantite})` : itemToToggle.nom;
+
         try {
           const { data } = await supabase.from('inventaire_congelateur').insert({
             foyer_id: config.id,
-            nom_produit: itemToToggle.nom,
+            nom_produit: stockName,
             emplacement: location,
             quantite: 1,
             date_entree: `${jourDuMois} ${moisActuel}`,
@@ -1187,6 +1193,7 @@ IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
 
 INGRÉDIENTS (POUR ${portions} PORTIONS) :
 Chaque ingrédient doit être un objet : {"nom": "Nom produit pur", "qte": "Quantité d'achat précise"}.
+EXCLUSIONS DRIVE : N'inclus JAMAIS les produits de base dans "ingredients" (sel, poivre, huile, beurre, lait, farine, oeufs, oignons, ail, sucre, épices). Le foyer les a déjà.
 
 ÉTAPES DE PRÉPARATION (3 ÉTAPES) :
 Rédige 3 étapes claires (saisir, cuisson/assaisonnement, dressage). Chaque étape doit être sur UNE SEULE ligne sans saut de ligne.
