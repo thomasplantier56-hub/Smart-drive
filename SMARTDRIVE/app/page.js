@@ -140,7 +140,7 @@ function buildPanierFromRecipes(recipes, activeStocks = []) {
       
       // 🛑 FILTRE STRICT : On ignore totalement les produits de base pour ne pas polluer la liste Drive
       const isStaple = /\b(sel|poivre|huile|vinaigre|beurre|lait|farine|oeufs?|œufs?|sucre|ail|oignons?|moutarde|épices?|herbes?|bouillon|eau)\b/i.test(nomLower);
-      if (isStaple) return; // On passe à l'ingrédient suivant sans l'ajouter au panier
+      if (isStaple) return;
 
       seen.add(key);
 
@@ -392,7 +392,7 @@ export default function App() {
 
   // 🛡️ Exécuteur sécurisé avec cascade de modèles et re-tentative automatique (Backoff)
   async function executeGeminiPrompt(promptText, retries = 3) {
-    const modelsToTry = ["ggemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.8-flash"];
+    const modelsToTry = ["gemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.8-flash"];
     let lastError = null;
 
     for (let attempt = 1; attempt <= retries; attempt++) {
@@ -1135,11 +1135,10 @@ Format JSON pur :
     }
   }
 
-  // 🎯 GÉNÉRATION INDESTRUCTIBLE : MICRO-BATCHING SÉQUENTIEL (4 RECETTES MAX PAR APPEL)
+  // 🎯 GÉNÉRATION PARALLÈLE THÉMATIQUE (ULTRA-RAPIDE ET SANS DOUBLONS)
   async function generateWithGemini() {
     if (!config) return;
 
-    // 🔒 SÉCURITÉ : Confirmation anti-écrasement
     const hasExistingMenu = Array.isArray(config.menu_json) && config.menu_json.length > 0;
     if (hasExistingMenu) {
       const isConfirmed = window.confirm(
@@ -1173,16 +1172,15 @@ Format JSON pur :
       const totalPersons = adults + kids;
       const portions = isLunchboxMode ? totalPersons * 2 : totalPersons;
 
-      // Prompt ultra-léger pour un petit lot de recettes
-      const buildBatchPrompt = (quinzaineNum, count, startId, excludedDishes = []) => `Tu es un chef cuisinier gastronomique pour "À Table !".
+      // Prompt avec Thème Culinaire pour éviter les doublons lors de l'exécution parallèle
+      const buildBatchPrompt = (quinzaineNum, count, startId, excludedDishes = [], theme = "") => `Tu es un chef cuisinier gastronomique pour "À Table !".
 COMPOSITION : ${adults} adultes, ${kids} enfants (<12 ans), Kid-Friendly: ${isKidFriendly ? "OUI" : "NON"}.
 Portions par plat : ${portions} portions (dîner du soir + lunchbox du lendemain midi).
 Régime : ${regimeActuel}. Bannis : ${exclusionsActuelles}.
 
-RÈGLES DE VARIÉTÉ ABSOLUE :
-1. INTERDICTION ABSOLUE de faire deux fois le même plat ou d'utiliser les mêmes combinaisons d'ingrédients.
-2. Ne mélangez JAMAIS deux féculents principaux (ex: interdit de faire "Pâtes au riz" ou "Pommes de terre aux pâtes").
-${excludedDishes.length > 0 ? `3. PLATS DÉJÀ CRÉÉS À NE SURTOUT PAS RÉPÉTER : ${excludedDishes.join(', ')}.` : ''}
+THÈME CULINAIRE OBLIGATOIRE POUR CE LOT : ${theme}
+(Varie les plats au sein de ce thème. Zéro répétition).
+${excludedDishes.length > 0 ? `PLATS DÉJÀ CRÉÉS À NE SURTOUT PAS RÉPÉTER : ${excludedDishes.join(', ')}.` : ''}
 
 RÉSERVES DU FOYER (À utiliser comme inspiration, sans obligation de tout utiliser) :
 - Congélateur : ${stocksCongelo.join(', ') || 'Aucun'}
@@ -1193,7 +1191,6 @@ IDs de ${startId} à ${startId + count - 1}. "basket" vaut ${quinzaineNum}.
 
 INGRÉDIENTS (POUR ${portions} PORTIONS) :
 Chaque ingrédient doit être un objet : {"nom": "Nom produit pur", "qte": "Quantité d'achat précise"}.
-EXCLUSIONS DRIVE : N'inclus JAMAIS les produits de base dans "ingredients" (sel, poivre, huile, beurre, lait, farine, oeufs, oignons, ail, sucre, épices). Le foyer les a déjà.
 
 ÉTAPES DE PRÉPARATION (3 ÉTAPES) :
 Rédige 3 étapes claires (saisir, cuisson/assaisonnement, dressage). Chaque étape doit être sur UNE SEULE ligne sans saut de ligne.
@@ -1229,25 +1226,24 @@ Format JSON pur :
   ]
 }`;
 
-      // Fonction de traitement par micro-lots (4 recettes max par appel)
       const processQuinzaine = async (qNum, totalForQ, startIdOffset, globalExcluded) => {
-        let qMeals = [];
-        let currentExcluded = [...globalExcluded];
-        const batchSize = 4; // Limite stricte pour éviter la coupure de 3500 caractères
-
-        for (let i = 0; i < totalForQ; i += batchSize) {
-          const count = Math.min(batchSize, totalForQ - i);
-          const currentStartId = startIdOffset + i;
-          setLoadingStepText(`⏳ Quinzaine ${qNum} : Création des repas ${i + 1} à ${i + count} sur ${totalForQ}...`);
+        if (totalForQ <= 7) {
+          setLoadingStepText(`⏳ Quinzaine ${qNum} : Création de ${totalForQ} repas...`);
+          const res = await executeGeminiPrompt(buildBatchPrompt(qNum, totalForQ, startIdOffset, globalExcluded, "Varié (Viande, Poisson, Végétarien)"));
+          return res?.repas || [];
+        } else {
+          const half = Math.ceil(totalForQ / 2);
+          const rest = totalForQ - half;
+          setLoadingStepText(`⏳ Quinzaine ${qNum} : Création de ${totalForQ} repas en parallèle...`);
           
-          const prompt = buildBatchPrompt(qNum, count, currentStartId, currentExcluded);
-          const res = await executeGeminiPrompt(prompt);
-          const batchMeals = res?.repas || [];
+          // Exécution parallèle ultra-rapide avec thèmes distincts pour éviter les doublons
+          const [res1, res2] = await Promise.all([
+            executeGeminiPrompt(buildBatchPrompt(qNum, half, startIdOffset, globalExcluded, "Dominante Volaille, Poisson, Légumineuses")),
+            executeGeminiPrompt(buildBatchPrompt(qNum, rest, startIdOffset + half, globalExcluded, "Dominante Bœuf, Porc, Fromage, Végétarien"))
+          ]);
           
-          qMeals = [...qMeals, ...batchMeals];
-          currentExcluded = [...currentExcluded, ...batchMeals.map(m => m.nom)];
+          return [...(res1?.repas || []), ...(res2?.repas || [])];
         }
-        return qMeals;
       };
 
       let allMeals = [];
@@ -1293,7 +1289,7 @@ Format JSON pur :
       }).eq('id', config.id);
 
       await loadFoyerData(foyerCode);
-      alert(`🎉 Succès : Vos ${allMeals.length} repas complets et vos paniers Drive ont été générés sans aucune coupure !`);
+      alert(`🎉 Succès : Vos ${allMeals.length} repas complets et vos paniers Drive ont été générés en un temps record !`);
     } catch (e) {
       console.error("Détail de l'erreur :", e);
       alert("Erreur de génération : " + e.message);
